@@ -2,20 +2,20 @@ from errors.business_error import BusinessError
 
 
 class Transicion_Estado_Invalida_Exception(BusinessError):
-    """Se lanza cuando una operacion no esta permitida para el estado actual del bulto."""
+    """La acción no está permitida para el estado actual del bulto."""
 
 
 class Precinto_Invalido_Exception(BusinessError):
-    """Se lanza cuando el precinto no existe, ya fue utilizado o no es valido."""
+    """El precinto no existe, no coincide o ya fue utilizado."""
 
 
 class Bulto_Vacio_Exception(BusinessError):
-    """Se lanza cuando se intenta precintar o despachar un bulto sin mercaderia."""
+    """Un bulto sin contenido no puede ser precintado."""
 
 
 class Remito_Incompleto_Exception(BusinessError):
-    """Se lanza cuando un remito contiene bultos en estados invalidos para ser despachado o cerrado."""
+    """El remito tiene bultos que todavía no están precintados o listos para operar."""
 
 
 class Orden_Invalida_Exception(BusinessError):
-    """Se lanza cuando una operacion de la orden de reposicion viola reglas del negocio."""
+    """Se lanza cuando una operación de la orden de reposición viola reglas del negocio."""
