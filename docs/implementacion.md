@@ -43,6 +43,13 @@ El módulo `reportes` usa **Plotly 7.1.0** para construir gráficos profesionale
 interactivos. El backend serializa las figuras como JSON y el frontend las renderiza, sin
 acoplar las consultas de negocio a la biblioteca visual.
 
+### Manejo de errores
+
+`backend/src/errors` solo contiene `BusinessError` y los errores técnicos comunes. Los
+errores de cada regla se declaran en `modules/<modulo>/domain/exceptions/`, heredan de
+`BusinessError` y se traducen a una respuesta clara desde la capa `api` del módulo. Los
+errores de SQLite usan `Persistencia_Exception` y no heredan de `BusinessError`.
+
 ---
 
 ## 🗺️ 2. Mapa de la Consigna
