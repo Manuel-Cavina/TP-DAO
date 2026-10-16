@@ -1,1 +1,1 @@
-"""Configuracion tecnica del backend."""
+"""Configuración técnica transversal del ERP."""

@@ -4,7 +4,7 @@
 >
 > **OBJETIVO:** Documento normativo para los 4 integrantes del equipo y los asistentes/agentes de IA en VS Code. Todo código generado o modificado debe cumplir con las reglas de este archivo.
 >
-> **Documentos relacionados:** [implementacion.md](implementacion.md) (división de trabajo, procesos, excepciones y reportes por módulo).
+> **Documentos relacionados:** [implementacion.md](implementacion.md) (división de trabajo, procesos, excepciones y reportes por módulo) y [migracion_orm_sqlalchemy.md](specs/migracion_orm_sqlalchemy.md) (persistencia, inicialización y transacciones ORM).
 
 ---
 
@@ -26,7 +26,8 @@ El sistema es **un solo backend** dividido en **módulos de negocio**. Cada mód
 
 ```text
 backend/src/
-├── config/                  # Configuración y conexión SQLite (database.py)
+├── bootstrap/               # Armado e inicialización de FastAPI
+├── config/                  # Configuración global de base de datos y API
 ├── errors/                  # Errores compartidos (BusinessError)
 └── modules/
     ├── catalogo/            # Producto, Categoria, Proveedor
@@ -39,15 +40,35 @@ frontend/src/
 └── modules/                 # Una carpeta por módulo del backend
 ```
 
+### Inicialización transversal
+
+```text
+backend/src/
+├── main.py                              # Sólo expone app ASGI
+├── bootstrap/
+│   └── application_factory.py           # Construye FastAPI y sus componentes globales
+└── config/
+    ├── database/
+    │   ├── base.py                       # Base declarativa ORM
+    │   ├── database_engine_singleton.py  # Engine único de SQLite
+    │   ├── session_factory.py            # Sesión nueva por petición
+    │   ├── request_session_context.py    # Sesión activa de la petición
+    │   └── model_registry.py             # Carga de entidades ORM antes de create_all
+    └── api/
+        ├── database_session_middleware.py # Ciclo de transacción HTTP
+        ├── exception_handlers.py          # Excepciones a HTTP
+        └── router_registry.py             # Registro de routers modulares
+```
+
 ### Capas dentro de cada módulo
 
 | Capa | Responsabilidad | Puede depender de |
 |---|---|---|
-| `domain/` | Entidades, patrones (State/Strategy/Observer) y excepciones del módulo. **CERO** imports de SQL, HTTP o UI. | Solo `domain/` (propio o de otro módulo) y `errors/` |
-| `application/` | Casos de uso (services). Orquesta dominio + repositorios y define la transacción. | `domain/`, `dto/`, `mappers/`, `infrastructure/` |
+| `domain/` | Entidades, patrones (State/Strategy/Observer) y excepciones del módulo. Declara el mapeo ORM, pero no usa sesiones, consultas ni transacciones. | Solo `domain/` (propio o de otro módulo), `errors/` y la base declarativa ORM. |
+| `application/` | Casos de uso (services). Orquesta dominio + repositorios. | `domain/`, `dto/`, `mappers/`, `infrastructure/` |
 | `dto/` | Objetos planos de datos para entrada/salida de la API. Sin lógica. | Nada |
 | `mappers/` | Conversión `entidad ↔ DTO`. | `domain/`, `dto/` |
-| `infrastructure/` | Repositorios SQLite (`INSERT`, `UPDATE`, `SELECT`) y conversión `fila ↔ entidad`. | `domain/`, `config/` |
+| `infrastructure/` | Repositorios ORM: consulta, agrega, elimina y hace `flush` sobre entidades. | `domain/`, `config/` |
 | `api/` | Punto de entrada HTTP del módulo. Recibe DTOs, llama a `application/` y traduce excepciones a respuestas. | `application/`, `dto/` |
 
 ### Regla de dependencias
@@ -176,24 +197,102 @@ Cada patrón vive en el `domain/` del módulo dueño de esa regla:
 
 ---
 
-## 🗄️ 8. Persistencia con SQLite
+## 🌐 8. Capa API y Comunicación HTTP (FastAPI)
 
-- **Lógica de negocio en el dominio:** SQLite solo ejecuta `INSERT`, `UPDATE` o `SELECT`. **CERO** reglas de negocio en triggers o consultas SQL.
-- **Una conexión = una transacción:** se usa `sqlite_connection()` de `config/database.py`, que hace `commit` al terminar el bloque y `rollback` si hay una excepción.
-- **El service define la transacción, no el repositorio:** el caso de uso abre la conexión y se la pasa a todos los repositorios que participan. Los repositorios **nunca** abren su propia conexión ni hacen `commit`.
+- **Framework acordado:** Se utiliza **FastAPI** con servidor ASGI **Uvicorn**.
+- **Organización por módulo:**
+  - Cada módulo define en `api/` su enrutador mediante `APIRouter(prefix="/api/<modulo>")` o su clase controladora.
+  - El punto de entrada global de la aplicación monta cada router modular:
+    ```python
+    from fastapi import FastAPI
+    from modules.catalogo.api import catalogo_router
 
-  ```python
-  def registrar_venta(self, venta_dto: Venta_DTO) -> None:
-      with sqlite_connection() as connection:
-          self._stock_repository.actualizar(connection, stock)
-          self._venta_repository.guardar(connection, venta)
-          self._comprobante_repository.guardar(connection, comprobante)
-      # Si cualquiera falla, se revierten las tres operaciones.
-  ```
+    app = FastAPI(title="ERP Monolito Modular", version="1.0.0")
+    app.include_router(catalogo_router)
+    ```
+- **Regla estricta de aislamiento:**
+  - `fastapi`, `starlette` y `pydantic` solo se importan en `api/` y `dto/`.
+  - El `domain/` tiene **PROHIBIDO** importar FastAPI o cualquier framework web (regla verificada por `.agents/scripts/check_conventions.py`).
+- **Mapeo de respuestas y excepciones:**
+  - Las excepciones de negocio (`BusinessError`) capturadas en `api/` se traducen a respuestas HTTP estandarizadas:
+    - `400 Bad Request`: `Datos_Invalidos_Exception`
+    - `404 Not Found`: `Entidad_No_Encontrada_Exception`
+    - `409 Conflict`: `Entidad_Duplicada_Exception`
+    - `500 Internal Server Error`: `Persistencia_Exception`
+- **Frontend y CORS:**
+  - El frontend interactúa mediante peticiones JSON consumidas vía `fetch()`. Se habilita `CORSMiddleware` en la app FastAPI para permitir el consumo desde el cliente web.
+
+### Construcción e inyección de la aplicación
+
+- `main.py` sólo ejecuta `Application_Factory.crear_aplicacion()` y expone `app` para Uvicorn.
+- `Application_Factory` obtiene `Database_Engine_Singleton`, carga el registro de modelos, ejecuta `Base.metadata.create_all()`, crea FastAPI e inyecta middleware, CORS, handlers y routers.
+- `Database_Engine_Singleton` es el único objeto global de acceso a la base. Tiene un `Engine` único y una `Session_Factory`; **no** conserva una sesión activa.
+- `Session_Factory` crea una sesión nueva por petición. No se crea una Factory abstracta ni una jerarquía adicional.
+- `Database_Session_Middleware` se registra desde `Application_Factory` y se ejecuta antes de cualquier router. Crea la sesión, la registra en `Request_Session_Context`, invoca la ruta y luego confirma o revierte la transacción; finalmente limpia el contexto y cierra la sesión.
+- Las rutas no inyectan sesiones mediante `Depends`, no crean repositories y no hacen `commit` o `rollback`.
+
+### Forma obligatoria de una ruta
+
+1. Recibe DTO Pydantic de request o parámetros HTTP tipados.
+2. Llama al service del módulo dueño.
+3. Devuelve DTO Pydantic de response, lista de DTOs o `204` sin cuerpo.
+4. Deja que los handlers globales traduzcan excepciones de negocio y persistencia.
+
+La ruta no construye SQL, no usa ORM y no instancia entidades de dominio directamente.
+
+### Convención de contratos HTTP
+
+- Cada router usa el prefijo `/api/<modulo>` y nombres de recurso en plural, por ejemplo `/api/catalogo/productos`.
+- `POST` crea un recurso con un DTO de entrada y responde `201` con su DTO de salida.
+- `GET /recurso` lista usando parámetros de filtro tipados cuando existan; `GET /recurso/{id_o_codigo}` obtiene un recurso.
+- `PUT` o `PATCH` se usa sólo cuando el caso de uso permite modificar el recurso; una acción de negocio se expresa en una ruta explícita, por ejemplo `/productos/{codigo}/precio`.
+- `DELETE` aplica baja lógica cuando la regla del módulo lo requiera y responde `204` sin cuerpo.
+- Los errores usan el handler global y el formato HTTP estándar de FastAPI; nunca exponen excepciones, SQL, archivos o rutas internas.
 
 ---
 
-## 📝 9. Checklist antes de hacer Commit / Push
+## 🗄️ 9. Persistencia con SQLite y SQLAlchemy ORM
+
+- **ORM acordado:** SQLAlchemy ORM es el único mecanismo productivo de persistencia. Mapea entidades del dominio a tablas, columnas y relaciones SQLite.
+- **Fuente de verdad:** las entidades ORM y `Base.metadata.create_all()`. Mientras
+  catálogo y stock conserven repositories `sqlite3`, el bootstrap aplica
+  `schema.sql` sólo como puente temporal sobre la misma sesión de request; no se
+  acepta DDL ni persistencia nueva por esa vía.
+- **Singleton:** `Database_Engine_Singleton` conserva un único engine por aplicación. Nunca existe una sesión singleton.
+- **Factory:** `Session_Factory` crea una sesión ORM por petición HTTP.
+- **Transacción por petición:** `Database_Session_Middleware` crea la sesión, la registra para repositories, confirma una respuesta exitosa y revierte ante error. Siempre limpia el contexto y cierra la sesión.
+- **Services:** no importan ni reciben `Session`, `Engine`, `sqlite3`, `commit` o `rollback`.
+- **Repositories:** obtienen la sesión activa desde `Request_Session_Context`, usan ORM y `flush` cuando requieren ID. No hacen `commit`, `rollback` ni `close`.
+- **Lógica de negocio:** no se implementa en SQL, triggers, middleware o repositories.
+
+### Flujo obligatorio de comunicación
+
+```text
+Frontend HTTP
+  → Database_Session_Middleware crea Session A
+    → Router recibe DTO y llama al Service
+      → Service valida el caso de uso y llama Repository
+        → Repository obtiene Session A desde Request_Session_Context
+          → SQLAlchemy ORM lee o persiste entidades
+  → Middleware confirma Session A si la respuesta es < 400
+  → Middleware revierte Session A ante error o excepción
+  → Middleware cierra Session A siempre
+```
+
+Para una operación compuesta, todos los repositories de la misma petición usan Session A. Por ejemplo, venta, comprobante y descuento de stock se confirman juntos o se revierten juntos.
+
+### Reglas de uso por desarrollador o agente
+
+- Antes de tocar un módulo, leer este documento, `docs/implementacion.md` y el spec transversal.
+- Un agente de módulo sólo modifica su carpeta `modules/<modulo>/`, sus pruebas y su documentación funcional; no modifica `bootstrap/` ni `config/`.
+- El agente `database-bootstrap` es el único autorizado a modificar la infraestructura global durante la Fase 1 del spec.
+- Un repository expone operaciones del negocio (`guardar`, `buscar_por_id`, `listar`, `actualizar`); no expone SQL ni sesiones.
+- Un mapper sólo transforma `DTO ↔ entidad`; no consulta ni persiste.
+- Si una relación cruza módulos, se respeta el contrato de `application/`; nunca se importa el repository de otro módulo.
+
+---
+
+## 📝 10. Checklist antes de hacer Commit / Push
 
 - [ ] ¿El código se ejecuta sin errores?
 - [ ] ¿Los nombres respetan la sección 3 (`Pascal_Snake_Case` para clases, `snake_case` para el resto)?
@@ -202,3 +301,5 @@ Cada patrón vive en el `domain/` del módulo dueño de esa regla:
 - [ ] ¿Las excepciones de negocio heredan de `BusinessError` y están en `domain/exceptions/` del módulo?
 - [ ] ¿Se respetan las transiciones del bulto y la regla de no vender sin stock disponible y verificado?
 - [ ] ¿Las operaciones compuestas se ejecutan en una única transacción?
+- [ ] ¿El service está libre de sesiones, conexiones y control transaccional?
+- [ ] ¿El repository no hace `commit`, `rollback` ni `close`?
