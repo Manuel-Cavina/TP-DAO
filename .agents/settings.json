@@ -1,0 +1,16 @@
+{
+  "project": "ERP - Tema 3",
+  "stack": ["Python", "FastAPI", "SQLAlchemy ORM", "SQLite", "frontend modular"],
+  "entrypoint": ".agents/skills/goal-loop/SKILL.md",
+  "sources_of_truth": [
+    "docs/convenciones.md",
+    "docs/implementacion.md",
+    "docs/specs/migracion_orm_sqlalchemy.md",
+    "docs/tema3.pdf"
+  ],
+  "checks": [
+    "python .agents/scripts/check_structure.py",
+    "python .agents/scripts/check_conventions.py",
+    "python -m unittest discover -s backend/tests -v"
+  ]
+}

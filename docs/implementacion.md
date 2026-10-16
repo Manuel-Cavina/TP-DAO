@@ -4,14 +4,14 @@ Sistema orientado a objetos para gestionar compras, logística interna, ventas, 
 
 > **Idea central de la consigna:** _nada ingresa a stock vendible sin verificación._ Cada decisión de diseño de este documento protege esa regla.
 
-**Documentos relacionados:** [convenciones.md](convenciones.md) (arquitectura, nombres, errores y persistencia) · [tema3.pdf](tema3.pdf) (consigna original).
+**Documentos relacionados:** [convenciones.md](convenciones.md) (arquitectura, nombres, errores y persistencia) · [migracion_orm_sqlalchemy.md](specs/migracion_orm_sqlalchemy.md) (ORM, bootstrap y transacciones) · [tema3.pdf](tema3.pdf) (consigna original).
 
 ---
 
 ## 🏗️ 1. Arquitectura y Tecnologías
 
 - **Backend:** Python, Orientado a Objetos puro en el dominio.
-- **Persistencia:** SQLite (`backend/src/config/database.py`).
+- **Persistencia:** SQLite mediante SQLAlchemy ORM. El ciclo de aplicación vive en `backend/src/bootstrap/` y la configuración técnica en `backend/src/config/`.
 - **Estructura:** Monolito modular. Cada módulo contiene sus propias capas `domain`, `application`, `infrastructure`, `dto`, `mappers` y `api`. **No existen capas de negocio globales.**
 - **Nombres:** clases en `Pascal_Snake_Case`, todo lo demás en `snake_case` (ver [convenciones.md](convenciones.md), sección 3).
 - **Patrones de diseño** (la consigna exige al menos dos; implementamos tres):
@@ -24,7 +24,8 @@ Sistema orientado a objetos para gestionar compras, logística interna, ventas, 
 
 ```text
 backend/src/
-├── config/                  # Conexión SQLite, schema.sql y seed
+├── bootstrap/               # Application_Factory y punto de inicialización
+├── config/                  # Engine Singleton, Session Factory, middleware y API
 ├── errors/                  # BusinessError (base de las excepciones de negocio)
 └── modules/
     ├── catalogo/            # Integrante 1
@@ -257,8 +258,8 @@ Preparado ──precintar──▶ Precintado ──despachar──▶ En_Transi
 
 #### Responsabilidades
 
-1. **Esquema (`schema.sql`):** tablas de todas las entidades de los módulos, con claves primarias, foráneas y restricciones `UNIQUE` (`producto.codigo`, `proveedor.cuit`, `precinto.codigo`). **Es lo primero que se hace** y lo acuerdan los 4 (ver sección 5).
-2. **Conexión:** `sqlite_connection()` en `config/database.py` (ya existe). Una conexión = una transacción.
+1. **Esquema ORM:** las entidades SQLAlchemy declaran tablas, claves primarias, foráneas y restricciones `UNIQUE` (`producto.codigo`, `proveedor.cuit`, `precinto.codigo`). Es la fuente de verdad y se crea al iniciar mediante `Base.metadata.create_all()`.
+2. **Conexión:** `Database_Engine_Singleton` conserva el engine y `Session_Factory` crea una sesión por petición. `Database_Session_Middleware` confirma o revierte la transacción de la petición completa.
 3. **Seed data:** 1 CD, 3 locales, 3 categorías, 3 proveedores, 10 productos, stock inicial en el CD, al menos 2 remitos completos (uno con un bulto rechazado), ventas de 3 meses distintos con los 3 medios de pago y una devolución. Sin esto, los reportes no muestran nada interesante.
 4. **Reportes:** solo **leen** (`SELECT`). Nunca modifican datos.
 
@@ -300,7 +301,7 @@ Los módulos se comunican **solo** a través de servicios de `application/`. Est
 | `Stock_Service` (Int. 1) | `reingresar_por_devolucion(producto, local, cantidad)` | Ventas | Suma disponible. |
 | `Reposicion_Service` (Int. 2) | `registrar_necesidad(producto, local, cantidad)` | Observer (Int. 1) | Crea una necesidad pendiente. |
 
-Todos los métodos que modifican stock reciben la `connection` de la transacción del caso de uso que los llama (ver [convenciones.md](convenciones.md), sección 8).
+Los contratos de aplicación no reciben conexiones ni sesiones. La petición completa comparte una sesión ORM gestionada por middleware; los repositories la obtienen desde el contexto técnico activo.
 
 ---
 
@@ -308,11 +309,11 @@ Todos los métodos que modifican stock reciben la `connection` de la transacció
 
 | Fase | Qué se hace | Quién | Bloquea a |
 |---|---|---|---|
-| **0. Acuerdos** | Modelo de clases final, `schema.sql` y firmas de la sección 4. | Los 4 juntos | Todos |
-| **1. Base** | Catálogo, ubicaciones, stock + Observer. Conexión y seed inicial. | Int. 1 y 4 | Logística y ventas |
-| **2. Flujos** | Logística completa (State) y ventas/caja (Strategy), en paralelo. | Int. 2 y 3 | Reportes |
-| **3. Reportes** | Los 4 (o 5) reportes sobre datos reales del seed. | Int. 4 | — |
-| **4. Integración** | Recorrer el happy path de la sección 6 de punta a punta. | Los 4 | Entrega |
+| **0. Especificación** | Contratos ORM, modelo de datos, fases y reglas de colaboración definidos en `docs/specs/migracion_orm_sqlalchemy.md`. | Arquitectura + equipo | Todas las fases técnicas |
+| **1. Bootstrap** | Engine Singleton, Session Factory, middleware, handlers y creación de esquema ORM. PR exclusivo de configuración. | `database-bootstrap` | Migraciones de módulos |
+| **2. Módulos ORM** | Catálogo, stock, logística y ventas migran en PRs independientes y paralelizables. | Un agente por módulo | Seed y reportes |
+| **3. Integración** | Registro final de modelos, seed ORM, reportes y pruebas entre módulos. | `integration-orm` | Calidad |
+| **4. Calidad** | Auditoría de seguridad, contratos, tests y documentación final. | Reviewer, security y test | Entrega |
 
 > Mientras las fases 1 y 2 avanzan, Integrante 4 puede escribir las consultas de los reportes contra el seed.
 
