@@ -161,9 +161,15 @@ class DatabaseLifecycleTests(unittest.TestCase):
 
     def test_application_factory_inicializa_esquema_heredado_y_routers(self) -> None:
         app = Application_Factory.crear_aplicacion(self.url)
-        respuesta = TestClient(app).get("/api/catalogo/categorias")
+        cliente = TestClient(app)
+        respuesta = cliente.get("/api/catalogo/categorias")
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta.json(), [])
+        alta = cliente.post("/api/catalogo/categorias", json={"nombre": "Lácteos"})
+        self.assertEqual(alta.status_code, 201)
+        listado = cliente.get("/api/catalogo/categorias")
+        self.assertEqual(listado.status_code, 200)
+        self.assertEqual(listado.json()[0]["nombre"], "Lácteos")
 
     def test_middleware_revierte_escritura_ante_excepcion_y_cierra_sesion(self) -> None:
         factory = Tracking_Session_Factory(self.engine)

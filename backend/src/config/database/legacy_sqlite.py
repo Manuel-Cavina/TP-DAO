@@ -26,6 +26,7 @@ def sqlite_connection() -> Iterator[sqlite3.Connection]:
     if sesion is not None:
         conexion_sqlalchemy = sesion.connection()
         connection = conexion_sqlalchemy.connection.driver_connection
+        connection.row_factory = sqlite3.Row
         yield connection
         return
 
