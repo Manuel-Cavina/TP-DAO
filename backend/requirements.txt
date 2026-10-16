@@ -1,0 +1,2 @@
+# Visualización profesional e interactiva para el módulo de reportes.
+plotly==7.1.0

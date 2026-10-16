@@ -37,6 +37,12 @@ frontend/src/
 └── modules/                 # Una carpeta por módulo del backend
 ```
 
+### Reportes
+
+El módulo `reportes` usa **Plotly 7.1.0** para construir gráficos profesionales e
+interactivos. El backend serializa las figuras como JSON y el frontend las renderiza, sin
+acoplar las consultas de negocio a la biblioteca visual.
+
 ---
 
 ## 🗺️ 2. Mapa de la Consigna
