@@ -1,0 +1,2 @@
+class ReporteService:
+    pass
