@@ -1,0 +1,1 @@
+"""Configuracion tecnica del backend."""

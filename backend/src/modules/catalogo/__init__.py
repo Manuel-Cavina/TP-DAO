@@ -1,0 +1,1 @@
+"""Productos, categorias y proveedores."""

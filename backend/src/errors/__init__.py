@@ -1,0 +1,1 @@
+"""Errores compartidos del backend."""
