@@ -1,11 +1,13 @@
-from contextlib import contextmanager
 from pathlib import Path
-import sqlite3
 import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from config.database.base import Base
 from modules.logistica.application import (
     Despacho_Service,
     Empaquetado_Service,
@@ -26,68 +28,54 @@ from modules.logistica.infrastructure import (
     Orden_Reposicion_Repository,
     Precinto_Repository,
     Remito_Repository,
-    crear_tablas_logistica,
 )
 
 
 class TestLogisticaServices(unittest.TestCase):
-    """Pruebas de integracion para los servicios de aplicacion del modulo logistica."""
+    """Pruebas de integracion para los servicios de aplicacion del modulo logistica con SQLAlchemy ORM."""
 
     def setUp(self) -> None:
-        self.conn = sqlite3.connect(":memory:")
-        self.conn.row_factory = sqlite3.Row
-        crear_tablas_logistica(self.conn)
+        self.engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(self.engine)
+        self.session_factory = sessionmaker(bind=self.engine)
+        self.session: Session = self.session_factory()
 
-        @contextmanager
-        def in_memory_connection_factory():
-            try:
-                yield self.conn
-                self.conn.commit()
-            except Exception:
-                self.conn.rollback()
-                raise
-
-        self.conn_factory = in_memory_connection_factory
         self.stock_mock = Mock_Stock_Service()
 
-        self.orden_repo = Orden_Reposicion_Repository()
-        self.necesidad_repo = Necesidad_Reposicion_Repository()
-        self.bulto_repo = Bulto_Repository()
-        self.precinto_repo = Precinto_Repository()
-        self.remito_repo = Remito_Repository(self.bulto_repo)
-        self.historial_repo = Historial_Bulto_Repository()
+        self.orden_repo = Orden_Reposicion_Repository(session=self.session)
+        self.necesidad_repo = Necesidad_Reposicion_Repository(session=self.session)
+        self.bulto_repo = Bulto_Repository(session=self.session)
+        self.precinto_repo = Precinto_Repository(session=self.session)
+        self.remito_repo = Remito_Repository(bulto_repository=self.bulto_repo, session=self.session)
+        self.historial_repo = Historial_Bulto_Repository(session=self.session)
 
-        self.reposicion_service = Reposicion_Service(
-            self.orden_repo, self.necesidad_repo, self.conn_factory
-        )
+        self.reposicion_service = Reposicion_Service(self.orden_repo, self.necesidad_repo)
         self.empaquetado_service = Empaquetado_Service(
             self.bulto_repo,
             self.orden_repo,
             self.precinto_repo,
             self.remito_repo,
             self.stock_mock,
-            self.conn_factory,
         )
         self.despacho_service = Despacho_Service(
             self.remito_repo,
             self.bulto_repo,
             self.orden_repo,
             self.stock_mock,
-            self.conn_factory,
         )
         self.recepcion_service = Recepcion_Service(
             self.remito_repo,
             self.bulto_repo,
             self.orden_repo,
             self.stock_mock,
-            self.conn_factory,
         )
         self.trazabilidad_service = Trazabilidad_Service(
-            self.historial_repo, self.bulto_repo, self.conn_factory
+            self.historial_repo, self.bulto_repo
         )
 
     def tearDown(self) -> None:
-        self.conn.close()
+        self.session.close()
+        self.engine.dispose()
 
     def test_flujo_completo_happy_path_y_merma(self) -> None:
         """Prueba de extremo a extremo del flujo logistico (Happy Path P3 a P6 y regla V1)."""
@@ -101,12 +89,9 @@ class TestLogisticaServices(unittest.TestCase):
         self.assertEqual(len(orden.detalles), 2)
 
         # 2. P4: Empaquetar
-        # Bulto 1 con PROD-A
         bulto1 = self.empaquetado_service.crear_bulto(orden.id, [{"producto_id": "PROD-A", "cantidad": 10}])
-        # Bulto 2 con PROD-B
         bulto2 = self.empaquetado_service.crear_bulto(orden.id, [{"producto_id": "PROD-B", "cantidad": 5}])
 
-        # Verificar que se llamo al contrato reservar_para_despacho en CD
         reservas = [op for op in self.stock_mock.operaciones if op[0] == "RESERVAR"]
         self.assertEqual(len(reservas), 2)
 
@@ -128,7 +113,6 @@ class TestLogisticaServices(unittest.TestCase):
         remito_despachado = self.despacho_service.despachar_remito("REM-900")
         self.assertEqual(remito_despachado.estado, "DESPACHADO")
 
-        # Contrato: mercaderia registrada en transito en destino
         en_transito_ops = [op for op in self.stock_mock.operaciones if op[0] == "EN_TRANSITO"]
         self.assertEqual(len(en_transito_ops), 2)
 
@@ -154,13 +138,12 @@ class TestLogisticaServices(unittest.TestCase):
         self.assertEqual(resumen["unidades_acreditadas"], 10)
         self.assertEqual(resumen["unidades_merma"], 5)
 
-        # Verificar llamadas al contrato de stock de Integrante 1
         acreditaciones = [op for op in self.stock_mock.operaciones if op[0] == "ACREDITAR"]
         mermas = [op for op in self.stock_mock.operaciones if op[0] == "MERMA"]
         self.assertEqual(len(acreditaciones), 1)
-        self.assertEqual(acreditaciones[0][1], "PROD-A")  # PROD-A acreditado en disponible
+        self.assertEqual(acreditaciones[0][1], "PROD-A")
         self.assertEqual(len(mermas), 1)
-        self.assertEqual(mermas[0][1], "PROD-B")  # PROD-B registrado como merma
+        self.assertEqual(mermas[0][1], "PROD-B")
 
         # 6. Trazabilidad inmutable V2
         trazabilidad = self.trazabilidad_service.consultar_resumen_trazabilidad(bulto1.id)
@@ -177,7 +160,6 @@ class TestLogisticaServices(unittest.TestCase):
         self.despacho_service.despachar_remito("REM-901")
         self.recepcion_service.recibir_remito("REM-901")
 
-        # Intentar cerrar sin haber verificado el bulto
         with self.assertRaises(Remito_Incompleto_Exception):
             self.recepcion_service.cerrar_remito("REM-901")
 
@@ -194,7 +176,6 @@ class TestLogisticaServices(unittest.TestCase):
         self.empaquetado_service.registrar_precinto("PREC-UNICO")
         self.empaquetado_service.precintar_bulto(bulto1.id, "PREC-UNICO")
 
-        # Intentar usar el mismo precinto en otro bulto debe fallar
         with self.assertRaises(Precinto_Invalido_Exception):
             self.empaquetado_service.precintar_bulto(bulto2.id, "PREC-UNICO")
 

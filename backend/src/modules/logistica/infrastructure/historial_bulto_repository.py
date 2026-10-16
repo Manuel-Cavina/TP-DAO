@@ -1,50 +1,49 @@
-from datetime import datetime
-import sqlite3
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from config.database.request_session_context import Request_Session_Context
 from modules.logistica.domain.historial_bulto import Historial_Bulto
+from modules.logistica.infrastructure.models import Historial_Bulto_Model
 
 
 class Historial_Bulto_Repository:
-    """Repositorio inmutable para auditoria y trazabilidad historica de bultos."""
+    """Repositorio ORM inmutable para auditoria y trazabilidad historica de bultos."""
 
-    def guardar(
-        self, connection: sqlite3.Connection, historial: Historial_Bulto
-    ) -> None:
-        """Inserta un nuevo hito inmutable en el historial."""
-        query = """
-        INSERT INTO historial_bultos (bulto_id, estado_anterior, estado_nuevo, fecha_hora, observacion)
-        VALUES (?, ?, ?, ?, ?)
-        """
-        connection.execute(
-            query,
-            (
-                int(historial.bulto_id),
-                historial.estado_anterior,
-                historial.estado_nuevo,
-                historial.fecha_hora.isoformat(),
-                historial.observacion,
-            ),
+    def __init__(self, session: Session | None = None) -> None:
+        self._session = session
+
+    def _get_session(self) -> Session:
+        return self._session if self._session is not None else Request_Session_Context.obtener_sesion()
+
+    def guardar(self, historial: Historial_Bulto) -> None:
+        """Inserta un nuevo registro inmutable en la trazabilidad."""
+        session = self._get_session()
+        modelo = Historial_Bulto_Model(
+            bulto_id=int(historial.bulto_id),
+            estado_anterior=historial.estado_anterior,
+            estado_nuevo=historial.estado_nuevo,
+            fecha_hora=historial.fecha_hora,
+            observacion=historial.observacion,
         )
+        session.add(modelo)
+        session.flush()
 
-    def listar_por_bulto(
-        self, connection: sqlite3.Connection, bulto_id: int | str
-    ) -> list[Historial_Bulto]:
-        """Obtiene la secuencia historica ordenada de transiciones de un bulto."""
-        query = """
-        SELECT bulto_id, estado_anterior, estado_nuevo, fecha_hora, observacion
-        FROM historial_bultos
-        WHERE bulto_id = ?
-        ORDER BY id ASC
-        """
-        cursor = connection.execute(query, (int(bulto_id),))
-        filas = cursor.fetchall()
+    def listar_por_bulto(self, bulto_id: int | str) -> list[Historial_Bulto]:
+        """Recupera la secuencia historica ordenada de estados de un bulto."""
+        session = self._get_session()
+        stmt = (
+            select(Historial_Bulto_Model)
+            .where(Historial_Bulto_Model.bulto_id == int(bulto_id))
+            .order_by(Historial_Bulto_Model.id.asc())
+        )
+        filas = session.scalars(stmt).all()
         return [
             Historial_Bulto(
-                bulto_id=fila["bulto_id"],
-                estado_anterior=fila["estado_anterior"],
-                estado_nuevo=fila["estado_nuevo"],
-                fecha_hora=datetime.fromisoformat(fila["fecha_hora"]),
-                observacion=fila["observacion"],
+                bulto_id=m.bulto_id,
+                estado_anterior=m.estado_anterior,
+                estado_nuevo=m.estado_nuevo,
+                fecha_hora=m.fecha_hora,
+                observacion=m.observacion,
             )
-            for fila in filas
+            for m in filas
         ]

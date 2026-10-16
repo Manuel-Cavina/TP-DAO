@@ -1,8 +1,5 @@
-from collections.abc import Callable
-import sqlite3
 from typing import Any
 
-from config.database import sqlite_connection
 from modules.logistica.application.stock_service_contract import (
     Mock_Stock_Service,
     Stock_Service_Contract,
@@ -35,7 +32,6 @@ class Empaquetado_Service:
         precinto_repository: Precinto_Repository | None = None,
         remito_repository: Remito_Repository | None = None,
         stock_service: Stock_Service_Contract | None = None,
-        connection_factory: Callable[[], Any] | None = None,
     ) -> None:
         self._bulto_repository = (
             bulto_repository if bulto_repository is not None else Bulto_Repository()
@@ -52,17 +48,15 @@ class Empaquetado_Service:
             else Remito_Repository(self._bulto_repository)
         )
         self._stock_service = stock_service if stock_service is not None else Mock_Stock_Service()
-        self._connection_factory = connection_factory or sqlite_connection
 
     def registrar_precinto(self, codigo: str) -> Precinto:
         """Da de alta un precinto nuevo en la base de datos."""
         precinto = Precinto(codigo=codigo, esta_intacto=True)
-        with self._connection_factory() as conn:
-            existente = self._precinto_repository.obtener_por_codigo(conn, codigo)
-            if existente is not None:
-                raise Precinto_Invalido_Exception(f"El precinto '{codigo}' ya esta registrado.")
-            self._precinto_repository.guardar(conn, precinto)
-            return precinto
+        existente = self._precinto_repository.obtener_por_codigo(codigo)
+        if existente is not None:
+            raise Precinto_Invalido_Exception(f"El precinto '{codigo}' ya esta registrado.")
+        self._precinto_repository.guardar(precinto)
+        return precinto
 
     def crear_bulto(
         self, orden_id: int | str, items: list[dict[str, Any]]
@@ -71,68 +65,63 @@ class Empaquetado_Service:
         if not items:
             raise Bulto_Vacio_Exception("No se puede armar un bulto sin items.")
 
-        with self._connection_factory() as conn:
-            orden = self._orden_repository.obtener_por_id(conn, orden_id)
-            if orden is None:
-                raise Orden_Invalida_Exception(f"No se encontro la orden {orden_id}.")
+        orden = self._orden_repository.obtener_por_id(orden_id)
+        if orden is None:
+            raise Orden_Invalida_Exception(f"No se encontro la orden {orden_id}.")
 
-            if orden.estado == "PENDIENTE":
-                orden.iniciar_preparacion()
+        if orden.estado == "PENDIENTE":
+            orden.iniciar_preparacion()
 
-            if orden.estado != "EN_PREPARACION":
+        if orden.estado != "EN_PREPARACION":
+            raise Orden_Invalida_Exception(
+                f"No se pueden armar bultos para una orden en estado '{orden.estado}'."
+            )
+
+        detalles_bulto: list[Detalle_Bulto] = []
+        for item in items:
+            prod_id = item["producto_id"]
+            cant = item["cantidad"]
+
+            detalle_orden = next(
+                (d for d in orden.detalles if d.producto_id == prod_id), None
+            )
+            if detalle_orden is None:
                 raise Orden_Invalida_Exception(
-                    f"No se pueden armar bultos para una orden en estado '{orden.estado}'."
+                    f"El producto '{prod_id}' no forma parte de la orden de reposicion."
                 )
 
-            detalles_bulto: list[Detalle_Bulto] = []
-            for item in items:
-                prod_id = item["producto_id"]
-                cant = item["cantidad"]
+            detalle_orden.registrar_envio(cant)
 
-                # Validar existencia y cupo en el detalle de la orden
-                detalle_orden = next(
-                    (d for d in orden.detalles if d.producto_id == prod_id), None
-                )
-                if detalle_orden is None:
-                    raise Orden_Invalida_Exception(
-                        f"El producto '{prod_id}' no forma parte de la orden de reposicion."
-                    )
+            # Contrato con Integrante 1: descontar disponible del CD (sin session ni connection)
+            self._stock_service.reservar_para_despacho(prod_id, orden.origen_id, cant)
+            detalles_bulto.append(Detalle_Bulto(producto_id=prod_id, cantidad=cant))
 
-                detalle_orden.registrar_envio(cant)
+        bulto = Bulto(orden_id=orden_id, detalles=detalles_bulto)
+        bulto_guardado = self._bulto_repository.guardar(bulto)
+        self._orden_repository.actualizar(orden)
 
-                # Contrato con Integrante 1: descontar disponible del CD
-                self._stock_service.reservar_para_despacho(
-                    conn, prod_id, orden.origen_id, cant
-                )
-                detalles_bulto.append(Detalle_Bulto(producto_id=prod_id, cantidad=cant))
-
-            bulto = Bulto(orden_id=orden_id, detalles=detalles_bulto)
-            bulto_guardado = self._bulto_repository.guardar(conn, bulto)
-            self._orden_repository.actualizar(conn, orden)
-
-            return bulto_guardado
+        return bulto_guardado
 
     def precintar_bulto(self, bulto_id: int | str, codigo_precinto: str) -> Bulto:
         """Asigna un precinto valido al bulto y transiciona a PRECINTADO."""
-        with self._connection_factory() as conn:
-            bulto = self._bulto_repository.obtener_por_id(conn, bulto_id)
-            if bulto is None:
-                raise Orden_Invalida_Exception(f"No se encontro el bulto con ID {bulto_id}.")
+        bulto = self._bulto_repository.obtener_por_id(bulto_id)
+        if bulto is None:
+            raise Orden_Invalida_Exception(f"No se encontro el bulto con ID {bulto_id}.")
 
-            if not self._precinto_repository.esta_disponible(conn, codigo_precinto):
-                raise Precinto_Invalido_Exception(
-                    f"El precinto '{codigo_precinto}' no existe, no esta disponible o ya fue utilizado."
-                )
+        if not self._precinto_repository.esta_disponible(codigo_precinto):
+            raise Precinto_Invalido_Exception(
+                f"El precinto '{codigo_precinto}' no existe, no esta disponible o ya fue utilizado."
+            )
 
-            precinto = self._precinto_repository.obtener_por_codigo(conn, codigo_precinto)
-            if precinto is None:
-                raise Precinto_Invalido_Exception(f"Precinto '{codigo_precinto}' inexistente.")
+        precinto = self._precinto_repository.obtener_por_codigo(codigo_precinto)
+        if precinto is None:
+            raise Precinto_Invalido_Exception(f"Precinto '{codigo_precinto}' inexistente.")
 
-            bulto.precintar(precinto)
-            self._bulto_repository.actualizar(conn, bulto)
-            self._precinto_repository.marcar_utilizado(conn, codigo_precinto)
+        bulto.precintar(precinto)
+        self._bulto_repository.actualizar(bulto)
+        self._precinto_repository.marcar_utilizado(codigo_precinto)
 
-            return bulto
+        return bulto
 
     def generar_remito(
         self, numero: str, orden_id: int | str, bultos_ids: list[int | str]
@@ -141,43 +130,40 @@ class Empaquetado_Service:
         if not bultos_ids:
             raise Remito_Incompleto_Exception("El remito debe incluir al menos un bulto.")
 
-        with self._connection_factory() as conn:
-            orden = self._orden_repository.obtener_por_id(conn, orden_id)
-            if orden is None:
-                raise Orden_Invalida_Exception(f"No se encontro la orden {orden_id}.")
+        orden = self._orden_repository.obtener_por_id(orden_id)
+        if orden is None:
+            raise Orden_Invalida_Exception(f"No se encontro la orden {orden_id}.")
 
-            bultos: list[Bulto] = []
-            for bid in bultos_ids:
-                b = self._bulto_repository.obtener_por_id(conn, bid)
-                if b is None:
-                    raise Remito_Incompleto_Exception(f"No se encontro el bulto {bid}.")
-                if str(b.orden_id) != str(orden_id):
-                    raise Remito_Incompleto_Exception(
-                        f"El bulto {bid} no pertenece a la orden {orden_id}."
-                    )
-                if b.estado.nombre != "PRECINTADO":
-                    raise Remito_Incompleto_Exception(
-                        f"El bulto {bid} esta en estado '{b.estado.nombre}', debe estar PRECINTADO."
-                    )
-                bultos.append(b)
+        bultos: list[Bulto] = []
+        for bid in bultos_ids:
+            b = self._bulto_repository.obtener_por_id(bid)
+            if b is None:
+                raise Remito_Incompleto_Exception(f"No se encontro el bulto {bid}.")
+            if str(b.orden_id) != str(orden_id):
+                raise Remito_Incompleto_Exception(
+                    f"El bulto {bid} no pertenece a la orden {orden_id}."
+                )
+            if b.estado.nombre != "PRECINTADO":
+                raise Remito_Incompleto_Exception(
+                    f"El bulto {bid} esta en estado '{b.estado.nombre}', debe estar PRECINTADO."
+                )
+            bultos.append(b)
 
-            remito = Remito(
-                numero=numero,
-                origen_id=orden.origen_id,
-                destino_id=orden.destino_id,
-                bultos=bultos,
-            )
-            return self._remito_repository.guardar(conn, remito)
+        remito = Remito(
+            numero=numero,
+            origen_id=orden.origen_id,
+            destino_id=orden.destino_id,
+            bultos=bultos,
+        )
+        return self._remito_repository.guardar(remito)
 
     def obtener_bulto(self, bulto_id: int | str) -> Bulto:
         """Obtiene un bulto por su identificador."""
-        with self._connection_factory() as conn:
-            bulto = self._bulto_repository.obtener_por_id(conn, bulto_id)
-            if bulto is None:
-                raise Orden_Invalida_Exception(f"No se encontro el bulto con ID {bulto_id}.")
-            return bulto
+        bulto = self._bulto_repository.obtener_por_id(bulto_id)
+        if bulto is None:
+            raise Orden_Invalida_Exception(f"No se encontro el bulto con ID {bulto_id}.")
+        return bulto
 
     def listar_bultos_por_orden(self, orden_id: int | str) -> list[Bulto]:
         """Lista los bultos pertenecientes a una orden."""
-        with self._connection_factory() as conn:
-            return self._bulto_repository.listar_por_orden(conn, orden_id)
+        return self._bulto_repository.listar_por_orden(orden_id)

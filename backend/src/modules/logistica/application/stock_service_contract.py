@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-import sqlite3
 
 
 class Stock_Service_Contract(ABC):
@@ -8,7 +7,6 @@ class Stock_Service_Contract(ABC):
     @abstractmethod
     def reservar_para_despacho(
         self,
-        connection: sqlite3.Connection,
         producto_id: str,
         cd_id: str,
         cantidad: int,
@@ -19,7 +17,6 @@ class Stock_Service_Contract(ABC):
     @abstractmethod
     def registrar_en_transito(
         self,
-        connection: sqlite3.Connection,
         producto_id: str,
         local_id: str,
         cantidad: int,
@@ -30,7 +27,6 @@ class Stock_Service_Contract(ABC):
     @abstractmethod
     def acreditar_verificado(
         self,
-        connection: sqlite3.Connection,
         producto_id: str,
         local_id: str,
         cantidad: int,
@@ -41,7 +37,6 @@ class Stock_Service_Contract(ABC):
     @abstractmethod
     def registrar_merma(
         self,
-        connection: sqlite3.Connection,
         producto_id: str,
         local_id: str,
         cantidad: int,
@@ -58,7 +53,6 @@ class Mock_Stock_Service(Stock_Service_Contract):
 
     def reservar_para_despacho(
         self,
-        connection: sqlite3.Connection,
         producto_id: str,
         cd_id: str,
         cantidad: int,
@@ -67,7 +61,6 @@ class Mock_Stock_Service(Stock_Service_Contract):
 
     def registrar_en_transito(
         self,
-        connection: sqlite3.Connection,
         producto_id: str,
         local_id: str,
         cantidad: int,
@@ -76,7 +69,6 @@ class Mock_Stock_Service(Stock_Service_Contract):
 
     def acreditar_verificado(
         self,
-        connection: sqlite3.Connection,
         producto_id: str,
         local_id: str,
         cantidad: int,
@@ -85,7 +77,6 @@ class Mock_Stock_Service(Stock_Service_Contract):
 
     def registrar_merma(
         self,
-        connection: sqlite3.Connection,
         producto_id: str,
         local_id: str,
         cantidad: int,

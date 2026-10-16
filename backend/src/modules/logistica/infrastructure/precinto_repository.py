@@ -1,50 +1,58 @@
-import sqlite3
+from sqlalchemy.orm import Session
 
+from config.database.request_session_context import Request_Session_Context
 from modules.logistica.domain.precinto import Precinto
+from modules.logistica.infrastructure.models import Precinto_Model
 
 
 class Precinto_Repository:
-    """Repositorio SQLite para la persistencia y consulta de precintos."""
+    """Repositorio ORM para persistencia y consulta de precintos."""
 
-    def guardar(
-        self, connection: sqlite3.Connection, precinto: Precinto, utilizado: bool = False
-    ) -> None:
-        """Inserta un precinto en la base de datos."""
-        query = """
-        INSERT INTO precintos (codigo, esta_intacto, utilizado)
-        VALUES (?, ?, ?)
-        """
-        connection.execute(
-            query,
-            (precinto.codigo, 1 if precinto.esta_intacto else 0, 1 if utilizado else 0),
+    def __init__(self, session: Session | None = None) -> None:
+        self._session = session
+
+    def _get_session(self) -> Session:
+        return self._session if self._session is not None else Request_Session_Context.obtener_sesion()
+
+    def guardar(self, precinto: Precinto, utilizado: bool = False) -> None:
+        """Persiste un nuevo precinto en la base de datos."""
+        session = self._get_session()
+        modelo = Precinto_Model(
+            codigo=precinto.codigo,
+            esta_intacto=precinto.esta_intacto,
+            utilizado=utilizado,
         )
+        session.add(modelo)
+        session.flush()
 
-    def obtener_por_codigo(
-        self, connection: sqlite3.Connection, codigo: str
-    ) -> Precinto | None:
-        """Obtiene un precinto por su codigo unico."""
-        query = "SELECT codigo, esta_intacto FROM precintos WHERE codigo = ?"
-        cursor = connection.execute(query, (codigo.strip(),))
-        row = cursor.fetchone()
-        if row is None:
+    def obtener_por_codigo(self, codigo: str) -> Precinto | None:
+        """Obtiene un precinto por su identificador unico."""
+        session = self._get_session()
+        modelo = session.get(Precinto_Model, codigo.strip())
+        if modelo is None:
             return None
-        return Precinto(codigo=row["codigo"], esta_intacto=bool(row["esta_intacto"]))
+        return Precinto(codigo=modelo.codigo, esta_intacto=modelo.esta_intacto)
 
-    def esta_disponible(self, connection: sqlite3.Connection, codigo: str) -> bool:
-        """Indica si un precinto existe, esta intacto y no fue utilizado aun."""
-        query = "SELECT esta_intacto, utilizado FROM precintos WHERE codigo = ?"
-        cursor = connection.execute(query, (codigo.strip(),))
-        row = cursor.fetchone()
-        if row is None:
+    def esta_disponible(self, codigo: str) -> bool:
+        """Verifica si el precinto existe, esta intacto y no fue utilizado."""
+        session = self._get_session()
+        modelo = session.get(Precinto_Model, codigo.strip())
+        if modelo is None:
             return False
-        return bool(row["esta_intacto"]) and not bool(row["utilizado"])
+        return bool(modelo.esta_intacto and not modelo.utilizado)
 
-    def marcar_utilizado(self, connection: sqlite3.Connection, codigo: str) -> None:
-        """Marca un precinto como ya utilizado en un bulto."""
-        query = "UPDATE precintos SET utilizado = 1 WHERE codigo = ?"
-        connection.execute(query, (codigo.strip(),))
+    def marcar_utilizado(self, codigo: str) -> None:
+        """Marca un precinto como utilizado en un bulto."""
+        session = self._get_session()
+        modelo = session.get(Precinto_Model, codigo.strip())
+        if modelo is not None:
+            modelo.utilizado = True
+            session.flush()
 
-    def actualizar(self, connection: sqlite3.Connection, precinto: Precinto) -> None:
+    def actualizar(self, precinto: Precinto) -> None:
         """Actualiza el estado de integridad de un precinto."""
-        query = "UPDATE precintos SET esta_intacto = ? WHERE codigo = ?"
-        connection.execute(query, (1 if precinto.esta_intacto else 0, precinto.codigo))
+        session = self._get_session()
+        modelo = session.get(Precinto_Model, precinto.codigo.strip())
+        if modelo is not None:
+            modelo.esta_intacto = precinto.esta_intacto
+            session.flush()

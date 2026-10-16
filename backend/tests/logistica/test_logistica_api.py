@@ -1,96 +1,42 @@
-from contextlib import contextmanager
 from pathlib import Path
-import sqlite3
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from fastapi.testclient import TestClient
-from main import app
-from modules.logistica.api.logistica_router import (
-    get_despacho_service,
-    get_empaquetado_service,
-    get_recepcion_service,
-    get_reposicion_service,
-    get_trazabilidad_service,
-)
-from modules.logistica.application import (
-    Despacho_Service,
-    Empaquetado_Service,
-    Mock_Stock_Service,
-    Recepcion_Service,
-    Reposicion_Service,
-    Trazabilidad_Service,
-)
-from modules.logistica.infrastructure import (
-    Bulto_Repository,
-    Historial_Bulto_Repository,
-    Necesidad_Reposicion_Repository,
-    Orden_Reposicion_Repository,
-    Precinto_Repository,
-    Remito_Repository,
-    crear_tablas_logistica,
-)
+
+from bootstrap.application_factory import Application_Factory
+from config.database.database_engine_singleton import Database_Engine_Singleton
 
 
 class TestLogisticaAPI(unittest.TestCase):
-    """Pruebas de integracion HTTP sobre los endpoints de logistica."""
+    """Pruebas de integracion HTTP sobre los endpoints de logistica mediante Application_Factory y Session Middleware."""
 
     def setUp(self) -> None:
-        # check_same_thread=False permite que los worker threads de FastAPI interactuen con la misma conexion
-        self.conn = sqlite3.connect("file:test_api_db?mode=memory&cache=shared", uri=True, check_same_thread=False)
-        self.conn.row_factory = sqlite3.Row
-        crear_tablas_logistica(self.conn)
+        Database_Engine_Singleton.reiniciar_para_pruebas()
+        self._temp_dir = tempfile.TemporaryDirectory()
+        db_path = Path(self._temp_dir.name) / "test_api.sqlite3"
+        self.db_url = f"sqlite:///{db_path.as_posix()}"
 
-        @contextmanager
-        def conn_factory():
-            try:
-                yield self.conn
-                self.conn.commit()
-            except Exception:
-                self.conn.rollback()
-                raise
-
-        stock_mock = Mock_Stock_Service()
-        bulto_repo = Bulto_Repository()
-        precinto_repo = Precinto_Repository()
-        remito_repo = Remito_Repository(bulto_repo)
-        orden_repo = Orden_Reposicion_Repository()
-        necesidad_repo = Necesidad_Reposicion_Repository()
-        historial_repo = Historial_Bulto_Repository()
-
-        # Inyectar servicios con base en memoria en el router para pruebas aisladas
-        self.reposicion_service = Reposicion_Service(
-            orden_repo, necesidad_repo, conn_factory
-        )
-        self.empaquetado_service = Empaquetado_Service(
-            bulto_repo, orden_repo, precinto_repo, remito_repo, stock_mock, conn_factory
-        )
-        self.despacho_service = Despacho_Service(
-            remito_repo, bulto_repo, orden_repo, stock_mock, conn_factory
-        )
-        self.recepcion_service = Recepcion_Service(
-            remito_repo, bulto_repo, orden_repo, stock_mock, conn_factory
-        )
-        self.trazabilidad_service = Trazabilidad_Service(
-            historial_repo, bulto_repo, conn_factory
-        )
-
-        app.dependency_overrides[get_reposicion_service] = lambda: self.reposicion_service
-        app.dependency_overrides[get_empaquetado_service] = lambda: self.empaquetado_service
-        app.dependency_overrides[get_despacho_service] = lambda: self.despacho_service
-        app.dependency_overrides[get_recepcion_service] = lambda: self.recepcion_service
-        app.dependency_overrides[get_trazabilidad_service] = lambda: self.trazabilidad_service
-
-        self.client = TestClient(app)
+        self.app = Application_Factory.crear_aplicacion(database_url=self.db_url)
+        self.client = TestClient(self.app)
 
     def tearDown(self) -> None:
-        app.dependency_overrides.clear()
-        self.conn.close()
+        try:
+            engine = Database_Engine_Singleton.obtener_instancia(self.db_url)
+            engine.dispose()
+        except Exception:
+            pass
+        Database_Engine_Singleton.reiniciar_para_pruebas()
+        try:
+            self._temp_dir.cleanup()
+        except Exception:
+            pass
 
     def test_health_check(self) -> None:
-        response = self.client.get("/api/health")
+        response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], "ok")
 

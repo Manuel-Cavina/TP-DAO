@@ -1,118 +1,107 @@
-from datetime import datetime
-import sqlite3
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from config.database.request_session_context import Request_Session_Context
 from modules.logistica.domain.detalle_orden_reposicion import Detalle_Orden_Reposicion
 from modules.logistica.domain.orden_reposicion import Orden_Reposicion
+from modules.logistica.infrastructure.models import (
+    Detalle_Orden_Reposicion_Model,
+    Orden_Reposicion_Model,
+)
 
 
 class Orden_Reposicion_Repository:
-    """Repositorio SQLite para ordenes de reposicion y sus detalles."""
+    """Repositorio ORM para persistencia y consulta de ordenes de reposicion y sus detalles."""
 
-    def guardar(
-        self, connection: sqlite3.Connection, orden: Orden_Reposicion
-    ) -> Orden_Reposicion:
-        """Inserta una nueva orden de reposicion con sus detalles."""
-        cursor = connection.execute(
-            """
-            INSERT INTO ordenes_reposicion (origen_id, destino_id, fecha, estado)
-            VALUES (?, ?, ?, ?)
-            """,
-            (orden.origen_id, orden.destino_id, orden.fecha.isoformat(), orden.estado),
+    def __init__(self, session: Session | None = None) -> None:
+        self._session = session
+
+    def _get_session(self) -> Session:
+        return self._session if self._session is not None else Request_Session_Context.obtener_sesion()
+
+    def guardar(self, orden: Orden_Reposicion) -> Orden_Reposicion:
+        """Persiste una orden nueva con sus items asociados."""
+        session = self._get_session()
+        modelo = Orden_Reposicion_Model(
+            origen_id=orden.origen_id,
+            destino_id=orden.destino_id,
+            fecha=orden.fecha,
+            estado=orden.estado,
         )
-        orden_id = cursor.lastrowid
-        orden.id = orden_id
-
         for d in orden.detalles:
-            connection.execute(
-                """
-                INSERT INTO detalles_orden_reposicion (orden_id, producto_id, cantidad_solicitada, cantidad_enviada)
-                VALUES (?, ?, ?, ?)
-                """,
-                (orden_id, d.producto_id, d.cantidad_solicitada, d.cantidad_enviada),
+            modelo.detalles.append(
+                Detalle_Orden_Reposicion_Model(
+                    producto_id=d.producto_id,
+                    cantidad_solicitada=d.cantidad_solicitada,
+                    cantidad_enviada=d.cantidad_enviada,
+                )
             )
 
+        session.add(modelo)
+        session.flush()
+        orden.id = modelo.id
         return orden
 
-    def actualizar(
-        self, connection: sqlite3.Connection, orden: Orden_Reposicion
-    ) -> None:
-        """Actualiza el estado de la orden y las cantidades enviadas de sus detalles."""
+    def actualizar(self, orden: Orden_Reposicion) -> None:
+        """Actualiza el estado de la orden y las cantidades enviadas."""
         if orden.id is None:
-            raise ValueError("No se puede actualizar una orden sin id persistido.")
+            raise ValueError("No se puede actualizar una orden sin ID asignado.")
 
-        connection.execute(
-            "UPDATE ordenes_reposicion SET estado = ? WHERE id = ?",
-            (orden.estado, int(orden.id)),
-        )
+        session = self._get_session()
+        modelo = session.get(Orden_Reposicion_Model, int(orden.id))
+        if modelo is None:
+            raise ValueError(f"No se encontro la orden {orden.id} para actualizar.")
 
+        modelo.estado = orden.estado
         for d in orden.detalles:
-            connection.execute(
-                """
-                UPDATE detalles_orden_reposicion
-                SET cantidad_enviada = ?
-                WHERE orden_id = ? AND producto_id = ?
-                """,
-                (d.cantidad_enviada, int(orden.id), d.producto_id),
+            detalle_mod = next(
+                (dm for dm in modelo.detalles if dm.producto_id == d.producto_id), None
             )
+            if detalle_mod:
+                detalle_mod.cantidad_enviada = d.cantidad_enviada
 
-    def obtener_por_id(
-        self, connection: sqlite3.Connection, orden_id: int | str
-    ) -> Orden_Reposicion | None:
-        """Busca una orden de reposicion por identificador."""
-        cursor = connection.execute(
-            "SELECT id, origen_id, destino_id, fecha, estado FROM ordenes_reposicion WHERE id = ?",
-            (int(orden_id),),
-        )
-        fila = cursor.fetchone()
-        if fila is None:
+        session.flush()
+
+    def obtener_por_id(self, orden_id: int | str) -> Orden_Reposicion | None:
+        """Obtiene una orden por ID y reconstruye la entidad de dominio."""
+        session = self._get_session()
+        modelo = session.get(Orden_Reposicion_Model, int(orden_id))
+        if modelo is None:
             return None
+        return self._reconstruir_orden(modelo)
 
-        return self._reconstruir_orden(connection, fila)
-
-    def listar_todas(self, connection: sqlite3.Connection) -> list[Orden_Reposicion]:
+    def listar_todas(self) -> list[Orden_Reposicion]:
         """Devuelve todas las ordenes registradas."""
-        cursor = connection.execute(
-            "SELECT id, origen_id, destino_id, fecha, estado FROM ordenes_reposicion ORDER BY id DESC"
-        )
-        return [self._reconstruir_orden(connection, f) for f in cursor.fetchall()]
+        session = self._get_session()
+        stmt = select(Orden_Reposicion_Model).order_by(Orden_Reposicion_Model.id.desc())
+        modelos = session.scalars(stmt).unique().all()
+        return [self._reconstruir_orden(m) for m in modelos]
 
-    def listar_por_estado(
-        self, connection: sqlite3.Connection, estado: str
-    ) -> list[Orden_Reposicion]:
+    def listar_por_estado(self, estado: str) -> list[Orden_Reposicion]:
         """Filtra ordenes por su estado."""
-        cursor = connection.execute(
-            "SELECT id, origen_id, destino_id, fecha, estado FROM ordenes_reposicion WHERE estado = ? ORDER BY id DESC",
-            (estado.strip().upper(),),
+        session = self._get_session()
+        stmt = (
+            select(Orden_Reposicion_Model)
+            .where(Orden_Reposicion_Model.estado == estado.strip().upper())
+            .order_by(Orden_Reposicion_Model.id.desc())
         )
-        return [self._reconstruir_orden(connection, f) for f in cursor.fetchall()]
+        modelos = session.scalars(stmt).unique().all()
+        return [self._reconstruir_orden(m) for m in modelos]
 
-    def _reconstruir_orden(
-        self, connection: sqlite3.Connection, fila: sqlite3.Row
-    ) -> Orden_Reposicion:
-        orden_id = fila["id"]
-        cur_detalles = connection.execute(
-            """
-            SELECT producto_id, cantidad_solicitada, cantidad_enviada
-            FROM detalles_orden_reposicion
-            WHERE orden_id = ?
-            ORDER BY id ASC
-            """,
-            (orden_id,),
-        )
+    def _reconstruir_orden(self, modelo: Orden_Reposicion_Model) -> Orden_Reposicion:
         detalles = [
             Detalle_Orden_Reposicion(
-                producto_id=fd["producto_id"],
-                cantidad_solicitada=fd["cantidad_solicitada"],
-                cantidad_enviada=fd["cantidad_enviada"],
+                producto_id=d.producto_id,
+                cantidad_solicitada=d.cantidad_solicitada,
+                cantidad_enviada=d.cantidad_enviada,
             )
-            for fd in cur_detalles.fetchall()
+            for d in modelo.detalles
         ]
-
         return Orden_Reposicion(
-            id=orden_id,
-            origen_id=fila["origen_id"],
-            destino_id=fila["destino_id"],
-            fecha=datetime.fromisoformat(fila["fecha"]),
-            estado=fila["estado"],
+            id=modelo.id,
+            origen_id=modelo.origen_id,
+            destino_id=modelo.destino_id,
+            fecha=modelo.fecha,
+            estado=modelo.estado,
             detalles=detalles,
         )
