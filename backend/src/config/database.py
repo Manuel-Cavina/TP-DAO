@@ -11,7 +11,7 @@ DATABASE_PATH = Path("runtime/tp_dao.sqlite3")
 @contextmanager
 def sqlite_connection() -> Iterator[sqlite3.Connection]:
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(DATABASE_PATH)
+    connection = sqlite3.connect(DATABASE_PATH, check_same_thread=False)
     connection.row_factory = sqlite3.Row
     try:
         yield connection

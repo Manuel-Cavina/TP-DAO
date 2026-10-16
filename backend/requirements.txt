@@ -1,2 +1,6 @@
 # Visualización profesional e interactiva para el módulo de reportes.
 plotly==7.1.0
+
+# API HTTP y servidor asíncrono para comunicación con el frontend.
+fastapi>=0.115.0
+uvicorn>=0.30.0

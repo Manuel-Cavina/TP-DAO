@@ -1,1 +1,43 @@
-"""DTOs de logistica."""
+"""DTOs para entrada/salida de la API del modulo de logistica."""
+
+from modules.logistica.dto.logistica_dtos import (
+    Bulto_DTO,
+    Cierre_Remito_Response_DTO,
+    Consolidar_Orden_Request_DTO,
+    Crear_Bulto_Request_DTO,
+    Crear_Orden_Manual_Request_DTO,
+    Detalle_Bulto_DTO,
+    Detalle_Orden_Reposicion_DTO,
+    Generar_Remito_Request_DTO,
+    Historial_Bulto_DTO,
+    Necesidad_Reposicion_DTO,
+    Orden_Reposicion_DTO,
+    Precintar_Bulto_Request_DTO,
+    Precinto_DTO,
+    Registrar_Necesidad_Request_DTO,
+    Registrar_Precinto_Request_DTO,
+    Remito_DTO,
+    Trazabilidad_Bulto_Response_DTO,
+    Verificar_Bulto_Request_DTO,
+)
+
+__all__ = [
+    "Bulto_DTO",
+    "Cierre_Remito_Response_DTO",
+    "Consolidar_Orden_Request_DTO",
+    "Crear_Bulto_Request_DTO",
+    "Crear_Orden_Manual_Request_DTO",
+    "Detalle_Bulto_DTO",
+    "Detalle_Orden_Reposicion_DTO",
+    "Generar_Remito_Request_DTO",
+    "Historial_Bulto_DTO",
+    "Necesidad_Reposicion_DTO",
+    "Orden_Reposicion_DTO",
+    "Precintar_Bulto_Request_DTO",
+    "Precinto_DTO",
+    "Registrar_Necesidad_Request_DTO",
+    "Registrar_Precinto_Request_DTO",
+    "Remito_DTO",
+    "Trazabilidad_Bulto_Response_DTO",
+    "Verificar_Bulto_Request_DTO",
+]
