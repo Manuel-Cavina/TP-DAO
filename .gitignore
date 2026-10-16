@@ -1,2 +1,11 @@
 .claude/
 .atl/
+AGENTS.md
+.agents/
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.db
+.env
+node_modules/
+dist/
