@@ -14,4 +14,8 @@ class Bulto_Vacio_Exception(BusinessError):
 
 
 class Remito_Incompleto_Exception(BusinessError):
-    """El remito tiene bultos que todavía no están precintados."""
+    """El remito tiene bultos que todavía no están precintados o listos para operar."""
+
+
+class Orden_Invalida_Exception(BusinessError):
+    """Se lanza cuando una operación de la orden de reposición viola reglas del negocio."""
