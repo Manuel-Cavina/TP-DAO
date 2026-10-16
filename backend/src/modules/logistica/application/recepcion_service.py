@@ -1,9 +1,6 @@
 from typing import Any
 
-from modules.logistica.application.stock_service_contract import (
-    Mock_Stock_Service,
-    Stock_Service_Contract,
-)
+from modules.logistica.application.stock_service_contract import Stock_Service_Contract
 from modules.logistica.domain.bulto import Bulto
 from modules.logistica.domain.exceptions import (
     Orden_Invalida_Exception,
@@ -38,7 +35,11 @@ class Recepcion_Service:
         self._orden_repository = (
             orden_repository if orden_repository is not None else Orden_Reposicion_Repository()
         )
-        self._stock_service = stock_service if stock_service is not None else Mock_Stock_Service()
+        if stock_service is None:
+            from modules.ubicaciones_stock.application.stock_service import Stock_Service
+
+            stock_service = Stock_Service()
+        self._stock_service = stock_service
 
     def recibir_remito(self, remito_numero: str) -> Remito:
         """Registra la llegada de mercaderia en la sucursal y pasa los bultos a RECIBIDO."""
@@ -55,7 +56,7 @@ class Recepcion_Service:
         return remito
 
     def verificar_bulto(
-        self, bulto_id: int | str, codigo_precinto_recibido: str, esta_intacto: bool
+        self, bulto_id: int, codigo_precinto_recibido: str, esta_intacto: bool
     ) -> Bulto:
         """Verifica fisicamente el precinto de un bulto recibido transicionando a VERIFICADO o RECHAZADO."""
         bulto = self._bulto_repository.obtener_por_id(bulto_id)

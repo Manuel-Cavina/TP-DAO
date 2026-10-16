@@ -12,15 +12,15 @@ class Bulto:
 
     def __init__(
         self,
-        orden_id: int | str,
-        id: int | str | None = None,
+        orden_id: int,
+        id: int | None = None,
         estado: Estado_Bulto | None = None,
         precinto: Precinto | None = None,
         detalles: list[Detalle_Bulto] | None = None,
         historial: list[Historial_Bulto] | None = None,
     ) -> None:
-        self._id: int | str | None = id
-        self._orden_id: int | str = orden_id
+        self._id: int | None = id
+        self._orden_id: int = orden_id
         self._estado: Estado_Bulto = estado if estado is not None else Estado_Preparado()
         self._precinto: Precinto | None = precinto
         self._detalles: list[Detalle_Bulto] = list(detalles) if detalles else []
@@ -38,17 +38,17 @@ class Bulto:
             )
 
     @property
-    def id(self) -> int | str | None:
+    def id(self) -> int | None:
         return self._id
 
     @id.setter
-    def id(self, valor: int | str) -> None:
+    def id(self, valor: int) -> None:
         if self._id is not None:
             raise Transicion_Estado_Invalida_Exception("No se puede modificar el id de un bulto ya asignado.")
         self._id = valor
 
     @property
-    def orden_id(self) -> int | str:
+    def orden_id(self) -> int:
         return self._orden_id
 
     @property

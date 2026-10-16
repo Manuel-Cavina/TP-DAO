@@ -1,5 +1,4 @@
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from config.database.request_session_context import Request_Session_Context
 from modules.logistica.domain.bulto import Bulto
@@ -17,17 +16,15 @@ from modules.logistica.infrastructure.models import (
 class Bulto_Repository:
     """Repositorio ORM para persistir y reconstruir bultos, detalles e historial inmutable."""
 
-    def __init__(self, session: Session | None = None) -> None:
-        self._session = session
-
-    def _get_session(self) -> Session:
-        return self._session if self._session is not None else Request_Session_Context.obtener_sesion()
+    @staticmethod
+    def _get_session():
+        return Request_Session_Context.obtener_sesion()
 
     def guardar(self, bulto: Bulto, remito_numero: str | None = None) -> Bulto:
         """Inserta un bulto nuevo, sus detalles e historial mediante el ORM."""
         session = self._get_session()
         modelo = Bulto_Model(
-            orden_id=int(bulto.orden_id),
+            orden_id=bulto.orden_id,
             remito_numero=remito_numero,
             codigo_precinto=bulto.precinto.codigo if bulto.precinto else None,
             estado=bulto.estado.nombre,
@@ -81,18 +78,18 @@ class Bulto_Repository:
 
         session.flush()
 
-    def obtener_por_id(self, bulto_id: int | str) -> Bulto | None:
+    def obtener_por_id(self, bulto_id: int) -> Bulto | None:
         """Carga un bulto por su ID y reconstruye la entidad de dominio."""
         session = self._get_session()
-        modelo = session.get(Bulto_Model, int(bulto_id))
+        modelo = session.get(Bulto_Model, bulto_id)
         if modelo is None:
             return None
         return self._reconstruir_bulto(modelo)
 
-    def listar_por_orden(self, orden_id: int | str) -> list[Bulto]:
+    def listar_por_orden(self, orden_id: int) -> list[Bulto]:
         """Obtiene todos los bultos asociados a una orden de reposicion."""
         session = self._get_session()
-        stmt = select(Bulto_Model).where(Bulto_Model.orden_id == int(orden_id)).order_by(Bulto_Model.id.asc())
+        stmt = select(Bulto_Model).where(Bulto_Model.orden_id == orden_id).order_by(Bulto_Model.id.asc())
         modelos = session.scalars(stmt).unique().all()
         return [self._reconstruir_bulto(m) for m in modelos]
 

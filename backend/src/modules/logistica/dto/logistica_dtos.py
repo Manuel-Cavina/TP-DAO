@@ -5,14 +5,14 @@ from pydantic import BaseModel, Field
 class Detalle_Bulto_DTO(BaseModel):
     """DTO para el contenido de un bulto."""
 
-    producto_id: str
+    producto_id: int
     cantidad: int = Field(gt=0, description="Cantidad de unidades del producto")
 
 
 class Historial_Bulto_DTO(BaseModel):
     """DTO para eventos de trazabilidad de un bulto."""
 
-    bulto_id: int | str
+    bulto_id: int
     estado_anterior: str
     estado_nuevo: str
     fecha_hora: str
@@ -30,7 +30,7 @@ class Bulto_DTO(BaseModel):
     """DTO completo de bulto."""
 
     id: int | None = None
-    orden_id: int | str
+    orden_id: int
     estado: str
     precinto: Precinto_DTO | None = None
     detalles: list[Detalle_Bulto_DTO] = []
@@ -40,7 +40,7 @@ class Bulto_DTO(BaseModel):
 class Detalle_Orden_Reposicion_DTO(BaseModel):
     """DTO representativo de un item en la orden de reposicion."""
 
-    producto_id: str
+    producto_id: int
     cantidad_solicitada: int = Field(gt=0)
     cantidad_enviada: int = Field(ge=0, default=0)
 
@@ -49,8 +49,8 @@ class Orden_Reposicion_DTO(BaseModel):
     """DTO para ordenes de reposicion."""
 
     id: int | None = None
-    origen_id: str
-    destino_id: str
+    origen_id: int
+    destino_id: int
     fecha: str
     estado: str
     detalles: list[Detalle_Orden_Reposicion_DTO] = []
@@ -60,8 +60,8 @@ class Remito_DTO(BaseModel):
     """DTO para el documento de remito de despacho."""
 
     numero: str
-    origen_id: str
-    destino_id: str
+    origen_id: int
+    destino_id: int
     fecha_emision: str
     estado: str
     bultos: list[Bulto_DTO] = []
@@ -71,8 +71,8 @@ class Necesidad_Reposicion_DTO(BaseModel):
     """DTO para una necesidad de reposicion detectada."""
 
     id: int | None = None
-    producto_id: str
-    local_id: str
+    producto_id: int
+    local_id: int
     cantidad: int
     estado: str = "PENDIENTE"
     fecha_registro: str | None = None
@@ -82,19 +82,19 @@ class Necesidad_Reposicion_DTO(BaseModel):
 
 
 class Registrar_Necesidad_Request_DTO(BaseModel):
-    producto_id: str
-    local_id: str
+    producto_id: int
+    local_id: int
     cantidad: int = Field(gt=0)
 
 
 class Consolidar_Orden_Request_DTO(BaseModel):
-    local_destino_id: str
-    origen_id: str = "CD-CENTRAL"
+    local_destino_id: int
+    origen_id: int
 
 
 class Crear_Orden_Manual_Request_DTO(BaseModel):
-    origen_id: str
-    destino_id: str
+    origen_id: int
+    destino_id: int
     items: list[Detalle_Bulto_DTO]
 
 
@@ -112,7 +112,7 @@ class Registrar_Precinto_Request_DTO(BaseModel):
 
 class Generar_Remito_Request_DTO(BaseModel):
     numero: str
-    bultos_ids: list[int | str]
+    bultos_ids: list[int]
 
 
 class Verificar_Bulto_Request_DTO(BaseModel):
@@ -130,8 +130,8 @@ class Cierre_Remito_Response_DTO(BaseModel):
 
 
 class Trazabilidad_Bulto_Response_DTO(BaseModel):
-    bulto_id: int | str
-    orden_id: int | str
+    bulto_id: int
+    orden_id: int
     estado_actual: str
     codigo_precinto: str | None = None
     total_items: int

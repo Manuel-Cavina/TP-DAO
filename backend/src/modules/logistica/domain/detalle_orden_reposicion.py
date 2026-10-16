@@ -6,12 +6,12 @@ class Detalle_Orden_Reposicion:
 
     def __init__(
         self,
-        producto_id: str,
+        producto_id: int,
         cantidad_solicitada: int,
         cantidad_enviada: int = 0,
     ) -> None:
-        if not producto_id or not producto_id.strip():
-            raise Orden_Invalida_Exception("El producto no puede estar vacio.")
+        if producto_id <= 0:
+            raise Orden_Invalida_Exception("El ID de producto debe ser positivo.")
         if cantidad_solicitada <= 0:
             raise Orden_Invalida_Exception("La cantidad solicitada debe ser mayor a cero.")
         if cantidad_enviada < 0:
@@ -19,12 +19,12 @@ class Detalle_Orden_Reposicion:
         if cantidad_enviada > cantidad_solicitada:
             raise Orden_Invalida_Exception("La cantidad enviada no puede superar la solicitada.")
 
-        self._producto_id: str = producto_id.strip()
+        self._producto_id: int = producto_id
         self._cantidad_solicitada: int = cantidad_solicitada
         self._cantidad_enviada: int = cantidad_enviada
 
     @property
-    def producto_id(self) -> str:
+    def producto_id(self) -> int:
         return self._producto_id
 
     @property

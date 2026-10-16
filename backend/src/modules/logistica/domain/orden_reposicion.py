@@ -11,47 +11,45 @@ class Orden_Reposicion:
 
     def __init__(
         self,
-        origen_id: str,
-        destino_id: str,
-        id: int | str | None = None,
+        origen_id: int,
+        destino_id: int,
+        id: int | None = None,
         fecha: datetime | None = None,
         estado: str = "PENDIENTE",
         detalles: list[Detalle_Orden_Reposicion] | None = None,
     ) -> None:
-        if not origen_id or not origen_id.strip():
-            raise Orden_Invalida_Exception("El origen de la orden es obligatorio.")
-        if not destino_id or not destino_id.strip():
-            raise Orden_Invalida_Exception("El destino de la orden es obligatorio.")
-        if origen_id.strip() == destino_id.strip():
+        if origen_id <= 0 or destino_id <= 0:
+            raise Orden_Invalida_Exception("El origen y destino de la orden deben ser validos.")
+        if origen_id == destino_id:
             raise Orden_Invalida_Exception("El origen y destino de la orden no pueden ser iguales.")
 
         estado_normalizado = estado.strip().upper()
         if estado_normalizado not in self.ESTADOS_VALIDOS:
             raise Orden_Invalida_Exception(f"Estado de orden invalido: {estado}.")
 
-        self._id: int | str | None = id
-        self._origen_id: str = origen_id.strip()
-        self._destino_id: str = destino_id.strip()
+        self._id: int | None = id
+        self._origen_id: int = origen_id
+        self._destino_id: int = destino_id
         self._fecha: datetime = fecha if fecha is not None else datetime.now()
         self._estado: str = estado_normalizado
         self._detalles: list[Detalle_Orden_Reposicion] = list(detalles) if detalles else []
 
     @property
-    def id(self) -> int | str | None:
+    def id(self) -> int | None:
         return self._id
 
     @id.setter
-    def id(self, valor: int | str) -> None:
+    def id(self, valor: int) -> None:
         if self._id is not None:
             raise Orden_Invalida_Exception("No se puede reasignar el identificador de la orden.")
         self._id = valor
 
     @property
-    def origen_id(self) -> str:
+    def origen_id(self) -> int:
         return self._origen_id
 
     @property
-    def destino_id(self) -> str:
+    def destino_id(self) -> int:
         return self._destino_id
 
     @property

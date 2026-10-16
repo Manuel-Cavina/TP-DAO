@@ -292,7 +292,29 @@ Para una operación compuesta, todos los repositories de la misma petición usan
 
 ---
 
-## 📝 10. Checklist antes de hacer Commit / Push
+## 🤝 10. Convención única aplicada a los módulos
+
+Catálogo, Ubicaciones/Stock y Logística se implementan con el mismo flujo:
+`API → Service → Repository → ORM`. Cada capa conserva una responsabilidad y no
+salta a otra, incluso cuando una operación usa otro módulo.
+
+- La API recibe DTOs tipados, delega en un service y deja que los handlers globales
+  traduzcan los errores de negocio. No crea entidades, repositories ni sesiones.
+- El service expresa el caso de uso, valida reglas y llama contratos públicos de
+  otros módulos. No conoce `Session`, `sqlite3`, SQL ni transacciones.
+- El repository obtiene la sesión activa desde `Request_Session_Context`, usa ORM y
+  `flush` para IDs. No acepta conexiones o sesiones en su API pública ni hace
+  `commit`, `rollback` o `close`.
+- Las entidades y patrones de dominio conservan las invariantes; los DTOs y mappers
+  sólo trasladan datos. Las excepciones de negocio se definen en el módulo dueño.
+- Las operaciones cruzadas (producto-stock, remito-stock y venta-stock) comparten la
+  transacción HTTP vigente y se confirman o revierten completas.
+
+Esta es la convención obligatoria para módulos nuevos y para cualquier corrección
+posterior; no se agregan adaptadores SQLite, mocks productivos ni rutas de escritura
+paralelas.
+
+## 📝 11. Checklist antes de hacer Commit / Push
 
 - [ ] ¿El código se ejecuta sin errores?
 - [ ] ¿Los nombres respetan la sección 3 (`Pascal_Snake_Case` para clases, `snake_case` para el resto)?

@@ -20,7 +20,7 @@ class TestRemitoYOrden(unittest.TestCase):
     """Pruebas unitarias para las entidades Remito y Orden_Reposicion."""
 
     def test_orden_reposicion_control_cantidades(self) -> None:
-        detalle = Detalle_Orden_Reposicion(producto_id="P1", cantidad_solicitada=10)
+        detalle = Detalle_Orden_Reposicion(producto_id=1, cantidad_solicitada=10)
         detalle.registrar_envio(4)
         self.assertEqual(detalle.cantidad_enviada, 4)
 
@@ -29,8 +29,8 @@ class TestRemitoYOrden(unittest.TestCase):
             detalle.registrar_envio(7)
 
     def test_orden_reposicion_ciclo_estados(self) -> None:
-        orden = Orden_Reposicion(origen_id="CD-CENTRAL", destino_id="LOCAL-01", id=1)
-        orden.agregar_detalle(Detalle_Orden_Reposicion("P1", 10))
+        orden = Orden_Reposicion(origen_id=1, destino_id=2, id=1)
+        orden.agregar_detalle(Detalle_Orden_Reposicion(1, 10))
         self.assertEqual(orden.estado, "PENDIENTE")
 
         orden.iniciar_preparacion()
@@ -43,13 +43,13 @@ class TestRemitoYOrden(unittest.TestCase):
         self.assertEqual(orden.estado, "CERRADA")
 
     def test_remito_no_permite_despachar_con_bulto_no_precintado(self) -> None:
-        bulto1 = Bulto(id=1, orden_id=10, detalles=[Detalle_Bulto("P1", 5)])
+        bulto1 = Bulto(id=1, orden_id=10, detalles=[Detalle_Bulto(1, 5)])
         bulto1.precintar(Precinto("PREC-1"))
 
-        bulto2 = Bulto(id=2, orden_id=10, detalles=[Detalle_Bulto("P1", 5)])
+        bulto2 = Bulto(id=2, orden_id=10, detalles=[Detalle_Bulto(1, 5)])
         # bulto2 queda en PREPARADO
 
-        remito = Remito(numero="REM-0001", origen_id="CD-CENTRAL", destino_id="LOCAL-01")
+        remito = Remito(numero="REM-0001", origen_id=1, destino_id=2)
         remito.agregar_bulto(bulto1)
 
         # No se puede agregar bulto en preparacion
@@ -57,10 +57,10 @@ class TestRemitoYOrden(unittest.TestCase):
             remito.agregar_bulto(bulto2)
 
     def test_remito_despacho_y_cierre_exitoso(self) -> None:
-        bulto1 = Bulto(id=1, orden_id=10, detalles=[Detalle_Bulto("P1", 5)])
+        bulto1 = Bulto(id=1, orden_id=10, detalles=[Detalle_Bulto(1, 5)])
         bulto1.precintar(Precinto("PREC-1"))
 
-        remito = Remito(numero="REM-0001", origen_id="CD-CENTRAL", destino_id="LOCAL-01", bultos=[bulto1])
+        remito = Remito(numero="REM-0001", origen_id=1, destino_id=2, bultos=[bulto1])
         remito.despachar()
         self.assertEqual(remito.estado, "DESPACHADO")
         self.assertEqual(bulto1.estado.nombre, "EN_TRANSITO")

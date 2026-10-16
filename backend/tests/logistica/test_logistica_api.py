@@ -6,6 +6,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from bootstrap.application_factory import Application_Factory
 from config.database.database_engine_singleton import Database_Engine_Singleton
@@ -22,6 +23,17 @@ class TestLogisticaAPI(unittest.TestCase):
 
         self.app = Application_Factory.crear_aplicacion(database_url=self.db_url)
         self.client = TestClient(self.app)
+        session = Database_Engine_Singleton.obtener_session_factory().crear_sesion()
+        session.execute(text("INSERT INTO categorias (id, nombre) VALUES (1, 'General')"))
+        session.execute(text("INSERT INTO proveedores (id, cuit, razon_social, telefono, email, activo) VALUES (1, '20123456789', 'Proveedor', '123', 'proveedor@example.com', 1)"))
+        session.execute(text("INSERT INTO productos (id, codigo, nombre, precio_venta, costo_unitario, categoria_id, proveedor_id, activo) VALUES (1, 'PROD-10', 'Producto', 100, 50, 1, 1, 1)"))
+        session.execute(text("INSERT INTO ubicaciones (id, tipo, nombre, direccion, telefono, activo) VALUES (1, 'CD', 'CD', 'Calle 1', NULL, 1), (2, 'LOCAL', 'Local Sur', 'Calle 2', '456', 1)"))
+        session.execute(text("INSERT INTO stocks (producto_id, ubicacion_id, cantidad_disponible, cantidad_en_transito, nivel_minimo_existencia) VALUES (1, 1, 20, 0, 1), (1, 2, 0, 0, 1)"))
+        session.commit()
+        self.producto_id = 1
+        self.cd_id = 1
+        self.local_id = 2
+        session.close()
 
     def tearDown(self) -> None:
         try:
@@ -44,18 +56,18 @@ class TestLogisticaAPI(unittest.TestCase):
         # 1. Registrar necesidades y listar
         res_nec = self.client.post(
             "/api/logistica/necesidades",
-            json={"producto_id": "PROD-10", "local_id": "LOCAL-SUR", "cantidad": 8},
+            json={"producto_id": self.producto_id, "local_id": self.local_id, "cantidad": 8},
         )
         self.assertEqual(res_nec.status_code, 201)
 
-        res_list_nec = self.client.get("/api/logistica/necesidades?local_id=LOCAL-SUR")
+        res_list_nec = self.client.get(f"/api/logistica/necesidades?local_id={self.local_id}")
         self.assertEqual(res_list_nec.status_code, 200)
         self.assertEqual(len(res_list_nec.json()), 1)
 
         # 2. Consolidar en Orden de Reposicion
         res_cons = self.client.post(
             "/api/logistica/ordenes/consolidar",
-            json={"local_destino_id": "LOCAL-SUR", "origen_id": "CD-CENTRAL"},
+            json={"local_destino_id": self.local_id, "origen_id": self.cd_id},
         )
         self.assertEqual(res_cons.status_code, 201)
         orden = res_cons.json()
@@ -65,7 +77,7 @@ class TestLogisticaAPI(unittest.TestCase):
         # 3. Empaquetar bulto
         res_bulto = self.client.post(
             f"/api/logistica/ordenes/{orden_id}/bultos",
-            json={"items": [{"producto_id": "PROD-10", "cantidad": 8}]},
+            json={"items": [{"producto_id": self.producto_id, "cantidad": 8}]},
         )
         self.assertEqual(res_bulto.status_code, 201)
         bulto = res_bulto.json()

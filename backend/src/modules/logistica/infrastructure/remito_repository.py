@@ -1,5 +1,4 @@
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from config.database.request_session_context import Request_Session_Context
 from modules.logistica.domain.remito import Remito
@@ -10,20 +9,16 @@ from modules.logistica.infrastructure.models import Bulto_Model, Remito_Model
 class Remito_Repository:
     """Repositorio ORM para persistir y recuperar remitos de despacho."""
 
-    def __init__(
-        self,
-        bulto_repository: Bulto_Repository | None = None,
-        session: Session | None = None,
-    ) -> None:
-        self._session = session
+    def __init__(self, bulto_repository: Bulto_Repository | None = None) -> None:
         self._bulto_repository = (
             bulto_repository
             if bulto_repository is not None
-            else Bulto_Repository(session=self._session)
+            else Bulto_Repository()
         )
 
-    def _get_session(self) -> Session:
-        return self._session if self._session is not None else Request_Session_Context.obtener_sesion()
+    @staticmethod
+    def _get_session():
+        return Request_Session_Context.obtener_sesion()
 
     def guardar(self, remito: Remito) -> Remito:
         """Inserta un remito y asocia los bultos incluidos en la misma sesion."""

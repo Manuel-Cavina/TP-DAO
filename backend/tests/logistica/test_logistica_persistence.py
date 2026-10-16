@@ -8,6 +8,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from config.database.base import Base
+from config.database.model_registry import cargar_modelos
+from config.database.request_session_context import Request_Session_Context
+cargar_modelos()
 from modules.logistica.domain.bulto import Bulto
 from modules.logistica.domain.detalle_bulto import Detalle_Bulto
 from modules.logistica.domain.detalle_orden_reposicion import Detalle_Orden_Reposicion
@@ -23,6 +26,8 @@ from modules.logistica.infrastructure import (
     Precinto_Repository,
     Remito_Repository,
 )
+from modules.ubicaciones_stock.domain.ubicacion import Ubicacion
+from modules.ubicaciones_stock.domain.stock import Stock
 
 
 class TestLogisticaPersistence(unittest.TestCase):
@@ -33,15 +38,17 @@ class TestLogisticaPersistence(unittest.TestCase):
         Base.metadata.create_all(self.engine)
         self.session_factory = sessionmaker(bind=self.engine)
         self.session: Session = self.session_factory()
+        self.token = Request_Session_Context.establecer_sesion(self.session)
 
-        self.precinto_repo = Precinto_Repository(session=self.session)
-        self.historial_repo = Historial_Bulto_Repository(session=self.session)
-        self.bulto_repo = Bulto_Repository(session=self.session)
-        self.orden_repo = Orden_Reposicion_Repository(session=self.session)
-        self.remito_repo = Remito_Repository(bulto_repository=self.bulto_repo, session=self.session)
-        self.necesidad_repo = Necesidad_Reposicion_Repository(session=self.session)
+        self.precinto_repo = Precinto_Repository()
+        self.historial_repo = Historial_Bulto_Repository()
+        self.bulto_repo = Bulto_Repository()
+        self.orden_repo = Orden_Reposicion_Repository()
+        self.remito_repo = Remito_Repository(bulto_repository=self.bulto_repo)
+        self.necesidad_repo = Necesidad_Reposicion_Repository()
 
     def tearDown(self) -> None:
+        Request_Session_Context.restablecer(self.token)
         self.session.close()
         self.engine.dispose()
 
@@ -60,11 +67,11 @@ class TestLogisticaPersistence(unittest.TestCase):
 
     def test_orden_reposicion_persistencia(self) -> None:
         orden = Orden_Reposicion(
-            origen_id="CD-CENTRAL",
-            destino_id="LOCAL-NORTE",
+            origen_id=1,
+            destino_id=2,
             detalles=[
-                Detalle_Orden_Reposicion("PROD-01", 20),
-                Detalle_Orden_Reposicion("PROD-02", 15),
+                Detalle_Orden_Reposicion(1, 20),
+                Detalle_Orden_Reposicion(2, 15),
             ],
         )
         self.orden_repo.guardar(orden)
@@ -72,8 +79,8 @@ class TestLogisticaPersistence(unittest.TestCase):
 
         recuperada = self.orden_repo.obtener_por_id(orden.id)
         self.assertIsNotNone(recuperada)
-        self.assertEqual(recuperada.origen_id, "CD-CENTRAL")
-        self.assertEqual(recuperada.destino_id, "LOCAL-NORTE")
+        self.assertEqual(recuperada.origen_id, 1)
+        self.assertEqual(recuperada.destino_id, 2)
         self.assertEqual(len(recuperada.detalles), 2)
         self.assertEqual(recuperada.detalles[0].cantidad_solicitada, 20)
 
@@ -88,7 +95,7 @@ class TestLogisticaPersistence(unittest.TestCase):
 
     def test_bulto_persistencia_con_transiciones_e_historial(self) -> None:
         # 1. Crear y guardar orden base
-        orden = Orden_Reposicion(origen_id="CD-CENTRAL", destino_id="LOCAL-01")
+        orden = Orden_Reposicion(origen_id=1, destino_id=2)
         self.orden_repo.guardar(orden)
 
         # 2. Precinto
@@ -98,7 +105,7 @@ class TestLogisticaPersistence(unittest.TestCase):
         # 3. Bulto con contenido
         bulto = Bulto(
             orden_id=orden.id,
-            detalles=[Detalle_Bulto("PROD-01", 5), Detalle_Bulto("PROD-02", 3)],
+            detalles=[Detalle_Bulto(1, 5), Detalle_Bulto(2, 3)],
         )
         self.bulto_repo.guardar(bulto)
         self.assertIsNotNone(bulto.id)
@@ -128,20 +135,20 @@ class TestLogisticaPersistence(unittest.TestCase):
         )
 
     def test_remito_persistencia_con_bultos(self) -> None:
-        orden = Orden_Reposicion(origen_id="CD-CENTRAL", destino_id="LOCAL-01")
+        orden = Orden_Reposicion(origen_id=1, destino_id=2)
         self.orden_repo.guardar(orden)
 
         precinto = Precinto("PREC-999")
         self.precinto_repo.guardar(precinto)
 
-        bulto = Bulto(orden_id=orden.id, detalles=[Detalle_Bulto("PROD-01", 10)])
+        bulto = Bulto(orden_id=orden.id, detalles=[Detalle_Bulto(1, 10)])
         bulto.precintar(precinto)
         self.bulto_repo.guardar(bulto)
 
         remito = Remito(
             numero="REM-1001",
-            origen_id="CD-CENTRAL",
-            destino_id="LOCAL-01",
+            origen_id=1,
+            destino_id=2,
             bultos=[bulto],
         )
         self.remito_repo.guardar(remito)
@@ -153,17 +160,17 @@ class TestLogisticaPersistence(unittest.TestCase):
         self.assertEqual(recuperado.bultos[0].id, bulto.id)
 
     def test_necesidades_reposicion_no_duplica(self) -> None:
-        id1 = self.necesidad_repo.registrar("PROD-01", "LOCAL-01", 10)
+        id1 = self.necesidad_repo.registrar(1, 2, 10)
         self.assertIsNotNone(id1)
 
-        id2 = self.necesidad_repo.registrar("PROD-01", "LOCAL-01", 5)
+        id2 = self.necesidad_repo.registrar(1, 2, 5)
         self.assertIsNone(id2)
 
-        pendientes = self.necesidad_repo.listar_pendientes("LOCAL-01")
+        pendientes = self.necesidad_repo.listar_pendientes(2)
         self.assertEqual(len(pendientes), 1)
 
         self.necesidad_repo.consolidar_en_orden([id1], 100)
-        pendientes_despues = self.necesidad_repo.listar_pendientes("LOCAL-01")
+        pendientes_despues = self.necesidad_repo.listar_pendientes(2)
         self.assertEqual(len(pendientes_despues), 0)
 
 

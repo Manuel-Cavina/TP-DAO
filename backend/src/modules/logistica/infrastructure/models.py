@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from config.database.base import Base
@@ -21,8 +21,8 @@ class Orden_Reposicion_Model(Base):
     __tablename__ = "ordenes_reposicion"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    origen_id = Column(String(50), nullable=False)
-    destino_id = Column(String(50), nullable=False)
+    origen_id = Column(Integer, ForeignKey("ubicaciones.id"), nullable=False)
+    destino_id = Column(Integer, ForeignKey("ubicaciones.id"), nullable=False)
     fecha = Column(DateTime, nullable=False, default=datetime.now)
     estado = Column(String(20), nullable=False, default="PENDIENTE")
 
@@ -42,7 +42,7 @@ class Detalle_Orden_Reposicion_Model(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     orden_id = Column(Integer, ForeignKey("ordenes_reposicion.id", ondelete="CASCADE"), nullable=False)
-    producto_id = Column(String(50), nullable=False)
+    producto_id = Column(Integer, ForeignKey("productos.id"), nullable=False)
     cantidad_solicitada = Column(Integer, nullable=False)
     cantidad_enviada = Column(Integer, nullable=False, default=0)
 
@@ -55,8 +55,8 @@ class Remito_Model(Base):
     __tablename__ = "remitos"
 
     numero = Column(String(50), primary_key=True)
-    origen_id = Column(String(50), nullable=False)
-    destino_id = Column(String(50), nullable=False)
+    origen_id = Column(Integer, ForeignKey("ubicaciones.id"), nullable=False)
+    destino_id = Column(Integer, ForeignKey("ubicaciones.id"), nullable=False)
     fecha_emision = Column(DateTime, nullable=False, default=datetime.now)
     estado = Column(String(20), nullable=False, default="EMITIDO")
 
@@ -99,7 +99,7 @@ class Detalle_Bulto_Model(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     bulto_id = Column(Integer, ForeignKey("bultos.id", ondelete="CASCADE"), nullable=False)
-    producto_id = Column(String(50), nullable=False)
+    producto_id = Column(Integer, ForeignKey("productos.id"), nullable=False)
     cantidad = Column(Integer, nullable=False)
 
     bulto = relationship("Bulto_Model", back_populates="detalles")
@@ -126,8 +126,10 @@ class Necesidad_Reposicion_Model(Base):
     __tablename__ = "necesidades_reposicion"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    producto_id = Column(String(50), nullable=False)
-    local_id = Column(String(50), nullable=False)
+    __table_args__ = (UniqueConstraint("producto_id", "local_id", "estado", name="uq_necesidad_reposicion_pendiente"),)
+
+    producto_id = Column(Integer, ForeignKey("productos.id"), nullable=False)
+    local_id = Column(Integer, ForeignKey("ubicaciones.id"), nullable=False)
     cantidad = Column(Integer, nullable=False)
     estado = Column(String(20), nullable=False, default="PENDIENTE")
     orden_id = Column(Integer, ForeignKey("ordenes_reposicion.id"), nullable=True)

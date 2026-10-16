@@ -95,7 +95,7 @@ def registrar_necesidad(
     summary="Listar necesidades pendientes",
 )
 def listar_necesidades(
-    local_id: str | None = Query(None, description="Filtrar por local destino"),
+    local_id: int | None = Query(None, description="Filtrar por local destino"),
     service: Reposicion_Service = Depends(get_reposicion_service),
 ) -> list[Necesidad_Reposicion_DTO]:
     pendientes = service.listar_necesidades_pendientes(local_id)

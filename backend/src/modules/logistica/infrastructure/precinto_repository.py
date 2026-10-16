@@ -1,4 +1,3 @@
-from sqlalchemy.orm import Session
 
 from config.database.request_session_context import Request_Session_Context
 from modules.logistica.domain.precinto import Precinto
@@ -8,11 +7,9 @@ from modules.logistica.infrastructure.models import Precinto_Model
 class Precinto_Repository:
     """Repositorio ORM para persistencia y consulta de precintos."""
 
-    def __init__(self, session: Session | None = None) -> None:
-        self._session = session
-
-    def _get_session(self) -> Session:
-        return self._session if self._session is not None else Request_Session_Context.obtener_sesion()
+    @staticmethod
+    def _get_session():
+        return Request_Session_Context.obtener_sesion()
 
     def guardar(self, precinto: Precinto, utilizado: bool = False) -> None:
         """Persiste un nuevo precinto en la base de datos."""

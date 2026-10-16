@@ -29,21 +29,21 @@ class Reposicion_Service:
 
     def registrar_necesidad(
         self,
-        producto_id: str,
-        local_id: str,
+        producto_id: int,
+        local_id: int,
         cantidad: int,
     ) -> int | None:
         """Contrato oficial usado por el Observer de Stock y cargas manuales."""
         return self._necesidad_repository.registrar(producto_id, local_id, cantidad)
 
     def listar_necesidades_pendientes(
-        self, local_id: str | None = None
+        self, local_id: int | None = None
     ) -> list[dict[str, Any]]:
         """Lista las necesidades pendientes generadas para un local o todos."""
         return self._necesidad_repository.listar_pendientes(local_id)
 
     def consolidar_necesidades_en_orden(
-        self, local_destino_id: str, origen_id: str = "CD-CENTRAL"
+        self, local_destino_id: int, origen_id: int
     ) -> Orden_Reposicion:
         """Consolida las necesidades pendientes de un local en una Orden_Reposicion (P3)."""
         pendientes = self._necesidad_repository.listar_pendientes(local_destino_id)
@@ -52,7 +52,7 @@ class Reposicion_Service:
                 f"No existen necesidades pendientes para consolidar hacia el local '{local_destino_id}'."
             )
 
-        acumulados: dict[str, int] = defaultdict(int)
+        acumulados: dict[int, int] = defaultdict(int)
         necesidad_ids: list[int] = []
 
         for p in pendientes:
@@ -79,7 +79,7 @@ class Reposicion_Service:
         return orden_guardada
 
     def crear_orden_manual(
-        self, origen_id: str, destino_id: str, items: list[dict[str, Any]]
+        self, origen_id: int, destino_id: int, items: list[dict[str, Any]]
     ) -> Orden_Reposicion:
         """Permite cargar una orden de reposicion de forma manual."""
         if not items:
@@ -98,7 +98,7 @@ class Reposicion_Service:
         )
         return self._orden_repository.guardar(orden)
 
-    def obtener_orden(self, orden_id: int | str) -> Orden_Reposicion:
+    def obtener_orden(self, orden_id: int) -> Orden_Reposicion:
         """Obtiene una orden de reposicion por su identificador."""
         orden = self._orden_repository.obtener_por_id(orden_id)
         if orden is None:

@@ -1,9 +1,6 @@
 from typing import Any
 
-from modules.logistica.application.stock_service_contract import (
-    Mock_Stock_Service,
-    Stock_Service_Contract,
-)
+from modules.logistica.application.stock_service_contract import Stock_Service_Contract
 from modules.logistica.domain.bulto import Bulto
 from modules.logistica.domain.detalle_bulto import Detalle_Bulto
 from modules.logistica.domain.exceptions import (
@@ -47,7 +44,11 @@ class Empaquetado_Service:
             if remito_repository is not None
             else Remito_Repository(self._bulto_repository)
         )
-        self._stock_service = stock_service if stock_service is not None else Mock_Stock_Service()
+        if stock_service is None:
+            from modules.ubicaciones_stock.application.stock_service import Stock_Service
+
+            stock_service = Stock_Service()
+        self._stock_service = stock_service
 
     def registrar_precinto(self, codigo: str) -> Precinto:
         """Da de alta un precinto nuevo en la base de datos."""
@@ -59,7 +60,7 @@ class Empaquetado_Service:
         return precinto
 
     def crear_bulto(
-        self, orden_id: int | str, items: list[dict[str, Any]]
+        self, orden_id: int, items: list[dict[str, Any]]
     ) -> Bulto:
         """Arma un bulto en preparacion reservando el stock del Centro de Distribucion."""
         if not items:
@@ -102,7 +103,7 @@ class Empaquetado_Service:
 
         return bulto_guardado
 
-    def precintar_bulto(self, bulto_id: int | str, codigo_precinto: str) -> Bulto:
+    def precintar_bulto(self, bulto_id: int, codigo_precinto: str) -> Bulto:
         """Asigna un precinto valido al bulto y transiciona a PRECINTADO."""
         bulto = self._bulto_repository.obtener_por_id(bulto_id)
         if bulto is None:
@@ -124,7 +125,7 @@ class Empaquetado_Service:
         return bulto
 
     def generar_remito(
-        self, numero: str, orden_id: int | str, bultos_ids: list[int | str]
+        self, numero: str, orden_id: int, bultos_ids: list[int]
     ) -> Remito:
         """Genera un remito agrupando bultos precintados de una orden."""
         if not bultos_ids:
@@ -139,7 +140,7 @@ class Empaquetado_Service:
             b = self._bulto_repository.obtener_por_id(bid)
             if b is None:
                 raise Remito_Incompleto_Exception(f"No se encontro el bulto {bid}.")
-            if str(b.orden_id) != str(orden_id):
+            if b.orden_id != orden_id:
                 raise Remito_Incompleto_Exception(
                     f"El bulto {bid} no pertenece a la orden {orden_id}."
                 )
@@ -157,13 +158,13 @@ class Empaquetado_Service:
         )
         return self._remito_repository.guardar(remito)
 
-    def obtener_bulto(self, bulto_id: int | str) -> Bulto:
+    def obtener_bulto(self, bulto_id: int) -> Bulto:
         """Obtiene un bulto por su identificador."""
         bulto = self._bulto_repository.obtener_por_id(bulto_id)
         if bulto is None:
             raise Orden_Invalida_Exception(f"No se encontro el bulto con ID {bulto_id}.")
         return bulto
 
-    def listar_bultos_por_orden(self, orden_id: int | str) -> list[Bulto]:
+    def listar_bultos_por_orden(self, orden_id: int) -> list[Bulto]:
         """Lista los bultos pertenecientes a una orden."""
         return self._bulto_repository.listar_por_orden(orden_id)
