@@ -10,8 +10,9 @@ from config.api.exception_handlers import registrar_manejadores_excepciones
 from config.api.router_registry import registrar_routers
 from config.database.base import Base
 from config.database.database_engine_singleton import Database_Engine_Singleton
-from config.database.legacy_schema_initializer import inicializar_esquema_heredado
 from config.database.model_registry import cargar_modelos
+from modules.logistica.application import Registro_Necesidad_Desde_Stock
+from modules.ubicaciones_stock.application import Registro_Observadores_Stock, Reposicion_Local_Observer
 
 
 class Application_Factory:
@@ -23,7 +24,7 @@ class Application_Factory:
         engine = Database_Engine_Singleton.obtener_instancia(database_url)
         cargar_modelos()
         Base.metadata.create_all(engine)
-        inicializar_esquema_heredado(engine)
+        Application_Factory._suscribir_observadores_de_stock()
 
         app = FastAPI(
             title="ERP Monolito Modular - Distribución y Ventas",
@@ -41,6 +42,16 @@ class Application_Factory:
         registrar_manejadores_excepciones(app)
         registrar_routers(app)
         return app
+
+    @staticmethod
+    def _suscribir_observadores_de_stock() -> None:
+        """Composition root del Observer: logística recibe las necesidades de reposición de los locales.
+
+        Se arma aquí para que ubicaciones_stock no dependa de logística.
+        """
+        Registro_Observadores_Stock.configurar(
+            [lambda: Reposicion_Local_Observer(Registro_Necesidad_Desde_Stock())]
+        )
 
     @staticmethod
     def _origenes_cors() -> list[str]:

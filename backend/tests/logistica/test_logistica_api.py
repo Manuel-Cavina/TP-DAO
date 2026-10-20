@@ -1,6 +1,6 @@
 """Flujo HTTP real CD -> local -> venta: logistica mueve el stock que despues vende ventas_caja.
 
-Cubre P3 a P7 con el stock de schema.sql (sin mocks): V1 (solo se acredita lo verificado),
+Cubre P3 a P7 con el Stock_Service real (sin mocks): V1 (solo se acredita lo verificado),
 V2 (trazabilidad) y V3 (no se vende lo que no llego verificado).
 """
 

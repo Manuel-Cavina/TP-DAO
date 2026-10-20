@@ -1,8 +1,8 @@
 """Modelos ORM de logistica.
 
 producto_id, origen_id, destino_id y local_id son enteros que referencian a
-productos y ubicaciones de Integrante 1 (schema.sql). No declaran FK: esas tablas
-se crean despues del create_all del ORM y una FK hacia ellas romperia el arranque.
+productos y ubicaciones de Integrante 1. No declaran FK para no acoplar el esquema
+de logistica al de otro modulo; la integridad la validan los servicios de Integrante 1.
 """
 
 from datetime import datetime

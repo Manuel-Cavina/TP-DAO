@@ -24,6 +24,7 @@ ESPERADOS = {
     "Entidad_Duplicada_Exception": 409,
     "Remito_Duplicado_Exception": 409,
     "Precinto_Duplicado_Exception": 409,
+    "Centro_Distribucion_Duplicado_Exception": 409,
 }
 
 
