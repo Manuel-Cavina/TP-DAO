@@ -62,7 +62,12 @@ class Stock_Service(Inicializador_Stock_Contract):
         return stock
 
     def actualizar_nivel_minimo(self, producto_id: int, ubicacion_id: int, nivel_minimo_existencia: int) -> Stock:
-        stock = self.consultar_stock(producto_id, ubicacion_id)
+        # Con lock: si una venta o un despacho corre a la vez, no se pisan sus cantidades.
+        stock = self._repository.obtener_para_actualizar(producto_id, ubicacion_id)
+        if stock is None:
+            raise Entidad_No_Encontrada_Exception(
+                f"No existe stock del producto {producto_id} en la ubicación {ubicacion_id}."
+            )
         self._suscribir_observadores(stock)
         stock.actualizar_nivel_minimo(nivel_minimo_existencia)
         self._repository.actualizar(stock)
