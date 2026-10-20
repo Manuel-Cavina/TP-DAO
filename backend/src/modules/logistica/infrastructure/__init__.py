@@ -22,6 +22,7 @@ from modules.logistica.infrastructure.orden_reposicion_repository import (
 )
 from modules.logistica.infrastructure.precinto_repository import Precinto_Repository
 from modules.logistica.infrastructure.remito_repository import Remito_Repository
+from modules.logistica.infrastructure.stock_logistica_adapter import Stock_Logistica_Adapter
 
 __all__ = [
     "Bulto_Repository",
@@ -30,6 +31,7 @@ __all__ = [
     "Orden_Reposicion_Repository",
     "Precinto_Repository",
     "Remito_Repository",
+    "Stock_Logistica_Adapter",
     "Bulto_Model",
     "Detalle_Bulto_Model",
     "Detalle_Orden_Reposicion_Model",

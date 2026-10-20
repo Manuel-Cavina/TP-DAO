@@ -14,10 +14,16 @@ from modules.logistica.domain.estado_bulto import (
     crear_estado_bulto_desde_string,
 )
 from modules.logistica.domain.exceptions import (
+    Bulto_Invalido_Exception,
+    Bulto_No_Encontrado_Exception,
     Bulto_Vacio_Exception,
     Orden_Invalida_Exception,
+    Orden_No_Encontrada_Exception,
+    Precinto_Duplicado_Exception,
     Precinto_Invalido_Exception,
+    Remito_Duplicado_Exception,
     Remito_Incompleto_Exception,
+    Remito_No_Encontrado_Exception,
     Transicion_Estado_Invalida_Exception,
 )
 from modules.logistica.domain.historial_bulto import Historial_Bulto
@@ -46,4 +52,10 @@ __all__ = [
     "Bulto_Vacio_Exception",
     "Remito_Incompleto_Exception",
     "Orden_Invalida_Exception",
+    "Bulto_Invalido_Exception",
+    "Bulto_No_Encontrado_Exception",
+    "Orden_No_Encontrada_Exception",
+    "Precinto_Duplicado_Exception",
+    "Remito_Duplicado_Exception",
+    "Remito_No_Encontrado_Exception",
 ]

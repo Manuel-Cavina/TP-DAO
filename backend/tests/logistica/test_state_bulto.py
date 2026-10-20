@@ -27,7 +27,7 @@ class TestStateBulto(unittest.TestCase):
 
     def setUp(self) -> None:
         self.bulto = Bulto(id=1, orden_id=10)
-        self.detalle = Detalle_Bulto(producto_id="PROD-001", cantidad=5)
+        self.detalle = Detalle_Bulto(producto_id=1, cantidad=5)
         self.precinto_valido = Precinto(codigo="PREC-12345", esta_intacto=True)
 
     def test_estado_inicial_es_preparado(self) -> None:
@@ -134,7 +134,7 @@ class TestStateBulto(unittest.TestCase):
         self.bulto.agregar_detalle(self.detalle)
         self.bulto.precintar(self.precinto_valido)
         with self.assertRaises(Transicion_Estado_Invalida_Exception):
-            self.bulto.agregar_detalle(Detalle_Bulto("PROD-002", 10))
+            self.bulto.agregar_detalle(Detalle_Bulto(2, 10))
 
 
 if __name__ == "__main__":

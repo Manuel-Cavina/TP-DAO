@@ -1,6 +1,8 @@
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from config.database.request_session_context import Request_Session_Context
+from modules.logistica.domain.exceptions import Precinto_Duplicado_Exception
 from modules.logistica.domain.precinto import Precinto
 from modules.logistica.infrastructure.models import Precinto_Model
 
@@ -8,11 +10,8 @@ from modules.logistica.infrastructure.models import Precinto_Model
 class Precinto_Repository:
     """Repositorio ORM para persistencia y consulta de precintos."""
 
-    def __init__(self, session: Session | None = None) -> None:
-        self._session = session
-
     def _get_session(self) -> Session:
-        return self._session if self._session is not None else Request_Session_Context.obtener_sesion()
+        return Request_Session_Context.obtener_sesion()
 
     def guardar(self, precinto: Precinto, utilizado: bool = False) -> None:
         """Persiste un nuevo precinto en la base de datos."""
@@ -23,7 +22,12 @@ class Precinto_Repository:
             utilizado=utilizado,
         )
         session.add(modelo)
-        session.flush()
+        try:
+            session.flush()
+        except IntegrityError as error:
+            # Sin SAVEPOINT: la peticion termina en error y el middleware revierte la transaccion.
+            # Alta simultanea del mismo codigo: la PK lo detecta y se informa como 409.
+            raise Precinto_Duplicado_Exception(f"El precinto '{precinto.codigo}' ya esta registrado.") from error
 
     def obtener_por_codigo(self, codigo: str) -> Precinto | None:
         """Obtiene un precinto por su identificador unico."""

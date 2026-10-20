@@ -6,20 +6,21 @@ class Historial_Bulto:
 
     def __init__(
         self,
-        bulto_id: int | str,
+        bulto_id: int | None,
         estado_anterior: str,
         estado_nuevo: str,
         fecha_hora: datetime | None = None,
         observacion: str = "",
     ) -> None:
-        self._bulto_id: int | str = bulto_id
+        self._bulto_id: int | None = bulto_id
         self._estado_anterior: str = estado_anterior
         self._estado_nuevo: str = estado_nuevo
         self._fecha_hora: datetime = fecha_hora if fecha_hora is not None else datetime.now()
         self._observacion: str = observacion
 
     @property
-    def bulto_id(self) -> int | str:
+    def bulto_id(self) -> int | None:
+        """Es None mientras el bulto no fue persistido."""
         return self._bulto_id
 
     @property

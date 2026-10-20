@@ -12,17 +12,17 @@ class Remito:
     def __init__(
         self,
         numero: str,
-        origen_id: str,
-        destino_id: str,
+        origen_id: int,
+        destino_id: int,
         bultos: list[Bulto] | None = None,
         fecha_emision: datetime | None = None,
         estado: str = "EMITIDO",
     ) -> None:
         if not numero or not numero.strip():
             raise Remito_Incompleto_Exception("El numero de remito no puede estar vacio.")
-        if not origen_id or not origen_id.strip():
+        if not isinstance(origen_id, int) or origen_id <= 0:
             raise Remito_Incompleto_Exception("El origen del remito es obligatorio.")
-        if not destino_id or not destino_id.strip():
+        if not isinstance(destino_id, int) or destino_id <= 0:
             raise Remito_Incompleto_Exception("El destino del remito es obligatorio.")
 
         estado_normalizado = estado.strip().upper()
@@ -30,8 +30,8 @@ class Remito:
             raise Remito_Incompleto_Exception(f"Estado de remito invalido: {estado}.")
 
         self._numero: str = numero.strip()
-        self._origen_id: str = origen_id.strip()
-        self._destino_id: str = destino_id.strip()
+        self._origen_id: int = origen_id
+        self._destino_id: int = destino_id
         self._fecha_emision: datetime = fecha_emision if fecha_emision is not None else datetime.now()
         self._estado: str = estado_normalizado
         self._bultos: list[Bulto] = list(bultos) if bultos else []
@@ -41,11 +41,11 @@ class Remito:
         return self._numero
 
     @property
-    def origen_id(self) -> str:
+    def origen_id(self) -> int:
         return self._origen_id
 
     @property
-    def destino_id(self) -> str:
+    def destino_id(self) -> int:
         return self._destino_id
 
     @property

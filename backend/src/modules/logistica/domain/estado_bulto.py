@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from modules.logistica.domain.exceptions import (
@@ -18,6 +18,7 @@ class Estado_Bulto(ABC):
     """Clase base abstracta para el patron State del ciclo de vida del bulto."""
 
     @property
+    @abstractmethod
     def nombre(self) -> str:
         """Devuelve el nombre identificador del estado."""
         raise NotImplementedError

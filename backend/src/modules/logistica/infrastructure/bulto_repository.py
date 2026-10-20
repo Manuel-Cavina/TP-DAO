@@ -5,6 +5,7 @@ from config.database.request_session_context import Request_Session_Context
 from modules.logistica.domain.bulto import Bulto
 from modules.logistica.domain.detalle_bulto import Detalle_Bulto
 from modules.logistica.domain.estado_bulto import crear_estado_bulto_desde_string
+from modules.logistica.domain.exceptions import Bulto_No_Encontrado_Exception
 from modules.logistica.domain.historial_bulto import Historial_Bulto
 from modules.logistica.domain.precinto import Precinto
 from modules.logistica.infrastructure.models import (
@@ -17,17 +18,14 @@ from modules.logistica.infrastructure.models import (
 class Bulto_Repository:
     """Repositorio ORM para persistir y reconstruir bultos, detalles e historial inmutable."""
 
-    def __init__(self, session: Session | None = None) -> None:
-        self._session = session
-
     def _get_session(self) -> Session:
-        return self._session if self._session is not None else Request_Session_Context.obtener_sesion()
+        return Request_Session_Context.obtener_sesion()
 
     def guardar(self, bulto: Bulto, remito_numero: str | None = None) -> Bulto:
         """Inserta un bulto nuevo, sus detalles e historial mediante el ORM."""
         session = self._get_session()
         modelo = Bulto_Model(
-            orden_id=int(bulto.orden_id),
+            orden_id=bulto.orden_id,
             remito_numero=remito_numero,
             codigo_precinto=bulto.precinto.codigo if bulto.precinto else None,
             estado=bulto.estado.nombre,
@@ -54,13 +52,10 @@ class Bulto_Repository:
 
     def actualizar(self, bulto: Bulto, remito_numero: str | None = None) -> None:
         """Actualiza el estado de un bulto y sincroniza su historial inmutable."""
-        if bulto.id is None:
-            raise ValueError("No se puede actualizar un bulto sin id persistido.")
-
         session = self._get_session()
-        modelo = session.get(Bulto_Model, int(bulto.id))
+        modelo = session.get(Bulto_Model, bulto.id) if bulto.id is not None else None
         if modelo is None:
-            raise ValueError(f"No se encontro el bulto {bulto.id} para actualizar.")
+            raise Bulto_No_Encontrado_Exception(f"No se encontro el bulto {bulto.id} para actualizar.")
 
         modelo.estado = bulto.estado.nombre
         modelo.codigo_precinto = bulto.precinto.codigo if bulto.precinto else None
@@ -81,18 +76,18 @@ class Bulto_Repository:
 
         session.flush()
 
-    def obtener_por_id(self, bulto_id: int | str) -> Bulto | None:
+    def obtener_por_id(self, bulto_id: int) -> Bulto | None:
         """Carga un bulto por su ID y reconstruye la entidad de dominio."""
         session = self._get_session()
-        modelo = session.get(Bulto_Model, int(bulto_id))
+        modelo = session.get(Bulto_Model, bulto_id)
         if modelo is None:
             return None
         return self._reconstruir_bulto(modelo)
 
-    def listar_por_orden(self, orden_id: int | str) -> list[Bulto]:
+    def listar_por_orden(self, orden_id: int) -> list[Bulto]:
         """Obtiene todos los bultos asociados a una orden de reposicion."""
         session = self._get_session()
-        stmt = select(Bulto_Model).where(Bulto_Model.orden_id == int(orden_id)).order_by(Bulto_Model.id.asc())
+        stmt = select(Bulto_Model).where(Bulto_Model.orden_id == orden_id).order_by(Bulto_Model.id.asc())
         modelos = session.scalars(stmt).unique().all()
         return [self._reconstruir_bulto(m) for m in modelos]
 
@@ -106,6 +101,11 @@ class Bulto_Repository:
         )
         modelos = session.scalars(stmt).unique().all()
         return [self._reconstruir_bulto(m) for m in modelos]
+
+    def remito_asignado(self, bulto_id: int) -> str | None:
+        """Numero del remito que ya incluye al bulto, o None si todavia no esta en ninguno."""
+        modelo = self._get_session().get(Bulto_Model, bulto_id)
+        return modelo.remito_numero if modelo is not None else None
 
     def listar_todos(self) -> list[Bulto]:
         """Lista todos los bultos registrados en el sistema."""
