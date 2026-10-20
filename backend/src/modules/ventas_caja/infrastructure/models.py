@@ -1,8 +1,8 @@
 """Modelos ORM de ventas, comprobantes y devoluciones.
 
 producto_id y local_id son enteros que referencian a productos y ubicaciones de
-Integrante 1. No declaran FK todavía: esas tablas las crea schema.sql después del
-create_all del ORM, y una FK hacia ellas rompería el arranque.
+Integrante 1. No declaran FK para no acoplar el esquema de ventas al de otro módulo;
+la integridad la validan los servicios de catálogo y stock antes de vender.
 """
 
 from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint

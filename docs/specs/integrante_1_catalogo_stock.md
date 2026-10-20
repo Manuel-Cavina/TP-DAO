@@ -341,23 +341,41 @@ Para garantizar la estabilidad y la no duplicación de esfuerzos, la construcci�
 - [x] **T1.7 (Tests):** Pruebas unitarias de dominio y pruebas de repositorio/servicio con SQLite `:memory:`.
 
 ### Fase 2: Core de Ubicaciones e Inventario (`ubicaciones_stock`)
-- [ ] **T2.1 (Dominio):** Implementar jerarquía de `Ubicacion` (`Local`, `Centro_Distribucion`) y la entidad `Stock` con sus métodos mutadores de inventario (`backend/src/modules/ubicaciones_stock/domain/`).
-- [ ] **T2.2 (Excepciones):** Completar `stock_exceptions.py` con `Stock_Insuficiente_Exception`, `Ubicacion_Con_Stock_Exception`, `Entidad_No_Encontrada_Exception`.
-- [ ] **T2.3 (DTOs y Mappers):** Implementar DTOs para ubicaciones, stock e ingreso de mercadería.
-- [ ] **T2.4 (Infraestructura SQLite):** Crear `Ubicacion_Repository` y `Stock_Repository` soportando transacciones mediante `connection` inyectada.
-- [ ] **T2.5 (Servicio Stock y Contratos):** Implementar `Ubicacion_Service` y `Stock_Service` con todos los contratos de la Sección 4 de la consigna (`reservar_para_despacho`, `registrar_en_transito`, `acreditar_verificado`, `registrar_merma`, `consultar_disponible`, `descontar_por_venta`, `reingresar_por_devolucion`, `ingresar_mercaderia_cd`).
-- [ ] **T2.6 (Integración Catálogo - Stock):** Enlazar `Producto_Service` para invocar `Stock_Service.inicializar_stock_para_producto` dentro de la misma transacción.
-- [ ] **T2.7 (API HTTP):** Endpoints REST para sucursales, CD, ingresos al CD y consultas de stock.
-- [ ] **T2.8 (Tests):** Pruebas de integración de todos los contratos de stock y validación de ingreso exclusivo a CD.
+- [x] **T2.1 (Dominio):** Implementar jerarquía de `Ubicacion` (`Local`, `Centro_Distribucion`) y la entidad `Stock` con sus métodos mutadores de inventario (`backend/src/modules/ubicaciones_stock/domain/`).
+- [x] **T2.2 (Excepciones):** Completar `stock_exceptions.py` con `Stock_Insuficiente_Exception`, `Ubicacion_Con_Stock_Exception`, `Entidad_No_Encontrada_Exception`.
+- [x] **T2.3 (DTOs y Mappers):** Implementar DTOs para ubicaciones, stock e ingreso de mercadería.
+- [x] **T2.4 (Infraestructura SQLite):** Crear `Ubicacion_Repository` y `Stock_Repository` soportando transacciones mediante `connection` inyectada.
+- [x] **T2.5 (Servicio Stock y Contratos):** Implementar `Ubicacion_Service` y `Stock_Service` con todos los contratos de la Sección 4 de la consigna (`reservar_para_despacho`, `registrar_en_transito`, `acreditar_verificado`, `registrar_merma`, `consultar_disponible`, `descontar_por_venta`, `reingresar_por_devolucion`, `ingresar_mercaderia_cd`).
+- [x] **T2.6 (Integración Catálogo - Stock):** Enlazar `Producto_Service` para invocar `Stock_Service.inicializar_stock_para_producto` dentro de la misma transacción.
+- [x] **T2.7 (API HTTP):** Endpoints REST para sucursales, CD, ingresos al CD y consultas de stock.
+- [x] **T2.8 (Tests):** Pruebas de integración de todos los contratos de stock y validación de ingreso exclusivo a CD.
 
 ### Fase 3: Patrón Observer
-- [ ] **T3.1 (Contrato Observer en Dominio):** Definir protocolo o clase abstracta `Stock_Observer` en `ubicaciones_stock/domain/observers.py`.
-- [ ] **T3.2 (Emisión en Stock):** Añadir suscripción y disparo de observadores en `Stock.descontar_disponible()` cuando `cantidad_disponible <= nivel_minimo_existencia`.
-- [ ] **T3.3 (Observador de Alertas):** Implementar `Alerta_Stock_Observer` y tabla `alertas_stock` para persistir notificaciones de stock crítico.
-- [ ] **T3.4 (Observador de Reposición):** Implementar `Reposicion_Local_Observer` que calcule `(minimo * 2) - disponible` y registre la necesidad solo si es un local y no tiene una necesidad previa pendiente.
-- [ ] **T3.5 (API y Tests Observer):** Endpoint `GET /api/stock/alertas` y pruebas unitarias completas del patrón Observer.
+- [x] **T3.1 (Contrato Observer en Dominio):** Definir protocolo o clase abstracta `Stock_Observer` en `ubicaciones_stock/domain/observers.py`.
+- [x] **T3.2 (Emisión en Stock):** Añadir suscripción y disparo de observadores en `Stock.descontar_disponible()` cuando `cantidad_disponible <= nivel_minimo_existencia`.
+- [x] **T3.3 (Observador de Alertas):** Implementar `Alerta_Stock_Observer` y tabla `alertas_stock` para persistir notificaciones de stock crítico.
+- [x] **T3.4 (Observador de Reposición):** Implementar `Reposicion_Local_Observer` que calcule `(minimo * 2) - disponible` y registre la necesidad solo si es un local y no tiene una necesidad previa pendiente.
+- [x] **T3.5 (API y Tests Observer):** Endpoint `GET /api/stock/alertas` y pruebas unitarias completas del patrón Observer.
 
 ### Fase 4: Cierre, DDL Central y Verificaciones
-- [ ] **T4.1 (Modelos ORM y seed):** Declarar las tablas de Catálogo, Ubicaciones y Stock en entidades ORM y crear un seed idempotente cuando se integre su fase.
-- [ ] **T4.2 (Scripts de Integridad):** Ejecutar `.agents/scripts/check_structure.py` y `.agents/scripts/check_conventions.py`.
-- [ ] **T4.3 (Suite de Pruebas):** Ejecutar `pytest` sobre toda la suite de pruebas creadas.
+- [~] **T4.1 (Modelos ORM y seed):** Modelos ORM hechos; el seed de datos de demo queda pendiente. Declarar las tablas de Catálogo, Ubicaciones y Stock en entidades ORM y crear un seed idempotente cuando se integre su fase.
+- [x] **T4.2 (Scripts de Integridad):** Ejecutar `.agents/scripts/check_structure.py` y `.agents/scripts/check_conventions.py`.
+- [x] **T4.3 (Suite de Pruebas):** Ejecutar `pytest` sobre toda la suite de pruebas creadas.
+
+---
+
+## 6. Notas de implementación
+
+- **ORM como única fuente del esquema.** `catalogo/infrastructure/models.py` y `ubicaciones_stock/infrastructure/models.py` declaran `categorias`, `proveedores`, `productos`, `ubicaciones`, `stocks` y `alertas_stock` con los mismos nombres de columnas, más sus `UNIQUE`, `CHECK` y FK. Se retiraron `config/schema.sql` y `legacy_schema_initializer.py`.
+- **Dependencias entre módulos.** Solo se importa `application/` de otro módulo:
+  - Catálogo crea el stock del producto nuevo mediante el puerto `Inicializador_Stock_Contract`, que implementa `Stock_Service`.
+  - Stock consulta productos con `Catalogo_Consulta_Service`.
+  - Ventas y logística delegan en `Stock_Service` y `Ubicacion_Service` a través de sus adaptadores.
+- **Observer.** `Stock` es el sujeto: notifica cuando el disponible baja y queda en o bajo el mínimo, y también cuando se sube el mínimo por encima del disponible.
+  - `Alerta_Stock_Observer` guarda una alerta y no la repite mientras haya una sin leer.
+  - `Reposicion_Local_Observer` pide reposición solo para locales, con la cantidad `mínimo * 2 - disponible`, mediante el puerto `Registro_Necesidad_Contract`. Logística implementa ese puerto con `Registro_Necesidad_Desde_Stock`, y `bootstrap/application_factory.py` lo suscribe como composition root.
+- **Concurrencia.** `Stock_Repository.obtener_para_actualizar` toma el lock de escritura de SQLite antes de leer. Así, dos ventas o reservas simultáneas no venden la misma unidad (V3).
+- **Reglas del equipo.**
+  - Un único CD, garantizado también por un índice único parcial; el CD no se puede dar de baja.
+  - La mercadería del proveedor solo ingresa al CD.
+  - Las ubicaciones y los productos se dan de baja lógica. Un producto inactivo no se vende ni entra en órdenes nuevas, pero lo que ya está en tránsito se puede recibir.

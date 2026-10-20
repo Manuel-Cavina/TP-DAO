@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from config.database.base import Base
-from config.database.legacy_schema_initializer import inicializar_esquema_heredado
 from config.database.model_registry import cargar_modelos
 from config.database.request_session_context import Request_Session_Context
 
@@ -24,7 +23,7 @@ PRODUCTO_INACTIVO = 3
 
 
 class Sqlite_Test_Case(unittest.TestCase):
-    """Crea el esquema ORM y el heredado (productos, ubicaciones, stocks) por test."""
+    """Crea el esquema ORM completo (incluye productos, ubicaciones y stocks) por test."""
 
     def setUp(self) -> None:
         self.engine = create_engine(
@@ -34,7 +33,6 @@ class Sqlite_Test_Case(unittest.TestCase):
         )
         cargar_modelos()
         Base.metadata.create_all(self.engine)
-        inicializar_esquema_heredado(self.engine)
         self.session = Session(self.engine)
         self._token = Request_Session_Context.establecer_sesion(self.session)
 
