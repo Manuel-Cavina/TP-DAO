@@ -8,3 +8,4 @@ def cargar_modelos() -> None:
     permite descubrimiento dinámico de paquetes.
     """
     import modules.logistica.infrastructure.models  # noqa: F401
+    import modules.ventas_caja.infrastructure.models  # noqa: F401

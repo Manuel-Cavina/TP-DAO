@@ -3,6 +3,7 @@
 import logging
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -13,6 +14,7 @@ _logger = logging.getLogger(__name__)
 _ESTADOS_NEGOCIO = {
     "Entidad_No_Encontrada_Exception": 404,
     "Entidad_Duplicada_Exception": 409,
+    "Venta_No_Encontrada_Exception": 404,
 }
 
 
@@ -31,7 +33,8 @@ def registrar_manejadores_excepciones(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def manejar_validacion(_request: Request, error: RequestValidationError) -> JSONResponse:
-        return JSONResponse(status_code=400, content={"detail": error.errors()})
+        # jsonable_encoder: un ValueError dentro de un validador no es serializable y daba 500.
+        return JSONResponse(status_code=400, content={"detail": jsonable_encoder(error.errors())})
 
     @app.exception_handler(HTTPException)
     async def manejar_error_http(_request: Request, error: HTTPException) -> JSONResponse:
