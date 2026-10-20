@@ -1,20 +1,16 @@
 from typing import Any
 
-from modules.logistica.application.stock_service_contract import (
-    Mock_Stock_Service,
-    Stock_Service_Contract,
-)
+from modules.logistica.application.stock_service_contract import Stock_Service_Contract
 from modules.logistica.domain.bulto import Bulto
 from modules.logistica.domain.exceptions import (
-    Orden_Invalida_Exception,
-    Remito_Incompleto_Exception,
+    Bulto_No_Encontrado_Exception,
+    Remito_No_Encontrado_Exception,
 )
 from modules.logistica.domain.remito import Remito
-from modules.logistica.infrastructure import (
-    Bulto_Repository,
-    Orden_Reposicion_Repository,
-    Remito_Repository,
-)
+from modules.logistica.infrastructure.bulto_repository import Bulto_Repository
+from modules.logistica.infrastructure.orden_reposicion_repository import Orden_Reposicion_Repository
+from modules.logistica.infrastructure.precinto_repository import Precinto_Repository
+from modules.logistica.infrastructure.remito_repository import Remito_Repository
 
 
 class Recepcion_Service:
@@ -22,90 +18,68 @@ class Recepcion_Service:
 
     def __init__(
         self,
+        stock_service: Stock_Service_Contract,
         remito_repository: Remito_Repository | None = None,
         bulto_repository: Bulto_Repository | None = None,
         orden_repository: Orden_Reposicion_Repository | None = None,
-        stock_service: Stock_Service_Contract | None = None,
+        precinto_repository: Precinto_Repository | None = None,
     ) -> None:
-        self._bulto_repository = (
-            bulto_repository if bulto_repository is not None else Bulto_Repository()
-        )
+        self._stock_service = stock_service
+        self._bulto_repository = bulto_repository if bulto_repository is not None else Bulto_Repository()
         self._remito_repository = (
-            remito_repository
-            if remito_repository is not None
-            else Remito_Repository(self._bulto_repository)
+            remito_repository if remito_repository is not None else Remito_Repository(self._bulto_repository)
         )
         self._orden_repository = (
             orden_repository if orden_repository is not None else Orden_Reposicion_Repository()
         )
-        self._stock_service = stock_service if stock_service is not None else Mock_Stock_Service()
+        self._precinto_repository = (
+            precinto_repository if precinto_repository is not None else Precinto_Repository()
+        )
 
     def recibir_remito(self, remito_numero: str) -> Remito:
         """Registra la llegada de mercaderia en la sucursal y pasa los bultos a RECIBIDO."""
-        remito = self._remito_repository.obtener_por_numero(remito_numero)
-        if remito is None:
-            raise Remito_Incompleto_Exception(
-                f"No se encontro el remito con numero '{remito_numero}'."
-            )
-
+        remito = self._obtener_remito(remito_numero)
         remito.recibir()
         for b in remito.bultos:
             self._bulto_repository.actualizar(b, remito.numero)
-
         return remito
 
-    def verificar_bulto(
-        self, bulto_id: int | str, codigo_precinto_recibido: str, esta_intacto: bool
-    ) -> Bulto:
+    def verificar_bulto(self, bulto_id: int, codigo_precinto_recibido: str, esta_intacto: bool) -> Bulto:
         """Verifica fisicamente el precinto de un bulto recibido transicionando a VERIFICADO o RECHAZADO."""
         bulto = self._bulto_repository.obtener_por_id(bulto_id)
         if bulto is None:
-            raise Orden_Invalida_Exception(f"No se encontro el bulto con ID {bulto_id}.")
+            raise Bulto_No_Encontrado_Exception(f"No se encontro el bulto con ID {bulto_id}.")
 
         bulto.verificar(codigo_precinto_recibido, esta_intacto)
         self._bulto_repository.actualizar(bulto)
+        precinto = bulto.precinto
+        if not esta_intacto and precinto is not None and precinto.codigo == codigo_precinto_recibido.strip():
+            # El precinto registrado llego violado: queda como evidencia para el reporte de mermas.
+            # Si el codigo no coincide, el precinto fisico es otro y no se altera el registrado.
+            precinto.romper()
+            self._precinto_repository.actualizar(precinto)
         return bulto
 
     def cerrar_remito(self, remito_numero: str) -> dict[str, Any]:
         """Cierra el remito tras verificar todos los bultos e impacta stock vendible o merma (V1)."""
-        remito = self._remito_repository.obtener_por_numero(remito_numero)
-        if remito is None:
-            raise Remito_Incompleto_Exception(
-                f"No se encontro el remito con numero '{remito_numero}'."
-            )
-
+        remito = self._obtener_remito(remito_numero)
         remito.cerrar()
         self._remito_repository.actualizar(remito)
 
-        unidades_acreditadas = 0
-        unidades_merma = 0
-        bultos_verificados = 0
-        bultos_rechazados = 0
-
-        # V1: Impacto en stock segun verificacion de cada bulto
+        unidades_acreditadas = unidades_merma = bultos_verificados = bultos_rechazados = 0
         for bulto in remito.bultos:
             if bulto.estado.nombre == "VERIFICADO":
                 bultos_verificados += 1
                 for det in bulto.detalles:
-                    self._stock_service.acreditar_verificado(
-                        det.producto_id, remito.destino_id, det.cantidad
-                    )
+                    self._stock_service.acreditar_verificado(det.producto_id, remito.destino_id, det.cantidad)
                     unidades_acreditadas += det.cantidad
-            elif bulto.estado.nombre == "RECHAZADO":
+            else:
                 bultos_rechazados += 1
                 for det in bulto.detalles:
-                    self._stock_service.registrar_merma(
-                        det.producto_id, remito.destino_id, det.cantidad
-                    )
+                    self._stock_service.registrar_merma(det.producto_id, remito.destino_id, det.cantidad)
                     unidades_merma += det.cantidad
 
-        if remito.bultos:
-            orden_id = remito.bultos[0].orden_id
-            orden = self._orden_repository.obtener_por_id(orden_id)
-            if orden is not None and orden.estado == "DESPACHADA":
-                orden.cerrar()
-                self._orden_repository.actualizar(orden)
-
+        self._cerrar_orden_si_corresponde(remito.bultos[0].orden_id)
         return {
             "remito_numero": remito.numero,
             "estado": remito.estado,
@@ -114,3 +88,21 @@ class Recepcion_Service:
             "unidades_acreditadas": unidades_acreditadas,
             "unidades_merma": unidades_merma,
         }
+
+    def _obtener_remito(self, remito_numero: str) -> Remito:
+        remito = self._remito_repository.obtener_por_numero(remito_numero)
+        if remito is None:
+            raise Remito_No_Encontrado_Exception(f"No se encontro el remito con numero '{remito_numero}'.")
+        return remito
+
+    def _cerrar_orden_si_corresponde(self, orden_id: int) -> None:
+        """La orden se cierra cuando ya fue despachada y todos los remitos de sus bultos estan cerrados."""
+        orden = self._orden_repository.obtener_por_id(orden_id)
+        if orden is None or orden.estado != "DESPACHADA":
+            return
+        bultos = self._bulto_repository.listar_por_orden(orden_id)
+        remitos = {self._bulto_repository.remito_asignado(b.id) for b in bultos}
+        if None in remitos or any(self._remito_repository.estado(n) != "CERRADO" for n in remitos):
+            return
+        orden.cerrar()
+        self._orden_repository.actualizar(orden)

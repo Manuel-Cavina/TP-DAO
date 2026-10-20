@@ -1,7 +1,9 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from config.database.request_session_context import Request_Session_Context
+from modules.logistica.domain.exceptions import Remito_Duplicado_Exception
 from modules.logistica.domain.remito import Remito
 from modules.logistica.infrastructure.bulto_repository import Bulto_Repository
 from modules.logistica.infrastructure.models import Bulto_Model, Remito_Model
@@ -10,20 +12,11 @@ from modules.logistica.infrastructure.models import Bulto_Model, Remito_Model
 class Remito_Repository:
     """Repositorio ORM para persistir y recuperar remitos de despacho."""
 
-    def __init__(
-        self,
-        bulto_repository: Bulto_Repository | None = None,
-        session: Session | None = None,
-    ) -> None:
-        self._session = session
-        self._bulto_repository = (
-            bulto_repository
-            if bulto_repository is not None
-            else Bulto_Repository(session=self._session)
-        )
+    def __init__(self, bulto_repository: Bulto_Repository | None = None) -> None:
+        self._bulto_repository = bulto_repository if bulto_repository is not None else Bulto_Repository()
 
     def _get_session(self) -> Session:
-        return self._session if self._session is not None else Request_Session_Context.obtener_sesion()
+        return Request_Session_Context.obtener_sesion()
 
     def guardar(self, remito: Remito) -> Remito:
         """Inserta un remito y asocia los bultos incluidos en la misma sesion."""
@@ -36,15 +29,29 @@ class Remito_Repository:
             estado=remito.estado,
         )
         session.add(modelo)
+        try:
+            session.flush()
+        except IntegrityError as error:
+            # Sin SAVEPOINT: la peticion termina en error y el middleware revierte la transaccion.
+            # Dos peticiones simultaneas con el mismo numero: la PK lo detecta y se informa como 409.
+            raise Remito_Duplicado_Exception(f"Ya existe un remito con numero '{remito.numero}'.") from error
 
         for b in remito.bultos:
             if b.id is not None:
-                bulto_mod = session.get(Bulto_Model, int(b.id))
+                bulto_mod = session.get(Bulto_Model, b.id)
                 if bulto_mod is not None:
                     bulto_mod.remito_numero = remito.numero
 
         session.flush()
         return remito
+
+    def estado(self, numero: str) -> str | None:
+        """Estado del remito sin reconstruir sus bultos, o None si no existe."""
+        modelo = self._get_session().get(Remito_Model, numero.strip())
+        return modelo.estado if modelo is not None else None
+
+    def existe(self, numero: str) -> bool:
+        return self._get_session().get(Remito_Model, numero.strip()) is not None
 
     def actualizar(self, remito: Remito) -> None:
         """Actualiza el estado de un remito."""

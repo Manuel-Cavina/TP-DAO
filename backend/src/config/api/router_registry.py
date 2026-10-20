@@ -19,15 +19,11 @@ def registrar_routers(app: FastAPI) -> None:
     except (ImportError, AttributeError):
         pass
 
-    try:
-        from modules.logistica.api import logistica_router
-
-        app.include_router(logistica_router)
-    except (ImportError, AttributeError):
-        pass
-
     # Import explícito: si el módulo se rompe, el arranque falla en vez de dar 404 silencioso.
+    from modules.logistica.api import logistica_router
     from modules.ventas_caja.api import caja_router, ventas_router
+
+    app.include_router(logistica_router)
 
     app.include_router(ventas_router)
     app.include_router(caja_router)
