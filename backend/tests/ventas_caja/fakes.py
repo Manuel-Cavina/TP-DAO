@@ -16,15 +16,24 @@ from modules.ventas_caja.application.stock_venta_contract import Stock_Venta_Con
 class Fake_Stock_Venta(Stock_Venta_Contract):
     """Stock por (producto_id, local_id) que registra cada operación recibida."""
 
-    def __init__(self, stock_inicial: dict[tuple[int, int], int] | None = None) -> None:
+    def __init__(
+        self,
+        stock_inicial: dict[tuple[int, int], int] | None = None,
+        locales: set[int] | None = None,
+    ) -> None:
         self._stock = dict(stock_inicial or {})
+        self._locales = locales if locales is not None else {local for _, local in self._stock}
         self.operaciones: list[tuple[str, int, int, int]] = []
 
+    def validar_local(self, local_id: int) -> None:
+        if local_id not in self._locales:
+            raise Stock_No_Encontrado_Exception(f"No existe el local {local_id}.")
+
     def consultar_disponible(self, producto_id: int, local_id: int) -> int:
-        return self._buscar(producto_id, local_id)
+        return self._stock.get((producto_id, local_id), 0)
 
     def descontar_por_venta(self, producto_id: int, local_id: int, cantidad: int) -> None:
-        disponible = self._buscar(producto_id, local_id)
+        disponible = self.consultar_disponible(producto_id, local_id)
         if cantidad > disponible:
             raise Stock_Insuficiente_Exception(
                 f"Stock insuficiente del producto {producto_id} en el local {local_id}."

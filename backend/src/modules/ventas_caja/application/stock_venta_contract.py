@@ -9,8 +9,17 @@ class Stock_Venta_Contract(ABC):
     """
 
     @abstractmethod
+    def validar_local(self, local_id: int) -> None:
+        """Verifica que la ubicación exista, esté activa y sea un local de venta (no un CD)."""
+        raise NotImplementedError
+
+    @abstractmethod
     def consultar_disponible(self, producto_id: int, local_id: int) -> int:
-        """Devuelve la cantidad disponible y verificada del producto en el local."""
+        """Devuelve la cantidad disponible y verificada del producto en el local.
+
+        Si el producto nunca tuvo stock en el local devuelve 0: para vender, no tener
+        registro equivale a no tener unidades (V3), no a un recurso inexistente.
+        """
         raise NotImplementedError
 
     @abstractmethod

@@ -53,9 +53,14 @@ class TestStockVentaContract(unittest.TestCase):
 
         self.assertEqual(self.stock.consultar_disponible(PRODUCTO_ID, LOCAL_ID), 7)
 
-    def test_stock_inexistente_lanza_error(self) -> None:
+    def test_sin_registro_de_stock_equivale_a_cero(self) -> None:
+        self.assertEqual(self.stock.consultar_disponible(PRODUCTO_ID, 99), 0)
+        with self.assertRaises(Stock_Insuficiente_Exception):
+            self.stock.descontar_por_venta(PRODUCTO_ID, 99, 1)
+
+    def test_reingresar_sin_registro_de_stock_lanza_error(self) -> None:
         with self.assertRaises(Stock_No_Encontrado_Exception):
-            self.stock.consultar_disponible(PRODUCTO_ID, 99)
+            self.stock.reingresar_por_devolucion(PRODUCTO_ID, 99, 1)
 
 
 class TestCatalogoVentaContract(unittest.TestCase):
