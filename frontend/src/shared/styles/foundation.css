@@ -1,0 +1,5 @@
+/**
+ * Arc UI Foundation CSS (`arc-foundation`)
+ * Re-exports the complete Arc UI + ERP AYA design token system.
+ */
+@import "./tokens.css";

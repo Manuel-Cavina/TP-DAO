@@ -1,0 +1,346 @@
+/* Shared UI: choreographed motion (screen, stagger, drawer, modal, toast). */
+
+/* ==========================================================================
+ * 13. ARC UI CHOREOGRAPHED MOTION: SCREEN ENTER/EXIT, STAGGER, DRAWER, MODAL, TOAST
+ * ========================================================================== */
+
+@keyframes arc-screen-enter-kf {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.994);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes arc-screen-exit-kf {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.994);
+    filter: blur(3px);
+  }
+}
+
+@keyframes arc-slide-right-enter-kf {
+  0% {
+    opacity: 0;
+    transform: translateX(18px);
+    filter: blur(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    filter: blur(0px);
+  }
+}
+
+@keyframes arc-stagger-up-kf {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.arc-screen-enter {
+  animation: arc-screen-enter-kf 240ms var(--ease-enter) both;
+}
+
+.arc-screen-exit {
+  animation: arc-screen-exit-kf 140ms var(--ease-exit) both;
+}
+
+.arc-step-enter {
+  animation: arc-slide-right-enter-kf 220ms var(--ease-enter) both;
+}
+
+.arc-stagger-item {
+  animation: arc-stagger-up-kf 240ms var(--ease-enter) both;
+  animation-delay: calc(var(--stagger-index, 0) * 38ms);
+}
+
+/* Slide-over Drawer (Right Inspector / Form Sheet) */
+@keyframes arc-backdrop-enter-kf {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes arc-backdrop-exit-kf {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes arc-drawer-enter-kf {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes arc-drawer-exit-kf {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.arc-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--overlay-z-index, 100);
+  background: var(--overlay-backdrop, rgba(13, 13, 12, 0.48));
+  backdrop-filter: blur(var(--overlay-blur, 4px));
+  -webkit-backdrop-filter: blur(var(--overlay-blur, 4px));
+  display: flex;
+  justify-content: flex-end;
+  overflow: hidden;
+  animation: arc-backdrop-enter-kf 200ms var(--ease-enter) both;
+}
+
+.arc-drawer-backdrop.is-closing {
+  animation: arc-backdrop-exit-kf 160ms var(--ease-exit) both;
+}
+
+.arc-drawer {
+  width: 100%;
+  max-width: 520px;
+  height: 100dvh;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-floating);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: arc-drawer-enter-kf 280ms var(--ease-enter) both;
+}
+
+.arc-drawer.is-closing {
+  animation: arc-drawer-exit-kf 170ms var(--ease-exit) both;
+}
+
+.arc-drawer__header {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.arc-drawer__body {
+  padding: 20px 22px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.arc-drawer__footer {
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-muted);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Centered Modal / Dialog with Scale + Blur Enter & Exit */
+@keyframes arc-modal-enter-kf {
+  0% {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes arc-modal-exit-kf {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.97) translateY(4px);
+  }
+}
+
+.arc-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--overlay-z-index, 100);
+  background: var(--overlay-backdrop, rgba(13, 13, 12, 0.48));
+  backdrop-filter: blur(var(--overlay-blur, 4px));
+  -webkit-backdrop-filter: blur(var(--overlay-blur, 4px));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow: hidden;
+  animation: arc-backdrop-enter-kf 180ms var(--ease-enter) both;
+}
+
+.arc-modal-backdrop.is-closing {
+  animation: arc-backdrop-exit-kf 140ms var(--ease-exit) both;
+}
+
+.arc-modal {
+  width: 100%;
+  max-width: 580px;
+  border-radius: var(--radius-surface);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-floating);
+  overflow: hidden;
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+  animation: arc-modal-enter-kf 220ms var(--ease-enter) both;
+}
+
+.arc-modal--sm {
+  max-width: 440px;
+}
+
+.arc-modal--md {
+  max-width: 580px;
+}
+
+.arc-modal--lg {
+  max-width: 760px;
+}
+
+.arc-modal--wide,
+.arc-modal--xl {
+  max-width: 980px;
+}
+
+.arc-modal.is-closing {
+  animation: arc-modal-exit-kf 140ms var(--ease-exit) both;
+}
+
+.arc-modal__header {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.arc-modal__title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-medium);
+  color: var(--foreground);
+}
+
+.arc-modal__body {
+  padding: 20px 22px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.arc-modal__footer {
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-muted);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .arc-modal-backdrop {
+    padding: 8px;
+  }
+  .arc-modal {
+    max-height: calc(100dvh - 16px);
+    border-radius: var(--radius-panel);
+  }
+  .arc-drawer {
+    max-width: 100%;
+  }
+  .arc-drawer__header,
+  .arc-drawer__body,
+  .arc-drawer__footer,
+  .arc-modal__header,
+  .arc-modal__body,
+  .arc-modal__footer {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
+
+/* Floating Toast Notifications */
+@keyframes arc-toast-enter-kf {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.arc-toast-stack {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 380px;
+  pointer-events: none;
+}
+
+.arc-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-floating);
+  font-size: var(--text-sm);
+  animation: arc-toast-enter-kf 240ms var(--ease-spring) both;
+}
+

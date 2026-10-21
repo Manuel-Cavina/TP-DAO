@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light" data-accent="neutral">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stocky</title>
+    <link rel="stylesheet" href="./src/shared/styles/shared-ui.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      if (window.location.protocol === "file:") {
+        var s = document.createElement("script");
+        s.src = "./dist/assets/app.js";
+        document.body.appendChild(s);
+      } else {
+        var m = document.createElement("script");
+        m.type = "module";
+        m.src = "/src/main.jsx";
+        document.body.appendChild(m);
+      }
+    </script>
+  </body>
+</html>

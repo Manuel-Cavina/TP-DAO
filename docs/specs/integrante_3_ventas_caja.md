@@ -26,7 +26,7 @@ Lo que llegó a `main` está bien encaminado (38 de 39 tests pasan y el patrón 
 - Sin entorno virtual no corre nada: faltan `sqlalchemy`, `fastapi` y `plotly`, y el repo no tiene venv ni instrucciones de instalación.
 - Con las dependencias de `backend/requirements.txt` instaladas: **38 tests OK y 1 fallido**. Falla `test_application_factory_inicializa_esquema_heredado_y_routers`, que espera `/api/catalogo/categorias`, un endpoint que todavía no existe.
 - `python -m unittest` no descubre los 25 tests de logística, porque `tests/logistica/` no tiene `__init__.py`.
-- El comando de chequeo del equipo (`unittest discover -s backend/tests`) falla porque el paquete `tests/config` tapa a `src/config`.
+- El paquete de pruebas transversales se llama `tests/configuracion` para no tapar a `src/config` durante `unittest discover -s backend/tests`.
 
 ### 2.2 Hallazgos (de más a menos grave)
 

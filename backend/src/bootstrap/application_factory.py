@@ -36,7 +36,7 @@ class Application_Factory:
             allow_origins=Application_Factory._origenes_cors(),
             allow_credentials=True,
             allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-            allow_headers=["Content-Type", "Authorization"],
+            allow_headers=["Content-Type", "Authorization", "X-CSRF-Token"],
         )
         app.add_middleware(Database_Session_Middleware)
         registrar_manejadores_excepciones(app)

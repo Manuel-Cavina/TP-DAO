@@ -19,6 +19,7 @@ from config.database.request_session_context import Request_Session_Context
 from modules.catalogo.application import Categoria_Service, Producto_Service, Proveedor_Service
 from modules.logistica.application import Despacho_Service, Empaquetado_Service, Recepcion_Service, Reposicion_Service
 from modules.logistica.infrastructure import Stock_Logistica_Adapter
+from modules.seguridad.application import Auth_Service
 from modules.ubicaciones_stock.application import Stock_Service, Ubicacion_Service
 from modules.ventas_caja.application import Devolucion_Service, Venta_Service
 from modules.ventas_caja.domain import Estrategia_Pago, Pago_Efectivo, Pago_Tarjeta, Pago_Transferencia
@@ -61,6 +62,7 @@ def cargar_datos_demo(database_url: str | None = None) -> bool:
     sesion = Database_Engine_Singleton.obtener_session_factory().crear_sesion()
     token = Request_Session_Context.establecer_sesion(sesion)
     try:
+        Auth_Service().sembrar_identidades_defecto()
         if Ubicacion_Service().listar(tipo="CD"):
             return False
         base = _cargar_catalogo_y_ubicaciones()
