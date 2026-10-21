@@ -34,7 +34,7 @@ backend/src/
     ├── ubicaciones_stock/   # Ubicacion, Local, Centro_Distribucion, Stock + Observer
     ├── logistica/           # Orden_Reposicion, Bulto, Remito, Precinto + State
     ├── ventas_caja/         # Venta, Detalle_Venta, Comprobante, Devolucion + Strategy
-    └── reportes/            # Los 4 reportes no triviales
+    └── reportes/            # Los 5 reportes no triviales (solo lectura)
 frontend/src/
 ├── shared/                  # Componentes, cliente HTTP y estilos reutilizables
 └── modules/                 # Una carpeta por módulo del backend
@@ -254,16 +254,32 @@ La ruta no construye SQL, no usa ORM y no instancia entidades de dominio directa
 ## 🗄️ 9. Persistencia con SQLite y SQLAlchemy ORM
 
 - **ORM acordado:** SQLAlchemy ORM es el único mecanismo productivo de persistencia. Mapea entidades del dominio a tablas, columnas y relaciones SQLite.
-- **Fuente de verdad:** las entidades ORM y `Base.metadata.create_all()`. Mientras
-  catálogo y stock conserven repositories `sqlite3`, el bootstrap aplica
-  `schema.sql` sólo como puente temporal sobre la misma sesión de request; no se
-  acepta DDL ni persistencia nueva por esa vía.
+- **Fuente de verdad:** las entidades ORM y `Base.metadata.create_all()`. No existe DDL
+  aparte (`schema.sql` fue retirado). `create_all` no altera tablas existentes: si un modelo
+  cambia, se recrea la base de desarrollo y se vuelve a cargar el seed.
 - **Singleton:** `Database_Engine_Singleton` conserva un único engine por aplicación. Nunca existe una sesión singleton.
 - **Factory:** `Session_Factory` crea una sesión ORM por petición HTTP.
 - **Transacción por petición:** `Database_Session_Middleware` crea la sesión, la registra para repositories, confirma una respuesta exitosa y revierte ante error. Siempre limpia el contexto y cierra la sesión.
 - **Services:** no importan ni reciben `Session`, `Engine`, `sqlite3`, `commit` o `rollback`.
 - **Repositories:** obtienen la sesión activa desde `Request_Session_Context`, usan ORM y `flush` cuando requieren ID. No hacen `commit`, `rollback` ni `close`.
 - **Lógica de negocio:** no se implementa en SQL, triggers, middleware o repositories.
+- **Concurrencia:** un repository que lee para modificar cantidades toma antes el lock de escritura
+  de SQLite (por ejemplo `Stock_Repository.obtener_para_actualizar`), para que dos peticiones
+  simultáneas no vendan ni reserven la misma unidad.
+- **Lecturas entre módulos:** los reportes y los adaptadores de lectura describen las tablas ajenas
+  con `table()`/`column()` de SQLAlchemy (con tipo en fechas y dinero); nunca importan modelos de la
+  `infrastructure/` de otro módulo y nunca escriben.
+
+### Integración entre módulos
+
+- Cuando un módulo necesita a otro, declara un **puerto** (clase abstracta) en su `application/` y el
+  otro módulo lo implementa. Ejemplos: `Stock_Venta_Contract` (ventas → stock),
+  `Stock_Service_Contract` (logística → stock), `Inicializador_Stock_Contract` (catálogo → stock),
+  `Registro_Necesidad_Contract` (stock → logística).
+- `bootstrap/application_factory.py` es el **composition root**: conecta implementaciones que, si se
+  importaran entre sí, crearían dependencias circulares (por ejemplo, suscribe al stock el observer
+  de reposición de logística).
+- Los tests usan *fakes* de esos puertos para probar cada módulo sin depender de los demás.
 
 ### Flujo obligatorio de comunicación
 

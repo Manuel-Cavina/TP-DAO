@@ -1,78 +1,91 @@
-from typing import Callable
+from decimal import Decimal
 
+from modules.catalogo.application.inicializador_stock_contract import Inicializador_Stock_Contract
+from modules.catalogo.domain import Producto
 from modules.catalogo.domain.exceptions import (
     Datos_Invalidos_Exception,
+    Entidad_Duplicada_Exception,
     Entidad_No_Encontrada_Exception,
 )
-from modules.catalogo.dto import Crear_Producto_DTO, Producto_DTO
 from modules.catalogo.infrastructure.categoria_repository import Categoria_Repository
 from modules.catalogo.infrastructure.producto_repository import Producto_Repository
 from modules.catalogo.infrastructure.proveedor_repository import Proveedor_Repository
-from modules.catalogo.mappers.catalogo_mapper import Producto_Mapper
 
 
 class Producto_Service:
-    """Casos de uso para la administración de productos del catálogo."""
+    """Alta, modificación, baja lógica y consulta de productos (P2, V4).
+
+    El alta crea el stock en cero del producto en cada ubicación, en la misma transacción.
+    """
 
     def __init__(
         self,
-        producto_repo: Producto_Repository | None = None,
-        categoria_repo: Categoria_Repository | None = None,
-        proveedor_repo: Proveedor_Repository | None = None,
-        stock_initializer: Callable[[int, int], None] | None = None,
+        inicializador_stock: Inicializador_Stock_Contract,
+        producto_repository: Producto_Repository | None = None,
+        categoria_repository: Categoria_Repository | None = None,
+        proveedor_repository: Proveedor_Repository | None = None,
     ) -> None:
-        self._producto_repo = producto_repo or Producto_Repository()
-        self._categoria_repo = categoria_repo or Categoria_Repository()
-        self._proveedor_repo = proveedor_repo or Proveedor_Repository()
-        if stock_initializer is not None:
-            self._stock_initializer = stock_initializer
-        else:
-            from modules.ubicaciones_stock.application.stock_service import Stock_Service
+        self._inicializador_stock = inicializador_stock
+        self._repository = producto_repository if producto_repository is not None else Producto_Repository()
+        self._categorias = categoria_repository if categoria_repository is not None else Categoria_Repository()
+        self._proveedores = proveedor_repository if proveedor_repository is not None else Proveedor_Repository()
 
-            self._stock_initializer = Stock_Service().inicializar_stock_para_producto
-
-    def crear_producto(self, dto: Crear_Producto_DTO) -> Producto_DTO:
-        if dto.nivel_minimo <= 0:
+    def crear(
+        self,
+        codigo: str,
+        nombre: str,
+        precio_venta: Decimal,
+        costo_unitario: Decimal,
+        categoria_id: int,
+        proveedor_id: int,
+        nivel_minimo_existencia: int,
+    ) -> Producto:
+        if not isinstance(nivel_minimo_existencia, int) or nivel_minimo_existencia <= 0:
             raise Datos_Invalidos_Exception("El nivel mínimo de existencia debe ser mayor a cero.")
+        producto = Producto(codigo, nombre, precio_venta, costo_unitario, categoria_id, proveedor_id)
+        if self._repository.obtener_por_codigo(producto.codigo) is not None:
+            raise Entidad_Duplicada_Exception(f"Ya existe un producto con código '{producto.codigo}'.")
+        self._validar_categoria_y_proveedor(categoria_id, proveedor_id)
 
-        if not self._categoria_repo.buscar_por_id(dto.categoria_id):
-            raise Entidad_No_Encontrada_Exception(f"No existe la categoría con ID {dto.categoria_id}.")
+        guardado = self._repository.guardar(producto)
+        self._inicializador_stock.inicializar_stock_para_producto(guardado.id, nivel_minimo_existencia)
+        return guardado
 
-        proveedor = self._proveedor_repo.buscar_por_id(dto.proveedor_id)
-        if not proveedor:
-            raise Entidad_No_Encontrada_Exception(f"No existe el proveedor con ID {dto.proveedor_id}.")
-        if not proveedor.activo:
-            raise Datos_Invalidos_Exception(
-                f"El proveedor con CUIT {proveedor.cuit} está inactivo y no puede proveer nuevos productos."
-            )
-
-        producto = self._producto_repo.crear(Producto_Mapper.to_entity(dto))
-        if producto.id is not None:
-            self._stock_initializer(producto.id, dto.nivel_minimo)
-        return Producto_Mapper.to_dto(producto, nivel_minimo=dto.nivel_minimo)
-
-    def actualizar_precio(self, codigo: str, nuevo_precio: float) -> Producto_DTO:
-        producto = self._obtener_producto(codigo)
-        producto.actualizar_precio(nuevo_precio)
-        self._producto_repo.actualizar(producto)
-        return Producto_Mapper.to_dto(producto)
-
-    def dar_de_baja_producto(self, codigo: str) -> None:
-        producto = self._obtener_producto(codigo)
-        producto.desactivar()
-        self._producto_repo.actualizar(producto)
-
-    def listar_productos(
-        self, solo_activos: bool = True, categoria_id: int | None = None
-    ) -> list[Producto_DTO]:
-        productos = self._producto_repo.listar(solo_activos, categoria_id)
-        return [Producto_Mapper.to_dto(producto) for producto in productos]
-
-    def obtener_producto_por_codigo(self, codigo: str) -> Producto_DTO:
-        return Producto_Mapper.to_dto(self._obtener_producto(codigo))
-
-    def _obtener_producto(self, codigo: str):
-        producto = self._producto_repo.buscar_por_codigo(codigo)
-        if not producto:
-            raise Entidad_No_Encontrada_Exception(f"No existe el producto con código '{codigo}'.")
+    def actualizar(
+        self,
+        producto_id: int,
+        nombre: str,
+        precio_venta: Decimal,
+        costo_unitario: Decimal,
+        categoria_id: int,
+        proveedor_id: int,
+    ) -> Producto:
+        """Cambiar el precio no afecta ventas registradas: cada venta guarda su precio histórico."""
+        producto = self.obtener(producto_id)
+        producto.actualizar(nombre, precio_venta, costo_unitario, categoria_id, proveedor_id)
+        self._validar_categoria_y_proveedor(categoria_id, proveedor_id)
+        self._repository.actualizar(producto)
         return producto
+
+    def desactivar(self, producto_id: int) -> Producto:
+        producto = self.obtener(producto_id)
+        producto.desactivar()
+        self._repository.actualizar(producto)
+        return producto
+
+    def obtener(self, producto_id: int) -> Producto:
+        producto = self._repository.obtener_por_id(producto_id)
+        if producto is None:
+            raise Entidad_No_Encontrada_Exception(f"No existe el producto {producto_id}.")
+        return producto
+
+    def listar(self, solo_activos: bool = False, categoria_id: int | None = None) -> list[Producto]:
+        return self._repository.listar(solo_activos, categoria_id)
+
+    def _validar_categoria_y_proveedor(self, categoria_id: int, proveedor_id: int) -> None:
+        categoria = self._categorias.obtener_por_id(categoria_id)
+        if categoria is None or not categoria.activo:
+            raise Entidad_No_Encontrada_Exception(f"No existe una categoría activa con id {categoria_id}.")
+        proveedor = self._proveedores.obtener_por_id(proveedor_id)
+        if proveedor is None or not proveedor.activo:
+            raise Entidad_No_Encontrada_Exception(f"No existe un proveedor activo con id {proveedor_id}.")

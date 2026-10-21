@@ -20,8 +20,10 @@ class Remito:
     ) -> None:
         if not numero or not numero.strip():
             raise Remito_Incompleto_Exception("El numero de remito no puede estar vacio.")
-        if origen_id <= 0 or destino_id <= 0:
-            raise Remito_Incompleto_Exception("El origen y destino del remito deben ser validos.")
+        if not isinstance(origen_id, int) or origen_id <= 0:
+            raise Remito_Incompleto_Exception("El origen del remito es obligatorio.")
+        if not isinstance(destino_id, int) or destino_id <= 0:
+            raise Remito_Incompleto_Exception("El destino del remito es obligatorio.")
 
         estado_normalizado = estado.strip().upper()
         if estado_normalizado not in self.ESTADOS_VALIDOS:

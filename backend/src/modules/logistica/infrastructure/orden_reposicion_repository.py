@@ -1,7 +1,9 @@
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from config.database.request_session_context import Request_Session_Context
 from modules.logistica.domain.detalle_orden_reposicion import Detalle_Orden_Reposicion
+from modules.logistica.domain.exceptions import Orden_No_Encontrada_Exception
 from modules.logistica.domain.orden_reposicion import Orden_Reposicion
 from modules.logistica.infrastructure.models import (
     Detalle_Orden_Reposicion_Model,
@@ -12,8 +14,7 @@ from modules.logistica.infrastructure.models import (
 class Orden_Reposicion_Repository:
     """Repositorio ORM para persistencia y consulta de ordenes de reposicion y sus detalles."""
 
-    @staticmethod
-    def _get_session():
+    def _get_session(self) -> Session:
         return Request_Session_Context.obtener_sesion()
 
     def guardar(self, orden: Orden_Reposicion) -> Orden_Reposicion:
@@ -41,13 +42,10 @@ class Orden_Reposicion_Repository:
 
     def actualizar(self, orden: Orden_Reposicion) -> None:
         """Actualiza el estado de la orden y las cantidades enviadas."""
-        if orden.id is None:
-            raise ValueError("No se puede actualizar una orden sin ID asignado.")
-
         session = self._get_session()
-        modelo = session.get(Orden_Reposicion_Model, int(orden.id))
+        modelo = session.get(Orden_Reposicion_Model, orden.id) if orden.id is not None else None
         if modelo is None:
-            raise ValueError(f"No se encontro la orden {orden.id} para actualizar.")
+            raise Orden_No_Encontrada_Exception(f"No se encontro la orden {orden.id} para actualizar.")
 
         modelo.estado = orden.estado
         for d in orden.detalles:

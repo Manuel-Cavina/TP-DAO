@@ -1,11 +1,6 @@
-from modules.ubicaciones_stock.api.stock_controller import (
-    HTTP_Response,
-    Ubicaciones_Stock_Controller,
-)
-from modules.ubicaciones_stock.api.stock_router import stock_router
+"""Puntos de entrada HTTP de ubicaciones y stock."""
 
-__all__ = [
-    "HTTP_Response",
-    "Ubicaciones_Stock_Controller",
-    "stock_router",
-]
+from modules.ubicaciones_stock.api.stock_router import router as stock_router
+from modules.ubicaciones_stock.api.ubicaciones_router import router as ubicaciones_router
+
+__all__ = ["stock_router", "ubicaciones_router"]

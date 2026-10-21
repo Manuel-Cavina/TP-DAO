@@ -1,5 +1,6 @@
 from typing import Any
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from config.database.request_session_context import Request_Session_Context
 from modules.logistica.infrastructure.models import Necesidad_Reposicion_Model
@@ -8,8 +9,7 @@ from modules.logistica.infrastructure.models import Necesidad_Reposicion_Model
 class Necesidad_Reposicion_Repository:
     """Repositorio ORM para registrar y consultar necesidades de reposicion."""
 
-    @staticmethod
-    def _get_session():
+    def _get_session(self) -> Session:
         return Request_Session_Context.obtener_sesion()
 
     def registrar(

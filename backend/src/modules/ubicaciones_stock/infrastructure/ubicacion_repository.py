@@ -1,67 +1,62 @@
-from sqlalchemy import func, or_, select
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from config.database.request_session_context import Request_Session_Context
-from errors.persistence_error import Persistencia_Exception
-from modules.ubicaciones_stock.domain.exceptions import Entidad_Duplicada_Exception
-from modules.ubicaciones_stock.domain.stock import Stock
-from modules.ubicaciones_stock.domain.ubicacion import Centro_Distribucion, Ubicacion
+from modules.ubicaciones_stock.domain import Ubicacion, crear_ubicacion
+from modules.ubicaciones_stock.domain.exceptions import Centro_Distribucion_Duplicado_Exception
+from modules.ubicaciones_stock.infrastructure.models import Ubicacion_Model
 
 
 class Ubicacion_Repository:
-    """Acceso ORM a ubicaciones usando la sesión activa de la petición."""
+    """Repositorio ORM de ubicaciones (CD y locales)."""
 
-    @staticmethod
-    def _sesion():
+    def _get_session(self) -> Session:
         return Request_Session_Context.obtener_sesion()
 
-    def crear(self, ubicacion: Ubicacion) -> Ubicacion:
-        sesion = self._sesion()
-        if ubicacion.es_centro_distribucion() and self.obtener_centro_distribucion() is not None:
-            raise Entidad_Duplicada_Exception("Ya existe un Centro de Distribución registrado en el sistema.")
+    def guardar(self, ubicacion: Ubicacion) -> Ubicacion:
+        modelo = Ubicacion_Model(tipo=ubicacion.tipo)
+        self._copiar(ubicacion, modelo)
+        session = self._get_session()
+        session.add(modelo)
         try:
-            sesion.add(ubicacion)
-            sesion.flush()
-            return ubicacion
+            session.flush()
         except IntegrityError as error:
-            raise Entidad_Duplicada_Exception("Ya existe la ubicación especificada.") from error
-        except SQLAlchemyError as error:
-            raise Persistencia_Exception(f"Error al crear ubicación: {error}") from error
+            raise Centro_Distribucion_Duplicado_Exception("El sistema admite un único Centro de Distribución.") from error
+        ubicacion.id = modelo.id
+        return ubicacion
 
     def actualizar(self, ubicacion: Ubicacion) -> None:
-        try:
-            self._sesion().flush()
-        except SQLAlchemyError as error:
-            raise Persistencia_Exception(f"Error al actualizar ubicación: {error}") from error
+        modelo = self._get_session().get(Ubicacion_Model, ubicacion.id)
+        self._copiar(ubicacion, modelo)
+        self._get_session().flush()
 
-    def buscar_por_id(self, ubicacion_id: int) -> Ubicacion | None:
-        try:
-            return self._sesion().get(Ubicacion, ubicacion_id)
-        except SQLAlchemyError as error:
-            raise Persistencia_Exception(f"Error al buscar ubicación por ID: {error}") from error
+    def obtener_por_id(self, ubicacion_id: int) -> Ubicacion | None:
+        modelo = self._get_session().get(Ubicacion_Model, ubicacion_id)
+        return self._a_dominio(modelo) if modelo is not None else None
 
-    def obtener_centro_distribucion(self) -> Centro_Distribucion | None:
-        try:
-            stmt = select(Centro_Distribucion).where(Centro_Distribucion.activo.is_(True)).limit(1)
-            return self._sesion().scalars(stmt).first()
-        except SQLAlchemyError as error:
-            raise Persistencia_Exception(f"Error al obtener Centro de Distribución: {error}") from error
+    def listar(self, tipo: str | None = None, solo_activas: bool = False) -> list[Ubicacion]:
+        stmt = select(Ubicacion_Model).order_by(Ubicacion_Model.id)
+        if tipo is not None:
+            stmt = stmt.where(Ubicacion_Model.tipo == tipo)
+        if solo_activas:
+            stmt = stmt.where(Ubicacion_Model.activo.is_(True))
+        return [self._a_dominio(m) for m in self._get_session().scalars(stmt)]
 
-    def listar(self, solo_activas: bool = True) -> list[Ubicacion]:
-        try:
-            stmt = select(Ubicacion)
-            if solo_activas:
-                stmt = stmt.where(Ubicacion.activo.is_(True))
-            return list(self._sesion().scalars(stmt.order_by(Ubicacion.tipo, Ubicacion.nombre)).all())
-        except SQLAlchemyError as error:
-            raise Persistencia_Exception(f"Error al listar ubicaciones: {error}") from error
+    @staticmethod
+    def _copiar(ubicacion: Ubicacion, modelo: Ubicacion_Model) -> None:
+        modelo.nombre = ubicacion.nombre
+        modelo.direccion = ubicacion.direccion
+        modelo.telefono = ubicacion.telefono
+        modelo.activo = ubicacion.activo
 
-    def tiene_stock_asociado(self, ubicacion_id: int) -> bool:
-        try:
-            stmt = select(func.count(Stock.id)).where(
-                Stock.ubicacion_id == ubicacion_id,
-                or_(Stock.cantidad_disponible > 0, Stock.cantidad_en_transito > 0),
-            )
-            return bool(self._sesion().scalar(stmt))
-        except SQLAlchemyError as error:
-            raise Persistencia_Exception(f"Error al verificar stock de ubicación: {error}") from error
+    @staticmethod
+    def _a_dominio(modelo: Ubicacion_Model) -> Ubicacion:
+        return crear_ubicacion(
+            modelo.tipo,
+            nombre=modelo.nombre,
+            direccion=modelo.direccion,
+            telefono=modelo.telefono,
+            id=modelo.id,
+            activo=modelo.activo,
+        )

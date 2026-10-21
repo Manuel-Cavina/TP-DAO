@@ -1,152 +1,139 @@
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, Table, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, reconstructor, relationship, validates
+from modules.ubicaciones_stock.domain.exceptions import Cantidad_Invalida_Exception, Stock_Insuficiente_Exception
+from modules.ubicaciones_stock.domain.stock_observer import Stock_Observer
 
-from config.database.base import Base
-from modules.ubicaciones_stock.domain.exceptions import (
-    Datos_Invalidos_Exception,
-    Stock_Insuficiente_Exception,
-)
-from modules.ubicaciones_stock.domain.observers import Stock_Observer
-from modules.ubicaciones_stock.domain.ubicacion import Ubicacion
-
-if "productos" not in Base.metadata.tables:
-    Table("productos", Base.metadata, Column("id", Integer, primary_key=True), extend_existing=True)
+# Mínimo con el que nace un stock creado sin indicación (ubicación nueva o primer tránsito).
+NIVEL_MINIMO_INICIAL = 1
 
 
-class Stock(Base):
-    """Entidad ORM que gestiona existencias por producto y ubicación física."""
+class Stock:
+    """Existencias de un producto en una ubicación (sujeto del patrón Observer).
 
-    __tablename__ = "stocks"
-    __table_args__ = (
-        UniqueConstraint("producto_id", "ubicacion_id", name="uq_stock_producto_ubicacion"),
-        CheckConstraint("cantidad_disponible >= 0", name="ck_stock_cantidad_disponible"),
-        CheckConstraint("cantidad_en_transito >= 0", name="ck_stock_cantidad_en_transito"),
-        CheckConstraint("nivel_minimo_existencia > 0", name="ck_stock_nivel_minimo"),
-        {"extend_existing": True},
-    )
-
-    id: Mapped[int | None] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    producto_id: Mapped[int] = mapped_column(Integer, ForeignKey("productos.id"), nullable=False)
-    ubicacion_id: Mapped[int] = mapped_column(Integer, ForeignKey("ubicaciones.id"), nullable=False)
-    cantidad_disponible: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    cantidad_en_transito: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    nivel_minimo_existencia: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-
-    ubicacion: Mapped[Ubicacion | None] = relationship("Ubicacion", foreign_keys=[ubicacion_id], lazy="joined")
+    Las cantidades nunca quedan negativas. Cada vez que el disponible baja y queda en
+    el nivel mínimo o por debajo, notifica a sus observadores.
+    """
 
     def __init__(
         self,
         producto_id: int,
         ubicacion_id: int,
+        nivel_minimo_existencia: int,
         cantidad_disponible: int = 0,
         cantidad_en_transito: int = 0,
-        nivel_minimo_existencia: int = 1,
+        es_local: bool = False,
         id: int | None = None,
-        ubicacion: Ubicacion | None = None,
     ) -> None:
-        if producto_id <= 0:
-            raise Datos_Invalidos_Exception("El ID de producto es inválido.")
-        if ubicacion_id <= 0:
-            raise Datos_Invalidos_Exception("El ID de ubicación es inválido.")
-        if cantidad_disponible < 0:
-            raise Datos_Invalidos_Exception("La cantidad disponible no puede ser negativa.")
-        if cantidad_en_transito < 0:
-            raise Datos_Invalidos_Exception("La cantidad en tránsito no puede ser negativa.")
-        if nivel_minimo_existencia <= 0:
-            raise Datos_Invalidos_Exception("El nivel mínimo de existencia debe ser mayor a cero.")
-
-        if id is not None:
-            self.id = id
-        self.producto_id = producto_id
-        self.ubicacion_id = ubicacion_id
-        self.cantidad_disponible = cantidad_disponible
-        self.cantidad_en_transito = cantidad_en_transito
-        self.nivel_minimo_existencia = nivel_minimo_existencia
-        if ubicacion is not None:
-            self.ubicacion = ubicacion
+        if cantidad_disponible < 0 or cantidad_en_transito < 0:
+            raise Cantidad_Invalida_Exception("Las cantidades de stock no pueden ser negativas.")
+        self._id = id
+        self._producto_id = producto_id
+        self._ubicacion_id = ubicacion_id
+        self._nivel_minimo = _positiva(nivel_minimo_existencia, "El nivel mínimo de existencia")
+        self._disponible = cantidad_disponible
+        self._en_transito = cantidad_en_transito
+        self._es_local = es_local
         self._observadores: list[Stock_Observer] = []
 
-    @reconstructor
-    def _init_on_load(self) -> None:
-        self._observadores = []
+    @property
+    def id(self) -> int | None:
+        return self._id
+
+    @id.setter
+    def id(self, valor: int) -> None:
+        if self._id is not None:
+            raise Cantidad_Invalida_Exception("No se puede modificar el id de un stock ya asignado.")
+        self._id = valor
 
     @property
-    def observadores(self) -> list[Stock_Observer]:
-        if not hasattr(self, "_observadores"):
-            self._observadores = []
-        return self._observadores
+    def producto_id(self) -> int:
+        return self._producto_id
 
-    def agregar_observador(self, obs: Stock_Observer) -> None:
-        if obs not in self.observadores:
-            self.observadores.append(obs)
+    @property
+    def ubicacion_id(self) -> int:
+        return self._ubicacion_id
 
-    def eliminar_observador(self, obs: Stock_Observer) -> None:
-        if obs in self.observadores:
-            self.observadores.remove(obs)
+    @property
+    def nivel_minimo_existencia(self) -> int:
+        return self._nivel_minimo
+
+    @property
+    def cantidad_disponible(self) -> int:
+        return self._disponible
+
+    @property
+    def cantidad_en_transito(self) -> int:
+        return self._en_transito
+
+    @property
+    def es_local(self) -> bool:
+        return self._es_local
+
+    @property
+    def esta_en_o_bajo_minimo(self) -> bool:
+        return self._disponible <= self._nivel_minimo
+
+    @property
+    def reposicion_sugerida(self) -> int:
+        """Cantidad para volver a un colchón de dos veces el mínimo."""
+        return max(self._nivel_minimo * 2 - self._disponible, 0)
+
+    # --- Observer ---
+
+    def agregar_observador(self, observador: Stock_Observer) -> None:
+        self._observadores.append(observador)
 
     def notificar(self) -> None:
-        for obs in list(self.observadores):
-            obs.notificar_stock_bajo(self)
+        for observador in self._observadores:
+            observador.notificar_stock_bajo(self)
 
-    @validates("nivel_minimo_existencia")
-    def _validar_nivel_minimo(self, key: str, value: int) -> int:
-        if value <= 0:
-            raise Datos_Invalidos_Exception("El nivel mínimo de existencia debe ser mayor a cero.")
-        return value
+    # --- Movimientos ---
 
     def incrementar_disponible(self, cantidad: int) -> None:
-        """Añade unidades disponibles (ej. recepción en CD o reingreso de devolución)."""
-        if cantidad <= 0:
-            raise Datos_Invalidos_Exception("La cantidad a incrementar debe ser mayor a cero.")
-        self.cantidad_disponible += cantidad
-
-    def reingresar_disponible(self, cantidad: int) -> None:
-        """Reingresa unidades al stock disponible por devolución de venta."""
-        self.incrementar_disponible(cantidad)
+        """Ingreso de proveedor al CD o reingreso por devolución."""
+        self._disponible += _positiva(cantidad, "La cantidad")
 
     def descontar_disponible(self, cantidad: int) -> None:
-        """Descuenta unidades disponibles (ej. reserva para despacho CD o venta en local)."""
-        if cantidad <= 0:
-            raise Datos_Invalidos_Exception("La cantidad a descontar debe ser mayor a cero.")
-        if self.cantidad_disponible < cantidad:
+        """Venta en un local o reserva para despacho en el CD."""
+        cantidad = _positiva(cantidad, "La cantidad")
+        if cantidad > self._disponible:
             raise Stock_Insuficiente_Exception(
-                f"Stock insuficiente: disponible={self.cantidad_disponible}, solicitado={cantidad}."
+                f"Stock insuficiente del producto {self._producto_id} en la ubicación {self._ubicacion_id}: "
+                f"disponible {self._disponible}, pedido {cantidad}."
             )
-        self.cantidad_disponible -= cantidad
-        if self.esta_en_o_bajo_minimo():
+        self._disponible -= cantidad
+        if self.esta_en_o_bajo_minimo:
             self.notificar()
 
-    def mover_a_transito(self, cantidad: int) -> None:
-        """Suma unidades en tránsito en el local receptor durante el despacho del CD."""
-        if cantidad <= 0:
-            raise Datos_Invalidos_Exception("La cantidad en tránsito debe ser mayor a cero.")
-        self.cantidad_en_transito += cantidad
+    def registrar_en_transito(self, cantidad: int) -> None:
+        """Mercadería despachada hacia este local: todavía no es vendible (V1)."""
+        self._en_transito += _positiva(cantidad, "La cantidad")
 
     def acreditar_desde_transito(self, cantidad: int) -> None:
-        """Pasa unidades de tránsito a disponible al verificar intacto el precinto del bulto."""
-        if cantidad <= 0:
-            raise Datos_Invalidos_Exception("La cantidad a acreditar debe ser mayor a cero.")
-        if self.cantidad_en_transito < cantidad:
-            raise Stock_Insuficiente_Exception(
-                f"Tránsito insuficiente: en tránsito={self.cantidad_en_transito}, solicitado={cantidad}."
-            )
-        self.cantidad_en_transito -= cantidad
-        self.cantidad_disponible += cantidad
+        """Bulto verificado: pasa de tránsito a disponible."""
+        self._descontar_transito(cantidad)
+        self._disponible += cantidad
 
     def registrar_merma_transito(self, cantidad: int) -> None:
-        """Descuenta unidades de tránsito como pérdida cuando un bulto es rechazado."""
-        if cantidad <= 0:
-            raise Datos_Invalidos_Exception("La cantidad de merma debe ser mayor a cero.")
-        if self.cantidad_en_transito < cantidad:
+        """Bulto rechazado: sale de tránsito sin habilitar venta."""
+        self._descontar_transito(cantidad)
+
+    def actualizar_nivel_minimo(self, nivel_minimo_existencia: int) -> None:
+        """Si el nuevo mínimo deja al disponible en o bajo el umbral, también se avisa."""
+        anterior = self._nivel_minimo
+        self._nivel_minimo = _positiva(nivel_minimo_existencia, "El nivel mínimo de existencia")
+        if self._nivel_minimo > anterior and self.esta_en_o_bajo_minimo:
+            self.notificar()
+
+    def _descontar_transito(self, cantidad: int) -> None:
+        cantidad = _positiva(cantidad, "La cantidad")
+        if cantidad > self._en_transito:
             raise Stock_Insuficiente_Exception(
-                f"Tránsito insuficiente: en tránsito={self.cantidad_en_transito}, merma={cantidad}."
+                f"La ubicación {self._ubicacion_id} no tiene en tránsito {cantidad} unidades "
+                f"del producto {self._producto_id} (hay {self._en_transito})."
             )
-        self.cantidad_en_transito -= cantidad
+        self._en_transito -= cantidad
 
-    def esta_en_o_bajo_minimo(self) -> bool:
-        """Indica si el stock disponible perforó o igualó el nivel mínimo de existencia."""
-        return self.cantidad_disponible <= self.nivel_minimo_existencia
 
-    def calcular_reposicion_sugerida(self) -> int:
-        """Fórmula de reposición: (nivel_minimo_existencia * 2) - cantidad_disponible."""
-        return max(0, (self.nivel_minimo_existencia * 2) - self.cantidad_disponible)
+def _positiva(valor: int, campo: str) -> int:
+    if not isinstance(valor, int) or isinstance(valor, bool) or valor <= 0:
+        raise Cantidad_Invalida_Exception(f"{campo} debe ser un entero mayor a cero.")
+    return valor

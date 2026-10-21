@@ -20,9 +20,9 @@ class Bulto_Mapper:
         )
 
     @staticmethod
-    def historial_a_dto(h: Historial_Bulto) -> Historial_Bulto_DTO:
+    def historial_a_dto(h: Historial_Bulto, bulto_id: int | None) -> Historial_Bulto_DTO:
         return Historial_Bulto_DTO(
-            bulto_id=h.bulto_id,
+            bulto_id=bulto_id,
             estado_anterior=h.estado_anterior,
             estado_nuevo=h.estado_nuevo,
             fecha_hora=h.fecha_hora.isoformat(),
@@ -32,10 +32,10 @@ class Bulto_Mapper:
     @classmethod
     def a_dto(cls, bulto: Bulto) -> Bulto_DTO:
         return Bulto_DTO(
-            id=int(bulto.id) if bulto.id is not None else None,
+            id=bulto.id,
             orden_id=bulto.orden_id,
             estado=bulto.estado.nombre,
             precinto=Precinto_Mapper.a_dto(bulto.precinto),
             detalles=[cls.detalle_a_dto(d) for d in bulto.detalles],
-            historial=[cls.historial_a_dto(h) for h in bulto.historial],
+            historial=[cls.historial_a_dto(h, bulto.id) for h in bulto.historial],
         )

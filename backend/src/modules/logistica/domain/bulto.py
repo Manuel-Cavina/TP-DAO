@@ -29,7 +29,7 @@ class Bulto:
         if not self._historial:
             self._historial.append(
                 Historial_Bulto(
-                    bulto_id=self._id or 0,
+                    bulto_id=self._id,
                     estado_anterior="INEXISTENTE",
                     estado_nuevo=self._estado.nombre,
                     fecha_hora=datetime.now(),
@@ -96,7 +96,7 @@ class Bulto:
         estado_anterior = self._estado.nombre
         self._estado = nuevo_estado
         registro = Historial_Bulto(
-            bulto_id=self._id or 0,
+            bulto_id=self._id,
             estado_anterior=estado_anterior,
             estado_nuevo=nuevo_estado.nombre,
             fecha_hora=datetime.now(),

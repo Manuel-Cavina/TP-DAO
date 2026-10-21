@@ -1,5 +1,7 @@
-from modules.catalogo.domain.categoria import Categoria
-from modules.catalogo.domain.proveedor import Proveedor
-from modules.catalogo.domain.producto import Producto
+"""Entidades y reglas de catalogo."""
 
-__all__ = ["Categoria", "Proveedor", "Producto"]
+from modules.catalogo.domain.categoria import Categoria
+from modules.catalogo.domain.producto import Producto
+from modules.catalogo.domain.proveedor import Proveedor
+
+__all__ = ["Categoria", "Producto", "Proveedor"]

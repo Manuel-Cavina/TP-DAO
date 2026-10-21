@@ -1,32 +1,13 @@
-from typing import TYPE_CHECKING
-
-from config.database.base import Base
-from sqlalchemy import Boolean, CheckConstraint, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
+import re
 
 from modules.catalogo.domain.exceptions import Datos_Invalidos_Exception
 
-if TYPE_CHECKING:
-    from modules.catalogo.domain.producto import Producto
+_CUIT = re.compile(r"[0-9]{11}")
+_EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
 
-class Proveedor(Base):
-    """Entidad de dominio que representa a un proveedor externo."""
-
-    __tablename__ = "proveedores"
-    __table_args__ = (
-        CheckConstraint("length(cuit) = 11 AND cuit GLOB '[0-9]*'", name="chk_proveedor_cuit"),
-        CheckConstraint("activo IN (0, 1)", name="chk_proveedor_activo"),
-    )
-
-    id: Mapped[int | None] = mapped_column(Integer, primary_key=True, autoincrement=True, default=None)
-    cuit: Mapped[str] = mapped_column(String(11), unique=True, nullable=False)
-    razon_social: Mapped[str] = mapped_column(String, nullable=False)
-    telefono: Mapped[str] = mapped_column(String, nullable=False)
-    email: Mapped[str] = mapped_column(String, nullable=False)
-    activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-
-    productos: Mapped[list["Producto"]] = relationship("Producto", back_populates="proveedor")
+class Proveedor:
+    """Proveedor de mercadería. El CUIT (11 dígitos) lo identifica y no se repite (V4)."""
 
     def __init__(
         self,
@@ -37,45 +18,58 @@ class Proveedor(Base):
         id: int | None = None,
         activo: bool = True,
     ) -> None:
-        self._validar_cuit(cuit)
-        if not razon_social or not razon_social.strip():
-            raise Datos_Invalidos_Exception("La razón social no puede estar vacía.")
+        cuit_normalizado = cuit.replace("-", "").strip() if isinstance(cuit, str) else ""
+        if not _CUIT.fullmatch(cuit_normalizado):
+            raise Datos_Invalidos_Exception("El CUIT debe tener 11 dígitos.")
+        self._id = id
+        self._cuit = cuit_normalizado
+        self._activo = activo
+        self.actualizar_datos(razon_social, telefono, email)
 
-        self.id = id
-        self.cuit = cuit.strip()
-        self.razon_social = razon_social.strip()
-        self.telefono = telefono.strip()
-        self.email = email.strip()
-        self.activo = activo
+    @property
+    def id(self) -> int | None:
+        return self._id
 
-    @staticmethod
-    def _validar_cuit(cuit: str) -> None:
-        if not cuit or len(cuit.strip()) != 11 or not cuit.strip().isdigit():
-            raise Datos_Invalidos_Exception("El CUIT debe contener exactamente 11 dígitos numéricos.")
+    @id.setter
+    def id(self, valor: int) -> None:
+        if self._id is not None:
+            raise Datos_Invalidos_Exception("No se puede modificar el id de un proveedor ya asignado.")
+        self._id = valor
 
-    @validates("cuit")
-    def _validar_cuit_attr(self, key: str, value: str) -> str:
-        self._validar_cuit(value)
-        return value.strip()
+    @property
+    def cuit(self) -> str:
+        return self._cuit
 
-    @validates("razon_social")
-    def _validar_razon_social(self, key: str, value: str) -> str:
-        if not value or not value.strip():
-            raise Datos_Invalidos_Exception("La razón social no puede estar vacía.")
-        return value.strip()
+    @property
+    def razon_social(self) -> str:
+        return self._razon_social
 
-    @validates("telefono")
-    def _validar_telefono(self, key: str, value: str) -> str:
-        return value.strip() if value else ""
+    @property
+    def telefono(self) -> str:
+        return self._telefono
 
-    @validates("email")
-    def _validar_email(self, key: str, value: str) -> str:
-        return value.strip() if value else ""
+    @property
+    def email(self) -> str:
+        return self._email
+
+    @property
+    def activo(self) -> bool:
+        return self._activo
+
+    def actualizar_datos(self, razon_social: str, telefono: str, email: str) -> None:
+        """Modifica los datos de contacto; el CUIT no cambia porque identifica al proveedor."""
+        self._razon_social = _texto_obligatorio(razon_social, "La razón social")
+        self._telefono = _texto_obligatorio(telefono, "El teléfono")
+        email_limpio = _texto_obligatorio(email, "El email")
+        if not _EMAIL.fullmatch(email_limpio):
+            raise Datos_Invalidos_Exception("El email del proveedor no tiene un formato válido.")
+        self._email = email_limpio
 
     def desactivar(self) -> None:
-        """Da de baja lógica al proveedor."""
-        self.activo = False
+        self._activo = False
 
-    def activar(self) -> None:
-        """Reactiva al proveedor."""
-        self.activo = True
+
+def _texto_obligatorio(valor: str, campo: str) -> str:
+    if not isinstance(valor, str) or not valor.strip():
+        raise Datos_Invalidos_Exception(f"{campo} del proveedor es obligatorio.")
+    return valor.strip()

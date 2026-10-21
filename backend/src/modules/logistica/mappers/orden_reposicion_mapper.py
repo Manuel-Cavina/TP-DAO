@@ -20,7 +20,7 @@ class Orden_Reposicion_Mapper:
     @classmethod
     def a_dto(cls, orden: Orden_Reposicion) -> Orden_Reposicion_DTO:
         return Orden_Reposicion_DTO(
-            id=int(orden.id) if orden.id is not None else None,
+            id=orden.id,
             origen_id=orden.origen_id,
             destino_id=orden.destino_id,
             fecha=orden.fecha.isoformat(),

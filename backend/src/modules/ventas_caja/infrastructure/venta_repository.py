@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from config.database.request_session_context import Request_Session_Context
 from modules.ventas_caja.domain import Comprobante, Detalle_Venta, Resultado_Pago, Venta
-from modules.ventas_caja.domain.exceptions import Venta_Invalida_Exception
 from modules.ventas_caja.infrastructure.models import (
     Comprobante_Model,
     Detalle_Venta_Model,
@@ -24,35 +23,8 @@ class Venta_Repository:
 
     def guardar(self, venta: Venta) -> Venta:
         """Inserta una venta confirmada y le asigna el id generado."""
-        comprobante = venta.comprobante
-        if comprobante is None:
-            raise Venta_Invalida_Exception("Solo se persisten ventas confirmadas con comprobante.")
-
+        modelo = self._a_modelo(venta)
         session = self._get_session()
-        modelo = Venta_Model(
-            local_id=venta.local_id,
-            fecha_hora=venta.fecha_hora,
-            total=venta.total,
-            detalles=[
-                Detalle_Venta_Model(
-                    producto_id=d.producto_id,
-                    cantidad=d.cantidad,
-                    precio_unitario=d.precio_unitario,
-                )
-                for d in venta.detalles
-            ],
-            comprobante=Comprobante_Model(
-                local_id=comprobante.local_id,
-                numero=comprobante.numero,
-                fecha_emision=comprobante.fecha_emision,
-                total=comprobante.total,
-                medio_pago=comprobante.pago.medio_pago,
-                total_cobrado=comprobante.pago.monto_cobrado,
-                recargo=comprobante.pago.recargo,
-                vuelto=comprobante.pago.vuelto,
-                detalle_pago=comprobante.pago.detalle,
-            ),
-        )
         session.add(modelo)
         session.flush()
         venta.id = modelo.id
@@ -126,6 +98,35 @@ class Venta_Repository:
         )
         cantidad, total = self._get_session().execute(stmt).one()
         return cantidad, Decimal(str(total)).quantize(Decimal("0.01"))
+
+    @staticmethod
+    def _a_modelo(venta: Venta) -> Venta_Model:
+        """Venta, líneas y comprobante como modelos ORM; falla si la venta no se confirmó."""
+        comprobante = venta.comprobante_emitido
+        return Venta_Model(
+            local_id=venta.local_id,
+            fecha_hora=venta.fecha_hora,
+            total=venta.total,
+            detalles=[
+                Detalle_Venta_Model(
+                    producto_id=d.producto_id,
+                    cantidad=d.cantidad,
+                    precio_unitario=d.precio_unitario,
+                )
+                for d in venta.detalles
+            ],
+            comprobante=Comprobante_Model(
+                local_id=comprobante.local_id,
+                numero=comprobante.numero,
+                fecha_emision=comprobante.fecha_emision,
+                total=comprobante.total,
+                medio_pago=comprobante.pago.medio_pago,
+                total_cobrado=comprobante.pago.monto_cobrado,
+                recargo=comprobante.pago.recargo,
+                vuelto=comprobante.pago.vuelto,
+                detalle_pago=comprobante.pago.detalle,
+            ),
+        )
 
     @staticmethod
     def _a_dominio(modelo: Venta_Model) -> Venta:

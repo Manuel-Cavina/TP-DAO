@@ -1,107 +1,156 @@
-from modules.ubicaciones_stock.domain.alerta_stock import Alerta_Stock
-from modules.ubicaciones_stock.domain.exceptions import Datos_Invalidos_Exception, Entidad_No_Encontrada_Exception
-from modules.ubicaciones_stock.domain.observers import Alerta_Stock_Observer, Reposicion_Local_Observer, Reposicion_Logistica_Service
-from modules.ubicaciones_stock.domain.stock import Stock
-from modules.ubicaciones_stock.dto import Alerta_Stock_DTO, Stock_DTO
+from modules.catalogo.application import Catalogo_Consulta_Service, Inicializador_Stock_Contract
+from modules.ubicaciones_stock.application.alerta_stock_observer import Alerta_Stock_Observer
+from modules.ubicaciones_stock.application.registro_observadores_stock import Registro_Observadores_Stock
+from modules.ubicaciones_stock.domain import NIVEL_MINIMO_INICIAL, Stock, Stock_Observer
+from modules.ubicaciones_stock.domain.exceptions import (
+    Entidad_No_Encontrada_Exception,
+    Ingreso_No_Permitido_Exception,
+    Stock_Insuficiente_Exception,
+)
 from modules.ubicaciones_stock.infrastructure.stock_repository import Stock_Repository
 from modules.ubicaciones_stock.infrastructure.ubicacion_repository import Ubicacion_Repository
-from modules.ubicaciones_stock.mappers.stock_mapper import Alerta_Stock_Mapper, Stock_Mapper
 
 
-class Stock_Service:
-    """Casos de uso de inventario y contratos consumidos por Logística y Ventas."""
+class Stock_Service(Inicializador_Stock_Contract):
+    """Único dueño de las cantidades de stock (Integrante 1).
 
-    def __init__(self, stock_repo: Stock_Repository | None = None, ubicacion_repo: Ubicacion_Repository | None = None,
-                 reposicion_service: Reposicion_Logistica_Service | None = None) -> None:
-        self._stock_repo = stock_repo or Stock_Repository()
-        self._ubicacion_repo = ubicacion_repo or Ubicacion_Repository()
-        self._reposicion_service = reposicion_service
+    Logística y ventas no tocan la tabla stocks: usan estos métodos. Cada descuento
+    de disponible avisa a los observadores (alertas y reposición) si el stock queda
+    en o bajo su mínimo.
+    """
 
-    def suscribir_observadores_por_defecto(self, stock: Stock) -> None:
-        if not any(isinstance(obs, Alerta_Stock_Observer) for obs in stock.observadores):
-            stock.agregar_observador(Alerta_Stock_Observer(self._stock_repo))
-        if self._reposicion_service and not any(isinstance(obs, Reposicion_Local_Observer) for obs in stock.observadores):
-            stock.agregar_observador(Reposicion_Local_Observer(self._reposicion_service, self._ubicacion_repo))
+    def __init__(
+        self,
+        stock_repository: Stock_Repository | None = None,
+        ubicacion_repository: Ubicacion_Repository | None = None,
+        catalogo: Catalogo_Consulta_Service | None = None,
+        observadores: list[Stock_Observer] | None = None,
+    ) -> None:
+        self._repository = stock_repository if stock_repository is not None else Stock_Repository()
+        self._ubicaciones = ubicacion_repository if ubicacion_repository is not None else Ubicacion_Repository()
+        self._catalogo = catalogo if catalogo is not None else Catalogo_Consulta_Service()
+        self._observadores = (
+            observadores
+            if observadores is not None
+            else [Alerta_Stock_Observer(), *Registro_Observadores_Stock.crear_observadores()]
+        )
 
-    def configurar_observadores_para_stock(self, stock: Stock) -> None:
-        self.suscribir_observadores_por_defecto(stock)
+    # --- Catálogo e ingresos ---
 
-    def inicializar_stock_para_producto(self, producto_id: int, nivel_minimo: int) -> None:
-        if producto_id <= 0 or nivel_minimo <= 0:
-            raise Datos_Invalidos_Exception("El producto y el nivel mínimo deben ser válidos.")
-        self._stock_repo.inicializar_stock_para_producto(producto_id, nivel_minimo)
+    def inicializar_stock_para_producto(self, producto_id: int, nivel_minimo_existencia: int) -> None:
+        """Al dar de alta un producto se crea su stock en cero en cada ubicación activa."""
+        for ubicacion in self._ubicaciones.listar(solo_activas=True):
+            if self._repository.obtener(producto_id, ubicacion.id) is None:
+                self._repository.guardar(
+                    Stock(producto_id, ubicacion.id, nivel_minimo_existencia, es_local=ubicacion.es_local)
+                )
 
-    def ingresar_mercaderia_cd(self, producto_id: int, cd_id: int, cantidad: int) -> None:
-        if cantidad <= 0:
-            raise Datos_Invalidos_Exception("La cantidad a ingresar debe ser mayor a cero.")
-        ubicacion = self._ubicacion_repo.buscar_por_id(cd_id)
-        if not ubicacion:
-            raise Entidad_No_Encontrada_Exception(f"No existe la ubicación con ID {cd_id}.")
-        if not ubicacion.es_centro_distribucion():
-            raise Datos_Invalidos_Exception("Las compras de proveedores solo pueden ingresar al Centro de Distribución.")
-        stock = self._stock_repo.buscar_por_producto_y_ubicacion(producto_id, cd_id)
-        if not stock:
-            stock = self._stock_repo.crear(Stock(producto_id, cd_id))
+    def ingresar_mercaderia_cd(self, producto_id: int, cd_id: int, cantidad: int) -> Stock:
+        """Ingreso de proveedor: suma disponible solo en el CD, nunca directo a un local."""
+        ubicacion = self._ubicaciones.obtener_por_id(cd_id)
+        if ubicacion is None or not ubicacion.activo:
+            raise Entidad_No_Encontrada_Exception(f"No existe una ubicación activa con id {cd_id}.")
+        if not ubicacion.es_centro_distribucion:
+            raise Ingreso_No_Permitido_Exception(
+                "La mercadería de proveedores solo ingresa al Centro de Distribución; "
+                "los locales se abastecen por el flujo logístico."
+            )
+        self._catalogo.obtener_producto_activo(producto_id)
+        stock = self._obtener_o_crear(producto_id, cd_id, es_local=False)
         stock.incrementar_disponible(cantidad)
-        self._stock_repo.actualizar(stock)
-
-    def _stock(self, producto_id: int, ubicacion_id: int) -> Stock:
-        stock = self._stock_repo.buscar_por_producto_y_ubicacion(producto_id, ubicacion_id)
-        if not stock:
-            raise Entidad_No_Encontrada_Exception(f"No existe stock para el producto {producto_id} en la ubicación {ubicacion_id}.")
+        self._repository.actualizar(stock)
         return stock
 
-    @staticmethod
-    def _cantidad_valida(cantidad: int) -> None:
-        if cantidad <= 0:
-            raise Datos_Invalidos_Exception("La cantidad debe ser mayor a cero.")
+    def actualizar_nivel_minimo(self, producto_id: int, ubicacion_id: int, nivel_minimo_existencia: int) -> Stock:
+        # Con lock: si una venta o un despacho corre a la vez, no se pisan sus cantidades.
+        stock = self._repository.obtener_para_actualizar(producto_id, ubicacion_id)
+        if stock is None:
+            raise Entidad_No_Encontrada_Exception(
+                f"No existe stock del producto {producto_id} en la ubicación {ubicacion_id}."
+            )
+        self._suscribir_observadores(stock)
+        stock.actualizar_nivel_minimo(nivel_minimo_existencia)
+        self._repository.actualizar(stock)
+        return stock
 
-    def reservar_para_despacho(self, producto_id: int, cd_id: int, cantidad: int) -> None:
-        self._cantidad_valida(cantidad)
-        stock = self._stock(producto_id, cd_id)
-        self.suscribir_observadores_por_defecto(stock)
-        stock.descontar_disponible(cantidad)
-        self._stock_repo.actualizar(stock)
+    def consultar_stock(self, producto_id: int, ubicacion_id: int) -> Stock:
+        stock = self._repository.obtener(producto_id, ubicacion_id)
+        if stock is None:
+            raise Entidad_No_Encontrada_Exception(
+                f"No existe stock del producto {producto_id} en la ubicación {ubicacion_id}."
+            )
+        return stock
 
-    def registrar_en_transito(self, producto_id: int, local_id: int, cantidad: int) -> None:
-        self._cantidad_valida(cantidad)
-        stock = self._stock(producto_id, local_id)
-        stock.mover_a_transito(cantidad)
-        self._stock_repo.actualizar(stock)
+    def listar(
+        self,
+        ubicacion_id: int | None = None,
+        producto_id: int | None = None,
+        solo_bajo_minimo: bool = False,
+    ) -> list[Stock]:
+        return self._repository.listar(ubicacion_id, producto_id, solo_bajo_minimo)
 
-    def acreditar_verificado(self, producto_id: int, local_id: int, cantidad: int) -> None:
-        self._cantidad_valida(cantidad)
-        stock = self._stock(producto_id, local_id)
-        stock.acreditar_desde_transito(cantidad)
-        self._stock_repo.actualizar(stock)
-
-    def registrar_merma(self, producto_id: int, local_id: int, cantidad: int) -> None:
-        self._cantidad_valida(cantidad)
-        stock = self._stock(producto_id, local_id)
-        stock.registrar_merma_transito(cantidad)
-        self._stock_repo.actualizar(stock)
+    # --- Contrato con ventas_caja (Integrante 3) ---
 
     def consultar_disponible(self, producto_id: int, ubicacion_id: int) -> int:
-        return self._stock(producto_id, ubicacion_id).cantidad_disponible
+        """Disponible y verificado; si el producto nunca tuvo stock en la ubicación, es 0."""
+        stock = self._repository.obtener(producto_id, ubicacion_id)
+        return stock.cantidad_disponible if stock is not None else 0
 
     def descontar_por_venta(self, producto_id: int, local_id: int, cantidad: int) -> None:
-        self._cantidad_valida(cantidad)
-        stock = self._stock(producto_id, local_id)
-        self.suscribir_observadores_por_defecto(stock)
-        stock.descontar_disponible(cantidad)
-        self._stock_repo.actualizar(stock)
+        self._descontar(producto_id, local_id, cantidad)
 
     def reingresar_por_devolucion(self, producto_id: int, local_id: int, cantidad: int) -> None:
-        self._cantidad_valida(cantidad)
-        stock = self._stock(producto_id, local_id)
-        stock.reingresar_disponible(cantidad)
-        self._stock_repo.actualizar(stock)
+        stock = self._repository.obtener_para_actualizar(producto_id, local_id)
+        if stock is None:
+            raise Entidad_No_Encontrada_Exception(
+                f"No existe stock del producto {producto_id} en el local {local_id}."
+            )
+        stock.incrementar_disponible(cantidad)
+        self._repository.actualizar(stock)
 
-    def consultar_stock_ubicacion(self, ubicacion_id: int) -> list[Stock_DTO]:
-        return [Stock_Mapper.to_dto(stock) for stock in self._stock_repo.listar_por_ubicacion(ubicacion_id)]
+    # --- Contrato con logística (Integrante 2) ---
 
-    def consultar_stock_producto(self, producto_id: int) -> list[Stock_DTO]:
-        return [Stock_Mapper.to_dto(stock) for stock in self._stock_repo.listar_por_producto(producto_id)]
+    def reservar_para_despacho(self, producto_id: int, cd_id: int, cantidad: int) -> None:
+        self._descontar(producto_id, cd_id, cantidad)
 
-    def listar_alertas(self, solo_no_leidas: bool = False, ubicacion_id: int | None = None) -> list[Alerta_Stock_DTO]:
-        return [Alerta_Stock_Mapper.to_dto(alerta) for alerta in self._stock_repo.listar_alertas(solo_no_leidas, ubicacion_id)]
+    def registrar_en_transito(self, producto_id: int, local_id: int, cantidad: int) -> None:
+        stock = self._obtener_o_crear(producto_id, local_id, es_local=True)
+        stock.registrar_en_transito(cantidad)
+        self._repository.actualizar(stock)
+
+    def acreditar_verificado(self, producto_id: int, local_id: int, cantidad: int) -> None:
+        stock = self._obtener_para_movimiento(producto_id, local_id)
+        stock.acreditar_desde_transito(cantidad)
+        self._repository.actualizar(stock)
+
+    def registrar_merma(self, producto_id: int, local_id: int, cantidad: int) -> None:
+        stock = self._obtener_para_movimiento(producto_id, local_id)
+        stock.registrar_merma_transito(cantidad)
+        self._repository.actualizar(stock)
+
+    # --- Internos ---
+
+    def _descontar(self, producto_id: int, ubicacion_id: int, cantidad: int) -> None:
+        stock = self._obtener_para_movimiento(producto_id, ubicacion_id)
+        self._suscribir_observadores(stock)
+        stock.descontar_disponible(cantidad)
+        self._repository.actualizar(stock)
+
+    def _suscribir_observadores(self, stock: Stock) -> None:
+        for observador in self._observadores:
+            stock.agregar_observador(observador)
+
+    def _obtener_para_movimiento(self, producto_id: int, ubicacion_id: int) -> Stock:
+        """Sin registro de stock no hay unidades que mover: se informa como stock insuficiente."""
+        stock = self._repository.obtener_para_actualizar(producto_id, ubicacion_id)
+        if stock is None:
+            raise Stock_Insuficiente_Exception(
+                f"No hay stock del producto {producto_id} en la ubicación {ubicacion_id}."
+            )
+        return stock
+
+    def _obtener_o_crear(self, producto_id: int, ubicacion_id: int, es_local: bool) -> Stock:
+        stock = self._repository.obtener_para_actualizar(producto_id, ubicacion_id)
+        if stock is not None:
+            return stock
+        return self._repository.guardar(Stock(producto_id, ubicacion_id, NIVEL_MINIMO_INICIAL, es_local=es_local))

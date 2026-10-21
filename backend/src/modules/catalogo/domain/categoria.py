@@ -1,33 +1,42 @@
-from typing import TYPE_CHECKING
-
-from config.database.base import Base
-from sqlalchemy import Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
-
 from modules.catalogo.domain.exceptions import Datos_Invalidos_Exception
 
-if TYPE_CHECKING:
-    from modules.catalogo.domain.producto import Producto
+
+class Categoria:
+    """Agrupación de productos del catálogo. Se da de baja en forma lógica."""
+
+    def __init__(self, nombre: str, id: int | None = None, activo: bool = True) -> None:
+        self._id = id
+        self._nombre = _validar_nombre(nombre)
+        self._activo = activo
+
+    @property
+    def id(self) -> int | None:
+        return self._id
+
+    @id.setter
+    def id(self, valor: int) -> None:
+        if self._id is not None:
+            raise Datos_Invalidos_Exception("No se puede modificar el id de una categoría ya asignado.")
+        self._id = valor
+
+    @property
+    def nombre(self) -> str:
+        return self._nombre
+
+    @property
+    def activo(self) -> bool:
+        return self._activo
+
+    def renombrar(self, nombre: str) -> None:
+        self._nombre = _validar_nombre(nombre)
+
+    def desactivar(self) -> None:
+        self._activo = False
 
 
-class Categoria(Base):
-    """Entidad de dominio que clasifica los productos."""
-
-    __tablename__ = "categorias"
-
-    id: Mapped[int | None] = mapped_column(Integer, primary_key=True, autoincrement=True, default=None)
-    nombre: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-
-    productos: Mapped[list["Producto"]] = relationship("Producto", back_populates="categoria")
-
-    def __init__(self, nombre: str, id: int | None = None) -> None:
-        if not nombre or not nombre.strip():
-            raise Datos_Invalidos_Exception("El nombre de la categoría no puede estar vacío.")
-        self.id = id
-        self.nombre = nombre.strip()
-
-    @validates("nombre")
-    def _validar_nombre(self, key: str, value: str) -> str:
-        if not value or not value.strip():
-            raise Datos_Invalidos_Exception("El nombre de la categoría no puede estar vacío.")
-        return value.strip()
+def _validar_nombre(nombre: str) -> str:
+    if not isinstance(nombre, str) or not nombre.strip():
+        raise Datos_Invalidos_Exception("El nombre de la categoría es obligatorio.")
+    if len(nombre.strip()) > 100:
+        raise Datos_Invalidos_Exception("El nombre de la categoría admite hasta 100 caracteres.")
+    return nombre.strip()

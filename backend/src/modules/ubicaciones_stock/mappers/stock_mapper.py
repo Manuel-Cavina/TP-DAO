@@ -1,71 +1,42 @@
-from modules.ubicaciones_stock.domain import (
-    Alerta_Stock,
-    Centro_Distribucion,
-    Local,
-    Stock,
-    Ubicacion,
-)
-from modules.ubicaciones_stock.dto import (
-    Alerta_Stock_DTO,
-    Crear_CD_DTO,
-    Crear_Local_DTO,
-    Stock_DTO,
-    Ubicacion_DTO,
-)
-
-
-class Ubicacion_Mapper:
-    @staticmethod
-    def to_dto(entity: Ubicacion) -> Ubicacion_DTO:
-        return Ubicacion_DTO(
-            id=entity.id,
-            tipo=entity.tipo,
-            nombre=entity.nombre,
-            direccion=entity.direccion,
-            telefono=entity.telefono,
-            activo=entity.activo,
-        )
-
-    @staticmethod
-    def to_entity_cd(dto: Crear_CD_DTO) -> Centro_Distribucion:
-        return Centro_Distribucion(
-            nombre=dto.nombre,
-            direccion=dto.direccion,
-            telefono=dto.telefono,
-        )
-
-    @staticmethod
-    def to_entity_local(dto: Crear_Local_DTO) -> Local:
-        return Local(
-            nombre=dto.nombre,
-            direccion=dto.direccion,
-            telefono=dto.telefono,
-        )
+from modules.ubicaciones_stock.domain import Alerta_Stock, Stock, Ubicacion
+from modules.ubicaciones_stock.dto import Alerta_Stock_DTO, Stock_DTO, Ubicacion_DTO
 
 
 class Stock_Mapper:
+    """Conversor entre ubicaciones, stock y alertas y sus DTOs."""
+
     @staticmethod
-    def to_dto(entity: Stock) -> Stock_DTO:
-        return Stock_DTO(
-            id=entity.id,
-            producto_id=entity.producto_id,
-            ubicacion_id=entity.ubicacion_id,
-            cantidad_disponible=entity.cantidad_disponible,
-            cantidad_en_transito=entity.cantidad_en_transito,
-            nivel_minimo_existencia=entity.nivel_minimo_existencia,
+    def ubicacion_a_dto(ubicacion: Ubicacion) -> Ubicacion_DTO:
+        return Ubicacion_DTO(
+            id=ubicacion.id,
+            tipo=ubicacion.tipo,
+            nombre=ubicacion.nombre,
+            direccion=ubicacion.direccion,
+            telefono=ubicacion.telefono,
+            activo=ubicacion.activo,
         )
 
-
-class Alerta_Stock_Mapper:
     @staticmethod
-    def to_dto(entity: Alerta_Stock) -> Alerta_Stock_DTO:
+    def stock_a_dto(stock: Stock) -> Stock_DTO:
+        return Stock_DTO(
+            id=stock.id,
+            producto_id=stock.producto_id,
+            ubicacion_id=stock.ubicacion_id,
+            cantidad_disponible=stock.cantidad_disponible,
+            cantidad_en_transito=stock.cantidad_en_transito,
+            nivel_minimo_existencia=stock.nivel_minimo_existencia,
+            en_o_bajo_minimo=stock.esta_en_o_bajo_minimo,
+        )
+
+    @staticmethod
+    def alerta_a_dto(alerta: Alerta_Stock) -> Alerta_Stock_DTO:
         return Alerta_Stock_DTO(
-            id=entity.id,
-            stock_id=entity.stock_id,
-            producto_id=entity.producto_id,
-            ubicacion_id=entity.ubicacion_id,
-            cantidad_disponible=entity.cantidad_disponible,
-            nivel_minimo=entity.nivel_minimo,
-            fecha_emision=entity.fecha_emision,
-            leida=entity.leida,
+            id=alerta.id,
+            stock_id=alerta.stock_id,
+            producto_id=alerta.producto_id,
+            ubicacion_id=alerta.ubicacion_id,
+            cantidad_disponible=alerta.cantidad_disponible,
+            nivel_minimo=alerta.nivel_minimo,
+            fecha_emision=alerta.fecha_emision.isoformat(),
+            leida=alerta.leida,
         )

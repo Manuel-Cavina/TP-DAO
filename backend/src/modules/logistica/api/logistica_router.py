@@ -1,7 +1,7 @@
-from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing import Annotated, Any
 
-from errors.business_error import BusinessError
+from fastapi import APIRouter, Depends, Path, Query, status
+
 from modules.logistica.application import (
     Despacho_Service,
     Empaquetado_Service,
@@ -26,6 +26,7 @@ from modules.logistica.dto import (
     Trazabilidad_Bulto_Response_DTO,
     Verificar_Bulto_Request_DTO,
 )
+from modules.logistica.infrastructure import Stock_Logistica_Adapter
 from modules.logistica.mappers import (
     Bulto_Mapper,
     Orden_Reposicion_Mapper,
@@ -35,22 +36,26 @@ from modules.logistica.mappers import (
 
 router = APIRouter(prefix="/api/logistica", tags=["Logística y Trazabilidad de Bultos"])
 
+Id_Path = Annotated[int, Path(gt=0, le=2**63 - 1)]
 
-# Inyeccion de dependencias desacoplada para FastAPI
+
+# Inyeccion de dependencias desacoplada para FastAPI. Las rutas no capturan BusinessError:
+# el handler global traduce cada excepcion tipada a 400, 404 o 409.
+# Al publicar Integrante 1 su Stock_Service, solo se reemplaza el adaptador aqui.
 def get_reposicion_service() -> Reposicion_Service:
-    return Reposicion_Service()
+    return Reposicion_Service(Stock_Logistica_Adapter())
 
 
 def get_empaquetado_service() -> Empaquetado_Service:
-    return Empaquetado_Service()
+    return Empaquetado_Service(Stock_Logistica_Adapter())
 
 
 def get_despacho_service() -> Despacho_Service:
-    return Despacho_Service()
+    return Despacho_Service(Stock_Logistica_Adapter())
 
 
 def get_recepcion_service() -> Recepcion_Service:
-    return Recepcion_Service()
+    return Recepcion_Service(Stock_Logistica_Adapter())
 
 
 def get_trazabilidad_service() -> Trazabilidad_Service:
@@ -71,22 +76,19 @@ def registrar_necesidad(
     req: Registrar_Necesidad_Request_DTO,
     service: Reposicion_Service = Depends(get_reposicion_service),
 ) -> dict[str, Any]:
-    try:
-        nid = service.registrar_necesidad(
-            producto_id=req.producto_id,
-            local_id=req.local_id,
-            cantidad=req.cantidad,
-        )
-        return {
-            "mensaje": (
-                "Necesidad registrada correctamente."
-                if nid
-                else "Ya existia una necesidad pendiente para ese producto y local."
-            ),
-            "id": nid,
-        }
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    nid = service.registrar_necesidad(
+        producto_id=req.producto_id,
+        local_id=req.local_id,
+        cantidad=req.cantidad,
+    )
+    return {
+        "mensaje": (
+            "Necesidad registrada correctamente."
+            if nid
+            else "Ya existia una necesidad pendiente para ese producto y local."
+        ),
+        "id": nid,
+    }
 
 
 @router.get(
@@ -95,7 +97,7 @@ def registrar_necesidad(
     summary="Listar necesidades pendientes",
 )
 def listar_necesidades(
-    local_id: int | None = Query(None, description="Filtrar por local destino"),
+    local_id: int | None = Query(None, gt=0, le=2**63 - 1, description="Filtrar por local destino"),
     service: Reposicion_Service = Depends(get_reposicion_service),
 ) -> list[Necesidad_Reposicion_DTO]:
     pendientes = service.listar_necesidades_pendientes(local_id)
@@ -122,14 +124,11 @@ def consolidar_orden(
     req: Consolidar_Orden_Request_DTO,
     service: Reposicion_Service = Depends(get_reposicion_service),
 ) -> Orden_Reposicion_DTO:
-    try:
-        orden = service.consolidar_necesidades_en_orden(
-            local_destino_id=req.local_destino_id,
-            origen_id=req.origen_id,
-        )
-        return Orden_Reposicion_Mapper.a_dto(orden)
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    orden = service.consolidar_necesidades_en_orden(
+        local_destino_id=req.local_destino_id,
+        origen_id=req.origen_id,
+    )
+    return Orden_Reposicion_Mapper.a_dto(orden)
 
 
 @router.post(
@@ -142,15 +141,12 @@ def crear_orden_manual(
     req: Crear_Orden_Manual_Request_DTO,
     service: Reposicion_Service = Depends(get_reposicion_service),
 ) -> Orden_Reposicion_DTO:
-    try:
-        orden = service.crear_orden_manual(
-            origen_id=req.origen_id,
-            destino_id=req.destino_id,
-            items=[it.model_dump() for it in req.items],
-        )
-        return Orden_Reposicion_Mapper.a_dto(orden)
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    orden = service.crear_orden_manual(
+        origen_id=req.origen_id,
+        destino_id=req.destino_id,
+        items=[it.model_dump() for it in req.items],
+    )
+    return Orden_Reposicion_Mapper.a_dto(orden)
 
 
 @router.get(
@@ -172,14 +168,11 @@ def listar_ordenes(
     summary="Obtener una orden de reposicion por ID",
 )
 def obtener_orden(
-    orden_id: int,
+    orden_id: Id_Path,
     service: Reposicion_Service = Depends(get_reposicion_service),
 ) -> Orden_Reposicion_DTO:
-    try:
-        orden = service.obtener_orden(orden_id)
-        return Orden_Reposicion_Mapper.a_dto(orden)
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
+    orden = service.obtener_orden(orden_id)
+    return Orden_Reposicion_Mapper.a_dto(orden)
 
 
 @router.get(
@@ -188,7 +181,7 @@ def obtener_orden(
     summary="Listar bultos armados para una orden",
 )
 def listar_bultos_por_orden(
-    orden_id: int,
+    orden_id: Id_Path,
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> list[Bulto_DTO]:
     bultos = service.listar_bultos_por_orden(orden_id)
@@ -210,11 +203,8 @@ def registrar_precinto(
     req: Registrar_Precinto_Request_DTO,
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> Precinto_DTO:
-    try:
-        precinto = service.registrar_precinto(req.codigo)
-        return Precinto_Mapper.a_dto(precinto)
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    precinto = service.registrar_precinto(req.codigo)
+    return Precinto_Mapper.a_dto(precinto)
 
 
 @router.post(
@@ -224,18 +214,15 @@ def registrar_precinto(
     summary="Empaquetar mercaderia en un nuevo bulto en preparacion (P4)",
 )
 def crear_bulto(
-    orden_id: int,
+    orden_id: Id_Path,
     req: Crear_Bulto_Request_DTO,
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> Bulto_DTO:
-    try:
-        bulto = service.crear_bulto(
-            orden_id=orden_id,
-            items=[it.model_dump() for it in req.items],
-        )
-        return Bulto_Mapper.a_dto(bulto)
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    bulto = service.crear_bulto(
+        orden_id=orden_id,
+        items=[it.model_dump() for it in req.items],
+    )
+    return Bulto_Mapper.a_dto(bulto)
 
 
 @router.post(
@@ -244,18 +231,15 @@ def crear_bulto(
     summary="Precintar bulto (State: PREPARADO -> PRECINTADO)",
 )
 def precintar_bulto(
-    bulto_id: int,
+    bulto_id: Id_Path,
     req: Precintar_Bulto_Request_DTO,
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> Bulto_DTO:
-    try:
-        bulto = service.precintar_bulto(
-            bulto_id=bulto_id,
-            codigo_precinto=req.codigo_precinto,
-        )
-        return Bulto_Mapper.a_dto(bulto)
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    bulto = service.precintar_bulto(
+        bulto_id=bulto_id,
+        codigo_precinto=req.codigo_precinto,
+    )
+    return Bulto_Mapper.a_dto(bulto)
 
 
 @router.get(
@@ -264,14 +248,11 @@ def precintar_bulto(
     summary="Obtener un bulto por su ID",
 )
 def obtener_bulto(
-    bulto_id: int,
+    bulto_id: Id_Path,
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> Bulto_DTO:
-    try:
-        bulto = service.obtener_bulto(bulto_id)
-        return Bulto_Mapper.a_dto(bulto)
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
+    bulto = service.obtener_bulto(bulto_id)
+    return Bulto_Mapper.a_dto(bulto)
 
 
 # -------------------------------------------------------------------------
@@ -286,19 +267,16 @@ def obtener_bulto(
     summary="Generar un nuevo remito con bultos precintados",
 )
 def generar_remito(
-    orden_id: int = Query(..., description="ID de la orden de reposicion"),
+    orden_id: int = Query(..., gt=0, le=2**63 - 1, description="ID de la orden de reposicion"),
     req: Generar_Remito_Request_DTO = ...,
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> Remito_DTO:
-    try:
-        remito = service.generar_remito(
-            numero=req.numero,
-            orden_id=orden_id,
-            bultos_ids=req.bultos_ids,
-        )
-        return Remito_Mapper.a_dto(remito)
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    remito = service.generar_remito(
+        numero=req.numero,
+        orden_id=orden_id,
+        bultos_ids=req.bultos_ids,
+    )
+    return Remito_Mapper.a_dto(remito)
 
 
 @router.get(
@@ -322,11 +300,8 @@ def obtener_remito(
     numero: str,
     service: Despacho_Service = Depends(get_despacho_service),
 ) -> Remito_DTO:
-    try:
-        remito = service.obtener_remito(numero)
-        return Remito_Mapper.a_dto(remito)
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
+    remito = service.obtener_remito(numero)
+    return Remito_Mapper.a_dto(remito)
 
 
 @router.post(
@@ -338,11 +313,8 @@ def despachar_remito(
     numero: str,
     service: Despacho_Service = Depends(get_despacho_service),
 ) -> Remito_DTO:
-    try:
-        remito = service.despachar_remito(numero)
-        return Remito_Mapper.a_dto(remito)
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    remito = service.despachar_remito(numero)
+    return Remito_Mapper.a_dto(remito)
 
 
 # -------------------------------------------------------------------------
@@ -359,11 +331,8 @@ def recibir_remito(
     numero: str,
     service: Recepcion_Service = Depends(get_recepcion_service),
 ) -> Remito_DTO:
-    try:
-        remito = service.recibir_remito(numero)
-        return Remito_Mapper.a_dto(remito)
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    remito = service.recibir_remito(numero)
+    return Remito_Mapper.a_dto(remito)
 
 
 @router.post(
@@ -372,19 +341,16 @@ def recibir_remito(
     summary="Verificar precinto fisico de un bulto (State: RECIBIDO -> VERIFICADO o RECHAZADO)",
 )
 def verificar_bulto(
-    bulto_id: int,
+    bulto_id: Id_Path,
     req: Verificar_Bulto_Request_DTO,
     service: Recepcion_Service = Depends(get_recepcion_service),
 ) -> Bulto_DTO:
-    try:
-        bulto = service.verificar_bulto(
-            bulto_id=bulto_id,
-            codigo_precinto_recibido=req.codigo_precinto_recibido,
-            esta_intacto=req.esta_intacto,
-        )
-        return Bulto_Mapper.a_dto(bulto)
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    bulto = service.verificar_bulto(
+        bulto_id=bulto_id,
+        codigo_precinto_recibido=req.codigo_precinto_recibido,
+        esta_intacto=req.esta_intacto,
+    )
+    return Bulto_Mapper.a_dto(bulto)
 
 
 @router.post(
@@ -396,11 +362,8 @@ def cerrar_remito(
     numero: str,
     service: Recepcion_Service = Depends(get_recepcion_service),
 ) -> Cierre_Remito_Response_DTO:
-    try:
-        resultado = service.cerrar_remito(numero)
-        return Cierre_Remito_Response_DTO(**resultado)
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    resultado = service.cerrar_remito(numero)
+    return Cierre_Remito_Response_DTO(**resultado)
 
 
 # -------------------------------------------------------------------------
@@ -414,11 +377,8 @@ def cerrar_remito(
     summary="Consultar trazabilidad inmutable y linea de tiempo de un bulto (V2)",
 )
 def consultar_trazabilidad(
-    bulto_id: int,
+    bulto_id: Id_Path,
     service: Trazabilidad_Service = Depends(get_trazabilidad_service),
 ) -> Trazabilidad_Bulto_Response_DTO:
-    try:
-        resumen = service.consultar_resumen_trazabilidad(bulto_id)
-        return Trazabilidad_Bulto_Response_DTO(**resumen)
-    except BusinessError as err:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
+    resumen = service.consultar_resumen_trazabilidad(bulto_id)
+    return Trazabilidad_Bulto_Response_DTO(**resumen)

@@ -1,7 +1,5 @@
-from modules.catalogo.api.catalogo_controller import (
-    Catalogo_Controller,
-    HTTP_Response,
-)
-from modules.catalogo.api.catalogo_router import catalogo_router
+"""Puntos de entrada HTTP del modulo catalogo."""
 
-__all__ = ["Catalogo_Controller", "HTTP_Response", "catalogo_router"]
+from modules.catalogo.api.catalogo_router import router as catalogo_router
+
+__all__ = ["catalogo_router"]

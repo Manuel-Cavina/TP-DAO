@@ -1,46 +1,82 @@
+from modules.catalogo.application import Catalogo_Consulta_Service
+from modules.ubicaciones_stock.domain import NIVEL_MINIMO_INICIAL, Centro_Distribucion, Local, Stock, Ubicacion
 from modules.ubicaciones_stock.domain.exceptions import (
-    Datos_Invalidos_Exception, Entidad_Duplicada_Exception, Entidad_No_Encontrada_Exception,
-    Ubicacion_Con_Stock_Exception,
+    Centro_Distribucion_Duplicado_Exception,
+    Entidad_No_Encontrada_Exception,
 )
-from modules.ubicaciones_stock.dto import Crear_CD_DTO, Crear_Local_DTO, Ubicacion_DTO
+from modules.ubicaciones_stock.infrastructure.stock_repository import Stock_Repository
 from modules.ubicaciones_stock.infrastructure.ubicacion_repository import Ubicacion_Repository
-from modules.ubicaciones_stock.mappers.stock_mapper import Ubicacion_Mapper
 
 
 class Ubicacion_Service:
-    """Casos de uso para el Centro de Distribución y los locales."""
+    """Administración de locales y del Centro de Distribución (P1).
 
-    def __init__(self, repository: Ubicacion_Repository | None = None) -> None:
-        self._repository = repository or Ubicacion_Repository()
+    No se eliminan ubicaciones: tienen stock, ventas o bultos asociados, así que se dan de baja lógica.
+    """
 
-    def crear_centro_distribucion(self, dto: Crear_CD_DTO) -> Ubicacion_DTO:
-        if not dto.nombre.strip() or not dto.direccion.strip():
-            raise Datos_Invalidos_Exception("El nombre y la dirección del Centro de Distribución son obligatorios.")
-        if self._repository.obtener_centro_distribucion():
-            raise Entidad_Duplicada_Exception("Ya existe un Centro de Distribución registrado en el sistema.")
-        return Ubicacion_Mapper.to_dto(self._repository.crear(Ubicacion_Mapper.to_entity_cd(dto)))
+    def __init__(
+        self,
+        ubicacion_repository: Ubicacion_Repository | None = None,
+        stock_repository: Stock_Repository | None = None,
+        catalogo: Catalogo_Consulta_Service | None = None,
+    ) -> None:
+        self._repository = ubicacion_repository if ubicacion_repository is not None else Ubicacion_Repository()
+        self._stocks = stock_repository if stock_repository is not None else Stock_Repository()
+        self._catalogo = catalogo if catalogo is not None else Catalogo_Consulta_Service()
 
-    def crear_local(self, dto: Crear_Local_DTO) -> Ubicacion_DTO:
-        if not dto.nombre.strip() or not dto.direccion.strip() or not dto.telefono.strip():
-            raise Datos_Invalidos_Exception("El nombre, la dirección y el teléfono del local son obligatorios.")
-        return Ubicacion_Mapper.to_dto(self._repository.crear(Ubicacion_Mapper.to_entity_local(dto)))
+    def crear_local(self, nombre: str, direccion: str, telefono: str | None = None) -> Ubicacion:
+        return self._crear(Local(nombre, direccion, telefono))
 
-    def dar_de_baja_ubicacion(self, ubicacion_id: int) -> None:
-        ubicacion = self._repository.buscar_por_id(ubicacion_id)
-        if not ubicacion:
-            raise Entidad_No_Encontrada_Exception(f"No existe la ubicación con ID {ubicacion_id}.")
-        if self._repository.tiene_stock_asociado(ubicacion_id):
-            raise Ubicacion_Con_Stock_Exception(
-                f"No se puede dar de baja la ubicación '{ubicacion.nombre}' porque posee stock disponible o en tránsito."
-            )
+    def crear_centro_distribucion(self, nombre: str, direccion: str, telefono: str | None = None) -> Ubicacion:
+        if self._repository.listar(tipo="CD"):
+            raise Centro_Distribucion_Duplicado_Exception("El sistema admite un único Centro de Distribución.")
+        return self._crear(Centro_Distribucion(nombre, direccion, telefono))
+
+    def actualizar(self, ubicacion_id: int, nombre: str, direccion: str, telefono: str | None = None) -> Ubicacion:
+        ubicacion = self.obtener(ubicacion_id)
+        ubicacion.actualizar(nombre, direccion, telefono)
+        self._repository.actualizar(ubicacion)
+        return ubicacion
+
+    def desactivar(self, ubicacion_id: int) -> Ubicacion:
+        ubicacion = self.obtener(ubicacion_id)
         ubicacion.desactivar()
         self._repository.actualizar(ubicacion)
+        return ubicacion
 
-    def listar_ubicaciones(self, solo_activas: bool = True) -> list[Ubicacion_DTO]:
-        return [Ubicacion_Mapper.to_dto(ubicacion) for ubicacion in self._repository.listar(solo_activas)]
+    def obtener(self, ubicacion_id: int) -> Ubicacion:
+        ubicacion = self._repository.obtener_por_id(ubicacion_id)
+        if ubicacion is None:
+            raise Entidad_No_Encontrada_Exception(f"No existe la ubicación {ubicacion_id}.")
+        return ubicacion
 
-    def obtener_ubicacion_por_id(self, ubicacion_id: int) -> Ubicacion_DTO:
-        ubicacion = self._repository.buscar_por_id(ubicacion_id)
-        if not ubicacion:
-            raise Entidad_No_Encontrada_Exception(f"No existe la ubicación con ID {ubicacion_id}.")
-        return Ubicacion_Mapper.to_dto(ubicacion)
+    def listar(self, tipo: str | None = None, solo_activas: bool = False) -> list[Ubicacion]:
+        return self._repository.listar(tipo, solo_activas)
+
+    def validar_local(self, ubicacion_id: int) -> Ubicacion:
+        """Devuelve el local activo o falla: ventas y destinos de reposición solo van a locales."""
+        return self._validar_activa(ubicacion_id, "LOCAL", "local")
+
+    def validar_centro_distribucion(self, ubicacion_id: int) -> Ubicacion:
+        """Devuelve el CD activo o falla: ingresos y despachos solo salen del CD."""
+        return self._validar_activa(ubicacion_id, "CD", "Centro de Distribución")
+
+    def _crear(self, ubicacion: Ubicacion) -> Ubicacion:
+        """Una ubicación nueva nace con stock en cero de cada producto activo."""
+        guardada = self._repository.guardar(ubicacion)
+        for producto_id in self._catalogo.listar_ids_productos_activos():
+            self._stocks.guardar(
+                Stock(
+                    producto_id,
+                    guardada.id,
+                    NIVEL_MINIMO_INICIAL,
+                    es_local=guardada.es_local,
+                )
+            )
+        return guardada
+
+    def _validar_activa(self, ubicacion_id: int, tipo: str, descripcion: str) -> Ubicacion:
+        ubicacion = self._repository.obtener_por_id(ubicacion_id)
+        if ubicacion is None or not ubicacion.activo or ubicacion.tipo != tipo:
+            raise Entidad_No_Encontrada_Exception(f"No existe un {descripcion} activo con id {ubicacion_id}.")
+        return ubicacion

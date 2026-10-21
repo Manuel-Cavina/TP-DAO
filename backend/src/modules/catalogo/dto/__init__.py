@@ -1,21 +1,25 @@
-from modules.catalogo.dto.catalogo_dto import (
-    Actualizar_Precio_DTO,
-    Actualizar_Proveedor_DTO,
+"""DTOs para entrada/salida de la API de catalogo."""
+
+from modules.catalogo.dto.catalogo_dtos import (
+    Actualizar_Producto_Request_DTO,
+    Actualizar_Proveedor_Request_DTO,
     Categoria_DTO,
-    Crear_Categoria_DTO,
-    Crear_Producto_DTO,
-    Crear_Proveedor_DTO,
+    Categoria_Request_DTO,
+    Crear_Producto_Request_DTO,
+    Crear_Proveedor_Request_DTO,
+    Id_Positivo,
     Producto_DTO,
     Proveedor_DTO,
 )
 
 __all__ = [
+    "Actualizar_Producto_Request_DTO",
+    "Actualizar_Proveedor_Request_DTO",
     "Categoria_DTO",
-    "Crear_Categoria_DTO",
-    "Proveedor_DTO",
-    "Crear_Proveedor_DTO",
-    "Actualizar_Proveedor_DTO",
+    "Categoria_Request_DTO",
+    "Crear_Producto_Request_DTO",
+    "Crear_Proveedor_Request_DTO",
+    "Id_Positivo",
     "Producto_DTO",
-    "Crear_Producto_DTO",
-    "Actualizar_Precio_DTO",
+    "Proveedor_DTO",
 ]

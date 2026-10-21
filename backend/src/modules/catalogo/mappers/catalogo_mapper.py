@@ -1,68 +1,34 @@
 from modules.catalogo.domain import Categoria, Producto, Proveedor
-from modules.catalogo.dto import (
-    Categoria_DTO,
-    Crear_Categoria_DTO,
-    Crear_Producto_DTO,
-    Crear_Proveedor_DTO,
-    Producto_DTO,
-    Proveedor_DTO,
-)
+from modules.catalogo.dto import Categoria_DTO, Producto_DTO, Proveedor_DTO
 
 
-class Categoria_Mapper:
-    @staticmethod
-    def to_dto(entity: Categoria) -> Categoria_DTO:
-        return Categoria_DTO(id=entity.id, nombre=entity.nombre)
+class Catalogo_Mapper:
+    """Conversor entre entidades del catálogo y sus DTOs."""
 
     @staticmethod
-    def to_entity(dto: Crear_Categoria_DTO) -> Categoria:
-        return Categoria(nombre=dto.nombre)
+    def categoria_a_dto(categoria: Categoria) -> Categoria_DTO:
+        return Categoria_DTO(id=categoria.id, nombre=categoria.nombre, activo=categoria.activo)
 
-
-class Proveedor_Mapper:
     @staticmethod
-    def to_dto(entity: Proveedor) -> Proveedor_DTO:
+    def proveedor_a_dto(proveedor: Proveedor) -> Proveedor_DTO:
         return Proveedor_DTO(
-            id=entity.id,
-            cuit=entity.cuit,
-            razon_social=entity.razon_social,
-            telefono=entity.telefono,
-            email=entity.email,
-            activo=entity.activo,
+            id=proveedor.id,
+            cuit=proveedor.cuit,
+            razon_social=proveedor.razon_social,
+            telefono=proveedor.telefono,
+            email=proveedor.email,
+            activo=proveedor.activo,
         )
 
     @staticmethod
-    def to_entity(dto: Crear_Proveedor_DTO) -> Proveedor:
-        return Proveedor(
-            cuit=dto.cuit,
-            razon_social=dto.razon_social,
-            telefono=dto.telefono,
-            email=dto.email,
-        )
-
-
-class Producto_Mapper:
-    @staticmethod
-    def to_dto(entity: Producto, nivel_minimo: int = 1) -> Producto_DTO:
+    def producto_a_dto(producto: Producto) -> Producto_DTO:
         return Producto_DTO(
-            id=entity.id,
-            codigo=entity.codigo,
-            nombre=entity.nombre,
-            precio_venta=entity.precio_venta,
-            costo_unitario=entity.costo_unitario,
-            categoria_id=entity.categoria_id,
-            proveedor_id=entity.proveedor_id,
-            activo=entity.activo,
-            nivel_minimo=nivel_minimo,
-        )
-
-    @staticmethod
-    def to_entity(dto: Crear_Producto_DTO) -> Producto:
-        return Producto(
-            codigo=dto.codigo,
-            nombre=dto.nombre,
-            precio_venta=dto.precio_venta,
-            costo_unitario=dto.costo_unitario,
-            categoria_id=dto.categoria_id,
-            proveedor_id=dto.proveedor_id,
+            id=producto.id,
+            codigo=producto.codigo,
+            nombre=producto.nombre,
+            precio_venta=producto.precio_venta,
+            costo_unitario=producto.costo_unitario,
+            categoria_id=producto.categoria_id,
+            proveedor_id=producto.proveedor_id,
+            activo=producto.activo,
         )

@@ -1,9 +1,11 @@
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from config.database.request_session_context import Request_Session_Context
 from modules.logistica.domain.bulto import Bulto
 from modules.logistica.domain.detalle_bulto import Detalle_Bulto
 from modules.logistica.domain.estado_bulto import crear_estado_bulto_desde_string
+from modules.logistica.domain.exceptions import Bulto_No_Encontrado_Exception
 from modules.logistica.domain.historial_bulto import Historial_Bulto
 from modules.logistica.domain.precinto import Precinto
 from modules.logistica.infrastructure.models import (
@@ -16,8 +18,7 @@ from modules.logistica.infrastructure.models import (
 class Bulto_Repository:
     """Repositorio ORM para persistir y reconstruir bultos, detalles e historial inmutable."""
 
-    @staticmethod
-    def _get_session():
+    def _get_session(self) -> Session:
         return Request_Session_Context.obtener_sesion()
 
     def guardar(self, bulto: Bulto, remito_numero: str | None = None) -> Bulto:
@@ -51,13 +52,10 @@ class Bulto_Repository:
 
     def actualizar(self, bulto: Bulto, remito_numero: str | None = None) -> None:
         """Actualiza el estado de un bulto y sincroniza su historial inmutable."""
-        if bulto.id is None:
-            raise ValueError("No se puede actualizar un bulto sin id persistido.")
-
         session = self._get_session()
-        modelo = session.get(Bulto_Model, int(bulto.id))
+        modelo = session.get(Bulto_Model, bulto.id) if bulto.id is not None else None
         if modelo is None:
-            raise ValueError(f"No se encontro el bulto {bulto.id} para actualizar.")
+            raise Bulto_No_Encontrado_Exception(f"No se encontro el bulto {bulto.id} para actualizar.")
 
         modelo.estado = bulto.estado.nombre
         modelo.codigo_precinto = bulto.precinto.codigo if bulto.precinto else None
@@ -103,6 +101,11 @@ class Bulto_Repository:
         )
         modelos = session.scalars(stmt).unique().all()
         return [self._reconstruir_bulto(m) for m in modelos]
+
+    def remito_asignado(self, bulto_id: int) -> str | None:
+        """Numero del remito que ya incluye al bulto, o None si todavia no esta en ninguno."""
+        modelo = self._get_session().get(Bulto_Model, bulto_id)
+        return modelo.remito_numero if modelo is not None else None
 
     def listar_todos(self) -> list[Bulto]:
         """Lista todos los bultos registrados en el sistema."""

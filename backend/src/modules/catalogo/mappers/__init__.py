@@ -1,7 +1,5 @@
-from modules.catalogo.mappers.catalogo_mapper import (
-    Categoria_Mapper,
-    Producto_Mapper,
-    Proveedor_Mapper,
-)
+"""Mappers para conversion entidad <-> DTO en catalogo."""
 
-__all__ = ["Categoria_Mapper", "Proveedor_Mapper", "Producto_Mapper"]
+from modules.catalogo.mappers.catalogo_mapper import Catalogo_Mapper
+
+__all__ = ["Catalogo_Mapper"]

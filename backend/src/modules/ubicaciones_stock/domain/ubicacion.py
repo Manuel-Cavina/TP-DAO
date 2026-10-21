@@ -1,125 +1,105 @@
-from sqlalchemy import Boolean, CheckConstraint, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, validates
+from abc import ABC, abstractmethod
 
-from config.database.base import Base
-from modules.ubicaciones_stock.domain.exceptions import Datos_Invalidos_Exception
+from modules.ubicaciones_stock.domain.exceptions import Ubicacion_Invalida_Exception
 
 
-class Ubicacion(Base):
-    """Clase base ORM para nodos de la red física (Centro de Distribución y Locales)."""
-
-    __tablename__ = "ubicaciones"
-    __table_args__ = (
-        CheckConstraint("tipo IN ('CD', 'LOCAL')", name="ck_ubicaciones_tipo"),
-        CheckConstraint("activo IN (0, 1)", name="ck_ubicaciones_activo"),
-        {"extend_existing": True},
-    )
-    __mapper_args__ = {
-        "polymorphic_on": "tipo",
-    }
-
-    id: Mapped[int | None] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    tipo: Mapped[str] = mapped_column(String, nullable=False)
-    nombre: Mapped[str] = mapped_column(String, nullable=False)
-    direccion: Mapped[str] = mapped_column(String, nullable=False)
-    telefono: Mapped[str | None] = mapped_column(String, nullable=True)
-    activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+class Ubicacion(ABC):
+    """Lugar físico con stock propio. No se elimina: se da de baja lógica."""
 
     def __init__(
         self,
-        tipo: str,
         nombre: str,
         direccion: str,
         telefono: str | None = None,
         id: int | None = None,
         activo: bool = True,
     ) -> None:
-        if not nombre or not nombre.strip():
-            raise Datos_Invalidos_Exception("El nombre de la ubicación no puede estar vacío.")
-        if not direccion or not direccion.strip():
-            raise Datos_Invalidos_Exception("La dirección de la ubicación no puede estar vacía.")
-        if tipo not in ("CD", "LOCAL"):
-            raise Datos_Invalidos_Exception(f"Tipo de ubicación inválido: {tipo}. Debe ser 'CD' o 'LOCAL'.")
+        self._id = id
+        self._activo = activo
+        self.actualizar(nombre, direccion, telefono)
 
-        if id is not None:
-            self.id = id
-        self.tipo = tipo
-        self.nombre = nombre.strip()
-        self.direccion = direccion.strip()
-        self.telefono = telefono.strip() if telefono else None
-        self.activo = bool(activo)
+    @property
+    @abstractmethod
+    def tipo(self) -> str:
+        """Código persistido del tipo de ubicación: CD o LOCAL."""
+        raise NotImplementedError
 
-    @validates("nombre")
-    def _validar_nombre(self, key: str, value: str) -> str:
-        if not value or not value.strip():
-            raise Datos_Invalidos_Exception("El nombre de la ubicación no puede estar vacío.")
-        return value.strip()
-
-    @validates("direccion")
-    def _validar_direccion(self, key: str, value: str) -> str:
-        if not value or not value.strip():
-            raise Datos_Invalidos_Exception("La dirección de la ubicación no puede estar vacía.")
-        return value.strip()
-
-    def desactivar(self) -> None:
-        """Baja lógica de la ubicación."""
-        self.activo = False
-
-    def activar(self) -> None:
-        """Reactiva la ubicación."""
-        self.activo = True
-
+    @property
     def es_centro_distribucion(self) -> bool:
         return self.tipo == "CD"
 
+    @property
+    def es_local(self) -> bool:
+        return self.tipo == "LOCAL"
+
+    @property
+    def id(self) -> int | None:
+        return self._id
+
+    @id.setter
+    def id(self, valor: int) -> None:
+        if self._id is not None:
+            raise Ubicacion_Invalida_Exception("No se puede modificar el id de una ubicación ya asignado.")
+        self._id = valor
+
+    @property
+    def nombre(self) -> str:
+        return self._nombre
+
+    @property
+    def direccion(self) -> str:
+        return self._direccion
+
+    @property
+    def telefono(self) -> str | None:
+        return self._telefono
+
+    @property
+    def activo(self) -> bool:
+        return self._activo
+
+    def actualizar(self, nombre: str, direccion: str, telefono: str | None = None) -> None:
+        self._nombre = _texto_obligatorio(nombre, "El nombre")
+        self._direccion = _texto_obligatorio(direccion, "La dirección")
+        self._telefono = telefono.strip() if isinstance(telefono, str) and telefono.strip() else None
+
+    def desactivar(self) -> None:
+        self._activo = False
+
 
 class Centro_Distribucion(Ubicacion):
-    """Nodo central único que recibe compras a proveedores y abastece a los locales."""
+    """Centro de Distribución: único punto de ingreso de mercadería de proveedores."""
 
-    __mapper_args__ = {
-        "polymorphic_identity": "CD",
-    }
+    @property
+    def tipo(self) -> str:
+        return "CD"
 
-    def __init__(
-        self,
-        nombre: str,
-        direccion: str,
-        telefono: str | None = None,
-        id: int | None = None,
-        activo: bool = True,
-    ) -> None:
-        super().__init__(
-            tipo="CD",
-            nombre=nombre,
-            direccion=direccion,
-            telefono=telefono,
-            id=id,
-            activo=activo,
+    def desactivar(self) -> None:
+        raise Ubicacion_Invalida_Exception(
+            "El Centro de Distribución no se puede dar de baja: es el único punto de ingreso y despacho."
         )
 
 
 class Local(Ubicacion):
-    """Sucursal minorista que atiende ventas al público y solicita reposición al CD."""
+    """Local de venta al público; se abastece solo desde el CD por el flujo logístico."""
 
-    __mapper_args__ = {
-        "polymorphic_identity": "LOCAL",
-    }
+    @property
+    def tipo(self) -> str:
+        return "LOCAL"
 
-    def __init__(
-        self,
-        nombre: str,
-        direccion: str,
-        telefono: str,
-        id: int | None = None,
-        activo: bool = True,
-    ) -> None:
-        if not telefono or not telefono.strip():
-            raise Datos_Invalidos_Exception("El local debe poseer un número de teléfono de contacto.")
-        super().__init__(
-            tipo="LOCAL",
-            nombre=nombre,
-            direccion=direccion,
-            telefono=telefono,
-            id=id,
-            activo=activo,
-        )
+
+_TIPOS: dict[str, type[Ubicacion]] = {"CD": Centro_Distribucion, "LOCAL": Local}
+
+
+def crear_ubicacion(tipo: str, **datos: object) -> Ubicacion:
+    """Fábrica para reconstruir la subclase correcta a partir del tipo persistido."""
+    clase = _TIPOS.get(tipo)
+    if clase is None:
+        raise Ubicacion_Invalida_Exception(f"Tipo de ubicación inválido: {tipo}.")
+    return clase(**datos)
+
+
+def _texto_obligatorio(valor: str, campo: str) -> str:
+    if not isinstance(valor, str) or not valor.strip():
+        raise Ubicacion_Invalida_Exception(f"{campo} de la ubicación es obligatorio.")
+    return valor.strip()

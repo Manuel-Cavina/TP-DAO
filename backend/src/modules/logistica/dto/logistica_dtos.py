@@ -1,18 +1,22 @@
-from typing import Any
+from typing import Annotated, Any
+
 from pydantic import BaseModel, Field
+
+# Ids de productos y ubicaciones (Integrante 1) y de entidades propias: enteros de 64 bits.
+Id_Positivo = Annotated[int, Field(gt=0, le=2**63 - 1)]
 
 
 class Detalle_Bulto_DTO(BaseModel):
     """DTO para el contenido de un bulto."""
 
-    producto_id: int
-    cantidad: int = Field(gt=0, description="Cantidad de unidades del producto")
+    producto_id: Id_Positivo
+    cantidad: int = Field(gt=0, le=1_000_000, description="Cantidad de unidades del producto")
 
 
 class Historial_Bulto_DTO(BaseModel):
     """DTO para eventos de trazabilidad de un bulto."""
 
-    bulto_id: int
+    bulto_id: int | None
     estado_anterior: str
     estado_nuevo: str
     fecha_hora: str
@@ -40,7 +44,7 @@ class Bulto_DTO(BaseModel):
 class Detalle_Orden_Reposicion_DTO(BaseModel):
     """DTO representativo de un item en la orden de reposicion."""
 
-    producto_id: int
+    producto_id: Id_Positivo
     cantidad_solicitada: int = Field(gt=0)
     cantidad_enviada: int = Field(ge=0, default=0)
 
@@ -49,8 +53,8 @@ class Orden_Reposicion_DTO(BaseModel):
     """DTO para ordenes de reposicion."""
 
     id: int | None = None
-    origen_id: int
-    destino_id: int
+    origen_id: Id_Positivo
+    destino_id: Id_Positivo
     fecha: str
     estado: str
     detalles: list[Detalle_Orden_Reposicion_DTO] = []
@@ -60,8 +64,8 @@ class Remito_DTO(BaseModel):
     """DTO para el documento de remito de despacho."""
 
     numero: str
-    origen_id: int
-    destino_id: int
+    origen_id: Id_Positivo
+    destino_id: Id_Positivo
     fecha_emision: str
     estado: str
     bultos: list[Bulto_DTO] = []
@@ -71,8 +75,8 @@ class Necesidad_Reposicion_DTO(BaseModel):
     """DTO para una necesidad de reposicion detectada."""
 
     id: int | None = None
-    producto_id: int
-    local_id: int
+    producto_id: Id_Positivo
+    local_id: Id_Positivo
     cantidad: int
     estado: str = "PENDIENTE"
     fecha_registro: str | None = None
@@ -82,37 +86,37 @@ class Necesidad_Reposicion_DTO(BaseModel):
 
 
 class Registrar_Necesidad_Request_DTO(BaseModel):
-    producto_id: int
-    local_id: int
-    cantidad: int = Field(gt=0)
+    producto_id: Id_Positivo
+    local_id: Id_Positivo
+    cantidad: int = Field(gt=0, le=1_000_000)
 
 
 class Consolidar_Orden_Request_DTO(BaseModel):
-    local_destino_id: int
-    origen_id: int
+    local_destino_id: Id_Positivo
+    origen_id: Id_Positivo
 
 
 class Crear_Orden_Manual_Request_DTO(BaseModel):
-    origen_id: int
-    destino_id: int
-    items: list[Detalle_Bulto_DTO]
+    origen_id: Id_Positivo
+    destino_id: Id_Positivo
+    items: list[Detalle_Bulto_DTO] = Field(min_length=1)
 
 
 class Crear_Bulto_Request_DTO(BaseModel):
-    items: list[Detalle_Bulto_DTO]
+    items: list[Detalle_Bulto_DTO] = Field(min_length=1)
 
 
 class Precintar_Bulto_Request_DTO(BaseModel):
-    codigo_precinto: str
+    codigo_precinto: str = Field(min_length=1, max_length=50)
 
 
 class Registrar_Precinto_Request_DTO(BaseModel):
-    codigo: str
+    codigo: str = Field(min_length=1, max_length=50)
 
 
 class Generar_Remito_Request_DTO(BaseModel):
-    numero: str
-    bultos_ids: list[int]
+    numero: str = Field(min_length=1, max_length=50)
+    bultos_ids: list[Id_Positivo] = Field(min_length=1)
 
 
 class Verificar_Bulto_Request_DTO(BaseModel):

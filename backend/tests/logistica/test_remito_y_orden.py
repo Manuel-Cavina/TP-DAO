@@ -8,6 +8,7 @@ from modules.logistica.domain.bulto import Bulto
 from modules.logistica.domain.detalle_bulto import Detalle_Bulto
 from modules.logistica.domain.detalle_orden_reposicion import Detalle_Orden_Reposicion
 from modules.logistica.domain.exceptions import (
+    Bulto_Invalido_Exception,
     Orden_Invalida_Exception,
     Remito_Incompleto_Exception,
 )
@@ -76,6 +77,28 @@ class TestRemitoYOrden(unittest.TestCase):
         bulto1.verificar("PREC-1", esta_intacto=True)
         remito.cerrar()
         self.assertEqual(remito.estado, "CERRADO")
+
+    def test_orden_rechaza_productos_duplicados(self) -> None:
+        with self.assertRaises(Orden_Invalida_Exception):
+            Orden_Reposicion(1, 2, detalles=[Detalle_Orden_Reposicion(1, 5), Detalle_Orden_Reposicion(1, 3)])
+
+    def test_orden_rechaza_ids_invalidos_o_iguales(self) -> None:
+        for origen, destino in ((1, 1), (0, 2), ("CD-CENTRAL", 2), (1, True)):
+            with self.subTest(origen=origen, destino=destino), self.assertRaises(Orden_Invalida_Exception):
+                Orden_Reposicion(origen, destino)
+
+    def test_orden_completamente_enviada(self) -> None:
+        orden = Orden_Reposicion(1, 2, detalles=[Detalle_Orden_Reposicion(1, 5), Detalle_Orden_Reposicion(2, 3)])
+        orden.detalles[0].registrar_envio(5)
+        self.assertFalse(orden.esta_completamente_enviada)
+
+        orden.detalles[1].registrar_envio(3)
+        self.assertTrue(orden.esta_completamente_enviada)
+
+    def test_detalle_de_bulto_exige_producto_entero(self) -> None:
+        for producto in ("P1", 0, None):
+            with self.subTest(producto=producto), self.assertRaises(Bulto_Invalido_Exception):
+                Detalle_Bulto(producto, 1)
 
 
 if __name__ == "__main__":

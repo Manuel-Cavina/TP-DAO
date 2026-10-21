@@ -10,8 +10,8 @@ class Detalle_Orden_Reposicion:
         cantidad_solicitada: int,
         cantidad_enviada: int = 0,
     ) -> None:
-        if producto_id <= 0:
-            raise Orden_Invalida_Exception("El ID de producto debe ser positivo.")
+        if not isinstance(producto_id, int) or isinstance(producto_id, bool) or producto_id <= 0:
+            raise Orden_Invalida_Exception("El producto debe ser un identificador entero positivo.")
         if cantidad_solicitada <= 0:
             raise Orden_Invalida_Exception("La cantidad solicitada debe ser mayor a cero.")
         if cantidad_enviada < 0:
@@ -34,6 +34,10 @@ class Detalle_Orden_Reposicion:
     @property
     def cantidad_enviada(self) -> int:
         return self._cantidad_enviada
+
+    @property
+    def esta_completo(self) -> bool:
+        return self._cantidad_enviada == self._cantidad_solicitada
 
     def registrar_envio(self, cantidad: int) -> None:
         """Incrementa la cantidad enviada garantizando no exceder lo solicitado."""

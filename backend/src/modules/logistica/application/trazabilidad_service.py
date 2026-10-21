@@ -1,11 +1,9 @@
 from typing import Any
 
-from modules.logistica.domain.exceptions import Orden_Invalida_Exception
+from modules.logistica.domain.exceptions import Bulto_No_Encontrado_Exception
 from modules.logistica.domain.historial_bulto import Historial_Bulto
-from modules.logistica.infrastructure import (
-    Bulto_Repository,
-    Historial_Bulto_Repository,
-)
+from modules.logistica.infrastructure.bulto_repository import Bulto_Repository
+from modules.logistica.infrastructure.historial_bulto_repository import Historial_Bulto_Repository
 
 
 class Trazabilidad_Service:
@@ -31,7 +29,7 @@ class Trazabilidad_Service:
         """Obtiene la linea temporal completa e inmutable de eventos de un bulto."""
         bulto = self._bulto_repository.obtener_por_id(bulto_id)
         if bulto is None:
-            raise Orden_Invalida_Exception(f"No se encontro el bulto con ID {bulto_id}.")
+            raise Bulto_No_Encontrado_Exception(f"No se encontro el bulto con ID {bulto_id}.")
         return self._historial_repository.listar_por_bulto(bulto_id)
 
     def consultar_resumen_trazabilidad(
@@ -40,7 +38,7 @@ class Trazabilidad_Service:
         """Devuelve un resumen con estado actual y el historial completo."""
         bulto = self._bulto_repository.obtener_por_id(bulto_id)
         if bulto is None:
-            raise Orden_Invalida_Exception(f"No se encontro el bulto con ID {bulto_id}.")
+            raise Bulto_No_Encontrado_Exception(f"No se encontro el bulto con ID {bulto_id}.")
         historial = self._historial_repository.listar_por_bulto(bulto_id)
 
         return {

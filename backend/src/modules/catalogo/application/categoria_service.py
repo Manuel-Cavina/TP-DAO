@@ -1,28 +1,42 @@
-from modules.catalogo.domain.exceptions import (
-    Datos_Invalidos_Exception,
-    Entidad_No_Encontrada_Exception,
-)
-from modules.catalogo.dto import Categoria_DTO, Crear_Categoria_DTO
+from modules.catalogo.domain import Categoria
+from modules.catalogo.domain.exceptions import Entidad_Duplicada_Exception, Entidad_No_Encontrada_Exception
 from modules.catalogo.infrastructure.categoria_repository import Categoria_Repository
-from modules.catalogo.mappers.catalogo_mapper import Categoria_Mapper
 
 
 class Categoria_Service:
-    """Caso de uso para la administración de categorías del catálogo."""
+    """Alta, modificación, baja lógica y consulta de categorías (P2)."""
 
-    def __init__(self, repository: Categoria_Repository | None = None) -> None:
-        self._repository = repository or Categoria_Repository()
+    def __init__(self, categoria_repository: Categoria_Repository | None = None) -> None:
+        self._repository = categoria_repository if categoria_repository is not None else Categoria_Repository()
 
-    def crear_categoria(self, dto: Crear_Categoria_DTO) -> Categoria_DTO:
-        if not dto.nombre or not dto.nombre.strip():
-            raise Datos_Invalidos_Exception("El nombre de la categoría no puede estar vacío.")
-        return Categoria_Mapper.to_dto(self._repository.crear(Categoria_Mapper.to_entity(dto)))
+    def crear(self, nombre: str) -> Categoria:
+        categoria = Categoria(nombre)
+        self._validar_nombre_libre(categoria.nombre)
+        return self._repository.guardar(categoria)
 
-    def listar_categorias(self) -> list[Categoria_DTO]:
-        return [Categoria_Mapper.to_dto(entidad) for entidad in self._repository.listar()]
+    def renombrar(self, categoria_id: int, nombre: str) -> Categoria:
+        categoria = self.obtener(categoria_id)
+        categoria.renombrar(nombre)
+        self._validar_nombre_libre(categoria.nombre, excepto_id=categoria_id)
+        self._repository.actualizar(categoria)
+        return categoria
 
-    def obtener_categoria_por_id(self, categoria_id: int) -> Categoria_DTO:
-        entidad = self._repository.buscar_por_id(categoria_id)
-        if not entidad:
-            raise Entidad_No_Encontrada_Exception(f"No existe la categoría con ID {categoria_id}.")
-        return Categoria_Mapper.to_dto(entidad)
+    def desactivar(self, categoria_id: int) -> Categoria:
+        categoria = self.obtener(categoria_id)
+        categoria.desactivar()
+        self._repository.actualizar(categoria)
+        return categoria
+
+    def obtener(self, categoria_id: int) -> Categoria:
+        categoria = self._repository.obtener_por_id(categoria_id)
+        if categoria is None:
+            raise Entidad_No_Encontrada_Exception(f"No existe la categoría {categoria_id}.")
+        return categoria
+
+    def listar(self, solo_activas: bool = False) -> list[Categoria]:
+        return self._repository.listar(solo_activas)
+
+    def _validar_nombre_libre(self, nombre: str, excepto_id: int | None = None) -> None:
+        existente = self._repository.obtener_por_nombre(nombre)
+        if existente is not None and existente.id != excepto_id:
+            raise Entidad_Duplicada_Exception(f"Ya existe la categoría '{nombre}'.")

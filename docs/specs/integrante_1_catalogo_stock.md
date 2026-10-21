@@ -109,11 +109,10 @@ classDiagram
 
 ### 2.2 Esquema relacional SQLite (transición a ORM)
 
-> El DDL heredado deja de ser la fuente operativa. Las entidades SQLAlchemy ORM y
-> `Base.metadata.create_all()` son la fuente de verdad conforme al spec transversal
-> [`migracion_orm_sqlalchemy.md`](migracion_orm_sqlalchemy.md). Hasta completar la
-> fase del módulo, los repositories heredados pueden usar el adaptador temporal
-> `config.database.legacy_sqlite`; no se agrega persistencia nueva sobre él.
+> **Estado:** este DDL quedó como referencia. Las tablas las declaran los modelos ORM de
+> `catalogo/infrastructure/models.py` y `ubicaciones_stock/infrastructure/models.py`, con los mismos
+> nombres de columnas y sus `UNIQUE`, `CHECK` y FK, y se crean con `Base.metadata.create_all()`.
+> `schema.sql` fue retirado.
 
 ```sql
 -- Habilitar integridad referencial en cada sesion
@@ -223,7 +222,7 @@ flowchart TD
     end
 
     subgraph DB["Persistencia SQLite"]
-        SqliteConn["config.database.sqlite_connection()"]
+        SqliteConn["Request_Session_Context (sesión ORM de la petición)"]
     end
 
     Client -->|HTTP POST /api/catalogo/productos| API_Cat
@@ -253,11 +252,11 @@ sequenceDiagram
     User->>CatAPI: POST /api/catalogo/productos
     CatAPI->>ProdServ: crear_producto(dto)
     ProdServ->>ProdServ: validar reglas y construir Producto
-    ProdServ->>ProdRepo: guardar(producto, connection)
-    ProdServ->>StockServ: inicializar_stock_para_producto(producto_id, nivel_minimo, connection)
-    StockServ->>StockRepo: listar_todas_ubicaciones_activas(connection)
+    ProdServ->>ProdRepo: guardar(producto)
+    ProdServ->>StockServ: inicializar_stock_para_producto(producto_id, nivel_minimo)
+    StockServ->>StockRepo: listar ubicaciones activas
     loop Por cada Ubicacion
-        StockServ->>StockRepo: crear_stock(producto_id, ubicacion_id, nivel_minimo, connection)
+        StockServ->>StockRepo: guardar(Stock en cero)
     end
     ProdServ-->>CatAPI: Producto_DTO
     CatAPI-->>User: 201 Created (JSON)
@@ -277,17 +276,17 @@ sequenceDiagram
     participant ObsRepo as Reposicion_Local_Observer
     participant Logistica as Logistica (Int. 2)
 
-    Ventas->>StockServ: descontar_por_venta(producto_id, local_id, cantidad, conn)
-    StockServ->>StockRepo: buscar_por_producto_y_ubicacion(producto_id, local_id, conn)
+    Ventas->>StockServ: descontar_por_venta(producto_id, local_id, cantidad)
+    StockServ->>StockRepo: buscar_por_producto_y_ubicacion(producto_id, local_id)
     StockServ->>StockEnt: descontar_disponible(cantidad)
     Note over StockEnt: Si cantidad_disponible <= nivel_minimo:<br/>dispara notificar()
     StockEnt->>ObsAlert: notificar_stock_bajo(stock)
-    ObsAlert->>StockRepo: registrar_alerta(alerta, conn)
+    ObsAlert->>StockRepo: registrar_alerta(alerta)
     StockEnt->>ObsRepo: notificar_stock_bajo(stock)
     opt Es un Local comercial
         ObsRepo->>Logistica: registrar_necesidad(producto, local, cantidad_sugerida)
     end
-    StockServ->>StockRepo: actualizar(stock, conn)
+    StockServ->>StockRepo: actualizar(stock)
     StockServ-->>Ventas: OK
 ```
 
@@ -344,7 +343,7 @@ Para garantizar la estabilidad y la no duplicación de esfuerzos, la construcci�
 - [x] **T2.1 (Dominio):** Implementar jerarquía de `Ubicacion` (`Local`, `Centro_Distribucion`) y la entidad `Stock` con sus métodos mutadores de inventario (`backend/src/modules/ubicaciones_stock/domain/`).
 - [x] **T2.2 (Excepciones):** Completar `stock_exceptions.py` con `Stock_Insuficiente_Exception`, `Ubicacion_Con_Stock_Exception`, `Entidad_No_Encontrada_Exception`.
 - [x] **T2.3 (DTOs y Mappers):** Implementar DTOs para ubicaciones, stock e ingreso de mercadería.
-- [x] **T2.4 (Infraestructura SQLite):** Crear `Ubicacion_Repository` y `Stock_Repository` soportando transacciones mediante `connection` inyectada.
+- [x] **T2.4 (Infraestructura SQLite):** Crear `Ubicacion_Repository` y `Stock_Repository` obteniendo la sesión de `Request_Session_Context` (la transacción la maneja el middleware).
 - [x] **T2.5 (Servicio Stock y Contratos):** Implementar `Ubicacion_Service` y `Stock_Service` con todos los contratos de la Sección 4 de la consigna (`reservar_para_despacho`, `registrar_en_transito`, `acreditar_verificado`, `registrar_merma`, `consultar_disponible`, `descontar_por_venta`, `reingresar_por_devolucion`, `ingresar_mercaderia_cd`).
 - [x] **T2.6 (Integración Catálogo - Stock):** Enlazar `Producto_Service` para invocar `Stock_Service.inicializar_stock_para_producto` dentro de la misma transacción.
 - [x] **T2.7 (API HTTP):** Endpoints REST para sucursales, CD, ingresos al CD y consultas de stock.
@@ -358,6 +357,24 @@ Para garantizar la estabilidad y la no duplicación de esfuerzos, la construcci�
 - [x] **T3.5 (API y Tests Observer):** Endpoint `GET /api/stock/alertas` y pruebas unitarias completas del patrón Observer.
 
 ### Fase 4: Cierre, DDL Central y Verificaciones
-- [x] **T4.1 (Modelos ORM y seed):** Declarar las tablas de Catálogo, Ubicaciones y Stock en entidades ORM y crear un seed idempotente cuando se integre su fase.
+- [x] **T4.1 (Modelos ORM y seed):** Modelos ORM y seed de demo (`bootstrap/seed_demo.py`). Declarar las tablas de Catálogo, Ubicaciones y Stock en entidades ORM y crear un seed idempotente cuando se integre su fase.
 - [x] **T4.2 (Scripts de Integridad):** Ejecutar `.agents/scripts/check_structure.py` y `.agents/scripts/check_conventions.py`.
 - [x] **T4.3 (Suite de Pruebas):** Ejecutar `pytest` sobre toda la suite de pruebas creadas.
+
+---
+
+## 6. Notas de implementación
+
+- **ORM como única fuente del esquema.** `catalogo/infrastructure/models.py` y `ubicaciones_stock/infrastructure/models.py` declaran `categorias`, `proveedores`, `productos`, `ubicaciones`, `stocks` y `alertas_stock` con los mismos nombres de columnas, más sus `UNIQUE`, `CHECK` y FK. Se retiraron `config/schema.sql` y `legacy_schema_initializer.py`.
+- **Dependencias entre módulos.** Solo se importa `application/` de otro módulo:
+  - Catálogo crea el stock del producto nuevo mediante el puerto `Inicializador_Stock_Contract`, que implementa `Stock_Service`.
+  - Stock consulta productos con `Catalogo_Consulta_Service`.
+  - Ventas y logística delegan en `Stock_Service` y `Ubicacion_Service` a través de sus adaptadores.
+- **Observer.** `Stock` es el sujeto: notifica cuando el disponible baja y queda en o bajo el mínimo, y también cuando se sube el mínimo por encima del disponible.
+  - `Alerta_Stock_Observer` guarda una alerta y no la repite mientras haya una sin leer.
+  - `Reposicion_Local_Observer` pide reposición solo para locales, con la cantidad `mínimo * 2 - disponible`, mediante el puerto `Registro_Necesidad_Contract`. Logística implementa ese puerto con `Registro_Necesidad_Desde_Stock`, y `bootstrap/application_factory.py` lo suscribe como composition root.
+- **Concurrencia.** `Stock_Repository.obtener_para_actualizar` toma el lock de escritura de SQLite antes de leer. Así, dos ventas o reservas simultáneas no venden la misma unidad (V3).
+- **Reglas del equipo.**
+  - Un único CD, garantizado también por un índice único parcial; el CD no se puede dar de baja.
+  - La mercadería del proveedor solo ingresa al CD.
+  - Las ubicaciones y los productos se dan de baja lógica. Un producto inactivo no se vende ni entra en órdenes nuevas, pero lo que ya está en tránsito se puede recibir.

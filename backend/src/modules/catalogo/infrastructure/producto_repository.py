@@ -1,60 +1,73 @@
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from config.database.request_session_context import Request_Session_Context
-from errors.persistence_error import Persistencia_Exception
+from modules.catalogo.domain import Producto
 from modules.catalogo.domain.exceptions import Entidad_Duplicada_Exception
-from modules.catalogo.domain.producto import Producto
+from modules.catalogo.infrastructure.models import Producto_Model
 
 
 class Producto_Repository:
-    """Acceso ORM a productos usando la sesión activa de la petición."""
+    """Repositorio ORM de productos."""
 
-    def crear(self, producto: Producto) -> Producto:
-        try:
-            sesion = Request_Session_Context.obtener_sesion()
-            with sesion.begin_nested():
-                sesion.add(producto)
-                sesion.flush()
-            return producto
-        except IntegrityError as error:
-            raise Entidad_Duplicada_Exception(
-                f"El producto con código '{producto.codigo}' ya se encuentra registrado."
-            ) from error
-        except Exception as error:
-            raise Persistencia_Exception(f"Error de base de datos al crear producto: {error}") from error
+    def _get_session(self) -> Session:
+        return Request_Session_Context.obtener_sesion()
+
+    def guardar(self, producto: Producto) -> Producto:
+        modelo = Producto_Model(codigo=producto.codigo)
+        self._copiar(producto, modelo)
+        self._get_session().add(modelo)
+        self._flush(producto.codigo)
+        producto.id = modelo.id
+        return producto
 
     def actualizar(self, producto: Producto) -> None:
+        modelo = self._get_session().get(Producto_Model, producto.id)
+        self._copiar(producto, modelo)
+        self._flush(producto.codigo)
+
+    def obtener_por_id(self, producto_id: int) -> Producto | None:
+        modelo = self._get_session().get(Producto_Model, producto_id)
+        return self._a_dominio(modelo) if modelo is not None else None
+
+    def obtener_por_codigo(self, codigo: str) -> Producto | None:
+        stmt = select(Producto_Model).where(Producto_Model.codigo == codigo.strip())
+        modelo = self._get_session().scalars(stmt).first()
+        return self._a_dominio(modelo) if modelo is not None else None
+
+    def listar(self, solo_activos: bool = False, categoria_id: int | None = None) -> list[Producto]:
+        stmt = select(Producto_Model).order_by(Producto_Model.codigo)
+        if solo_activos:
+            stmt = stmt.where(Producto_Model.activo.is_(True))
+        if categoria_id is not None:
+            stmt = stmt.where(Producto_Model.categoria_id == categoria_id)
+        return [self._a_dominio(m) for m in self._get_session().scalars(stmt)]
+
+    def _flush(self, codigo: str) -> None:
         try:
-            Request_Session_Context.obtener_sesion().flush()
+            self._get_session().flush()
         except IntegrityError as error:
-            raise Entidad_Duplicada_Exception(
-                f"El producto con código '{producto.codigo}' ya se encuentra registrado."
-            ) from error
-        except Exception as error:
-            raise Persistencia_Exception(f"Error al actualizar producto: {error}") from error
+            raise Entidad_Duplicada_Exception(f"Ya existe un producto con código '{codigo}'.") from error
 
-    def buscar_por_codigo(self, codigo: str) -> Producto | None:
-        try:
-            sentencia = select(Producto).where(Producto.codigo == codigo.strip())
-            return Request_Session_Context.obtener_sesion().scalar(sentencia)
-        except Exception as error:
-            raise Persistencia_Exception(f"Error al buscar producto por código: {error}") from error
+    @staticmethod
+    def _copiar(producto: Producto, modelo: Producto_Model) -> None:
+        modelo.nombre = producto.nombre
+        modelo.precio_venta = producto.precio_venta
+        modelo.costo_unitario = producto.costo_unitario
+        modelo.categoria_id = producto.categoria_id
+        modelo.proveedor_id = producto.proveedor_id
+        modelo.activo = producto.activo
 
-    def buscar_por_id(self, producto_id: int) -> Producto | None:
-        try:
-            return Request_Session_Context.obtener_sesion().get(Producto, producto_id)
-        except Exception as error:
-            raise Persistencia_Exception(f"Error al buscar producto por ID: {error}") from error
-
-    def listar(self, solo_activos: bool = True, categoria_id: int | None = None) -> list[Producto]:
-        try:
-            sentencia = select(Producto)
-            if solo_activos:
-                sentencia = sentencia.where(Producto.activo.is_(True))
-            if categoria_id is not None:
-                sentencia = sentencia.where(Producto.categoria_id == categoria_id)
-            sentencia = sentencia.order_by(Producto.nombre.asc())
-            return list(Request_Session_Context.obtener_sesion().scalars(sentencia))
-        except Exception as error:
-            raise Persistencia_Exception(f"Error al listar productos: {error}") from error
+    @staticmethod
+    def _a_dominio(modelo: Producto_Model) -> Producto:
+        return Producto(
+            codigo=modelo.codigo,
+            nombre=modelo.nombre,
+            precio_venta=modelo.precio_venta,
+            costo_unitario=modelo.costo_unitario,
+            categoria_id=modelo.categoria_id,
+            proveedor_id=modelo.proveedor_id,
+            id=modelo.id,
+            activo=modelo.activo,
+        )

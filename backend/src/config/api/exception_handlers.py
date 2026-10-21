@@ -11,11 +11,18 @@ from errors.business_error import BusinessError
 from errors.persistence_error import Persistencia_Exception
 
 _logger = logging.getLogger(__name__)
-_ESTADOS_NEGOCIO = {
-    "Entidad_No_Encontrada_Exception": 404,
-    "Entidad_Duplicada_Exception": 409,
-    "Venta_No_Encontrada_Exception": 404,
-}
+# Convención de nombres: el sufijo de la excepción de negocio define el código HTTP.
+_ESTADOS_POR_SUFIJO = (
+    ("_No_Encontrada_Exception", 404),
+    ("_No_Encontrado_Exception", 404),
+    ("_Duplicada_Exception", 409),
+    ("_Duplicado_Exception", 409),
+)
+
+
+def _estado_http(error: BusinessError) -> int:
+    nombre = type(error).__name__
+    return next((estado for sufijo, estado in _ESTADOS_POR_SUFIJO if nombre.endswith(sufijo)), 400)
 
 
 def registrar_manejadores_excepciones(app: FastAPI) -> None:
@@ -23,8 +30,7 @@ def registrar_manejadores_excepciones(app: FastAPI) -> None:
 
     @app.exception_handler(BusinessError)
     async def manejar_error_negocio(_request: Request, error: BusinessError) -> JSONResponse:
-        estado = _ESTADOS_NEGOCIO.get(type(error).__name__, 400)
-        return JSONResponse(status_code=estado, content={"detail": str(error)})
+        return JSONResponse(status_code=_estado_http(error), content={"detail": str(error)})
 
     @app.exception_handler(Persistencia_Exception)
     async def manejar_error_persistencia(_request: Request, error: Persistencia_Exception) -> JSONResponse:
