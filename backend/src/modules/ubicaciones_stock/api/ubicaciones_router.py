@@ -69,11 +69,11 @@ def actualizar_ubicacion(
 
 @router.delete(
     "/{ubicacion_id}",
-    response_model=Ubicacion_DTO,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Baja lógica: la ubicación conserva su historial de stock, ventas y bultos",
 )
 def desactivar_ubicacion(
     ubicacion_id: Ubicacion_Id,
     service: Ubicacion_Service = Depends(get_ubicacion_service),
-) -> Ubicacion_DTO:
-    return Stock_Mapper.ubicacion_a_dto(service.desactivar(ubicacion_id))
+) -> None:
+    service.desactivar(ubicacion_id)

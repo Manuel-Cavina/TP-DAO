@@ -72,12 +72,12 @@ def renombrar_categoria(
     return Catalogo_Mapper.categoria_a_dto(service.renombrar(categoria_id, req.nombre))
 
 
-@router.delete("/categorias/{categoria_id}", response_model=Categoria_DTO, summary="Baja lógica de categoría")
+@router.delete("/categorias/{categoria_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Baja lógica de categoría")
 def desactivar_categoria(
     categoria_id: Id_Path,
     service: Categoria_Service = Depends(get_categoria_service),
-) -> Categoria_DTO:
-    return Catalogo_Mapper.categoria_a_dto(service.desactivar(categoria_id))
+) -> None:
+    service.desactivar(categoria_id)
 
 
 # -------------------------------------------------------------------------
@@ -125,12 +125,12 @@ def actualizar_proveedor(
     return Catalogo_Mapper.proveedor_a_dto(proveedor)
 
 
-@router.delete("/proveedores/{proveedor_id}", response_model=Proveedor_DTO, summary="Baja lógica de proveedor")
+@router.delete("/proveedores/{proveedor_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Baja lógica de proveedor")
 def desactivar_proveedor(
     proveedor_id: Id_Path,
     service: Proveedor_Service = Depends(get_proveedor_service),
-) -> Proveedor_DTO:
-    return Catalogo_Mapper.proveedor_a_dto(service.desactivar(proveedor_id))
+) -> None:
+    service.desactivar(proveedor_id)
 
 
 # -------------------------------------------------------------------------
@@ -198,9 +198,9 @@ def actualizar_producto(
     return Catalogo_Mapper.producto_a_dto(producto)
 
 
-@router.delete("/productos/{producto_id}", response_model=Producto_DTO, summary="Baja lógica de producto")
+@router.delete("/productos/{producto_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Baja lógica de producto")
 def desactivar_producto(
     producto_id: Id_Path,
     service: Producto_Service = Depends(get_producto_service),
-) -> Producto_DTO:
-    return Catalogo_Mapper.producto_a_dto(service.desactivar(producto_id))
+) -> None:
+    service.desactivar(producto_id)

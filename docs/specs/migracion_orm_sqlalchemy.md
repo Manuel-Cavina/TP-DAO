@@ -1,5 +1,9 @@
 # Especificación: migración ORM y ciclo de vida de la aplicación
 
+> **Estado (2026-10-20):** migración completa. Los cinco módulos persisten con SQLAlchemy ORM, el
+> esquema sale solo de `Base.metadata.create_all()` y se retiraron `schema.sql` y
+> `legacy_schema_initializer.py`. `legacy_sqlite.py` sigue disponible pero ningún módulo lo usa.
+
 > **Estado:** Fase 1 implementada; migración de módulos pendiente.
 > **Alcance:** arquitectura transversal de persistencia, inicialización y API.  
 > **Referencia funcional:** `docs/implementacion.md`; las reglas de negocio no cambian.

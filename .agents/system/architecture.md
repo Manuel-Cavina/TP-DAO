@@ -11,7 +11,14 @@ Persistencia transversal:
 - `Session_Factory` crea una sesión ORM por petición; una sesión nunca es singleton.
 - `Database_Session_Middleware` inicia, confirma o revierte la transacción HTTP y siempre cierra la sesión.
 - `Request_Session_Context` permite que los repositories recuperen la sesión activa.
-- Las entidades ORM son la fuente de verdad del esquema; `schema.sql` no es operativo.
+- Las entidades ORM son la fuente de verdad del esquema; no hay DDL aparte (`schema.sql` fue retirado).
+- `bootstrap/application_factory.py` es el composition root: registra modelos, routers, handlers y suscribe los observers de stock entre módulos.
+- `bootstrap/seed_demo.py` carga datos de demo recorriendo los casos de uso (`python -m bootstrap.seed_demo`).
+
+Integración entre módulos:
+
+- Un módulo que necesita a otro declara un puerto abstracto en su `application/`; el dueño lo implementa (stock para ventas, logística y catálogo; logística para el observer de reposición).
+- Los reportes leen tablas de varios módulos con `table()`/`column()` de SQLAlchemy, sin importar su infraestructura y sin escribir.
 
 Responsabilidades:
 

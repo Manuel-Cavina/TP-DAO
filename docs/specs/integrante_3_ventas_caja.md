@@ -14,6 +14,11 @@ Lo que llegó a `main` está bien encaminado (38 de 39 tests pasan y el patrón 
 
 ## 2. Auditoría de lo pulleado
 
+> **Estado (2026-10-20):** los hallazgos de esta auditoría quedaron resueltos en las PRs #7
+> (logística: stock real, ids enteros, bugs de remitos y órdenes, sesión por contexto, rutas sin
+> capturar `BusinessError`) y #8 (catálogo, stock y Observer del Integrante 1, retiro de `schema.sql`).
+> La tabla se conserva como registro de lo que se encontró.
+
 > **Origen de los datos.** Tres hallazgos los verificó el Integrante 3 directamente en el código: el mock de stock en logística, el validador que devuelve 500 y el mapeo de `Venta_No_Encontrada_Exception`. El resto viene de un agente auditor que corrió los tests y pruebas en un entorno aparte, y no se volvió a ejecutar.
 
 ### 2.1 Tests
