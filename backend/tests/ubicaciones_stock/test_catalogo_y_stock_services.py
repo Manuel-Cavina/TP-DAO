@@ -194,6 +194,34 @@ class TestCatalogoYStockServices(unittest.TestCase):
         self.assertEqual(len(Alerta_Stock_Service().listar(ubicacion_id=self.cd.id)), 1)
         self.assertEqual(self.registro.necesidades, [])
 
+    def test_busqueda_con_parametro_q(self) -> None:
+        self._producto(codigo="AGUA-1", nivel_minimo=2)
+        self.productos.crear(
+            "COCA-1", "Gaseosa Cola", Decimal("200.00"), Decimal("120.00"), self.categoria.id, self.proveedor.id, 2
+        )
+        self.categorias.crear("Snacks")
+        self.proveedores.crear("30-99999999-9", "Golosinas SA", "222", "golo@prov.com")
+
+        # Categorías por nombre
+        self.assertEqual([c.nombre for c in self.categorias.listar(q="Beb")], ["Bebidas"])
+        self.assertEqual([c.nombre for c in self.categorias.listar(q="ack")], ["Snacks"])
+        self.assertEqual(self.categorias.listar(q="Inexistente"), [])
+
+        # Proveedores por razón social o CUIT
+        self.assertEqual([p.razon_social for p in self.proveedores.listar(q="Prov")], ["Prov SA"])
+        self.assertEqual([p.razon_social for p in self.proveedores.listar(q="99999999")], ["Golosinas SA"])
+        self.assertEqual(self.proveedores.listar(q="Inexistente"), [])
+
+        # Productos por código o nombre
+        self.assertEqual([p.codigo for p in self.productos.listar(q="AGUA")], ["AGUA-1"])
+        self.assertEqual([p.codigo for p in self.productos.listar(q="Cola")], ["COCA-1"])
+        self.assertEqual(self.productos.listar(q="Inexistente"), [])
+
+        # Ubicaciones por nombre
+        self.assertEqual([u.nombre for u in self.ubicaciones.listar(q="Central")], ["CD Central"])
+        self.assertEqual([u.nombre for u in self.ubicaciones.listar(q="Centro")], ["Local Centro"])
+        self.assertEqual(self.ubicaciones.listar(q="Inexistente"), [])
+
 
 if __name__ == "__main__":
     unittest.main()

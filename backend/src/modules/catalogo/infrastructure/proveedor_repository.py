@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -36,10 +36,18 @@ class Proveedor_Repository:
         modelo = self._get_session().scalars(stmt).first()
         return self._a_dominio(modelo) if modelo is not None else None
 
-    def listar(self, solo_activos: bool = False) -> list[Proveedor]:
+    def listar(self, solo_activos: bool = False, q: str | None = None) -> list[Proveedor]:
         stmt = select(Proveedor_Model).order_by(Proveedor_Model.razon_social)
         if solo_activos:
             stmt = stmt.where(Proveedor_Model.activo.is_(True))
+        if q and q.strip():
+            patron = f"%{q.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    Proveedor_Model.razon_social.ilike(patron),
+                    Proveedor_Model.cuit.ilike(patron),
+                )
+            )
         return [self._a_dominio(m) for m in self._get_session().scalars(stmt)]
 
     def _flush(self, cuit: str) -> None:

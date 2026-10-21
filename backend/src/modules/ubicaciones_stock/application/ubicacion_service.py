@@ -50,8 +50,13 @@ class Ubicacion_Service:
             raise Entidad_No_Encontrada_Exception(f"No existe la ubicación {ubicacion_id}.")
         return ubicacion
 
-    def listar(self, tipo: str | None = None, solo_activas: bool = False) -> list[Ubicacion]:
-        return self._repository.listar(tipo, solo_activas)
+    def listar(
+        self,
+        tipo: str | None = None,
+        solo_activas: bool = False,
+        q: str | None = None,
+    ) -> list[Ubicacion]:
+        return self._repository.listar(tipo, solo_activas, q=q)
 
     def validar_local(self, ubicacion_id: int) -> Ubicacion:
         """Devuelve el local activo o falla: ventas y destinos de reposición solo van a locales."""

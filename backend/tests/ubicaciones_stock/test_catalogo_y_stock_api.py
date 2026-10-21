@@ -145,6 +145,23 @@ class TestCatalogoYStockAPI(unittest.TestCase):
                 with self.subTest(sql=sql), self.assertRaises(sqlite3.IntegrityError):
                     conexion.execute(sql)
 
+    def test_busqueda_por_q_en_endpoints_api(self) -> None:
+        cat_res = self.client.get("/api/catalogo/categorias", params={"q": "Beb"}).json()
+        self.assertEqual([c["nombre"] for c in cat_res], ["Bebidas"])
+        self.assertEqual(self.client.get("/api/catalogo/categorias", params={"q": "inexistente"}).json(), [])
+
+        prov_res = self.client.get("/api/catalogo/proveedores", params={"q": "12345"}).json()
+        self.assertEqual([p["cuit"] for p in prov_res], ["20123456789"])
+        self.assertEqual(self.client.get("/api/catalogo/proveedores", params={"q": "inexistente"}).json(), [])
+
+        prod_res = self.client.get("/api/catalogo/productos", params={"q": "AGUA"}).json()
+        self.assertEqual([p["codigo"] for p in prod_res], ["AGUA"])
+        self.assertEqual(self.client.get("/api/catalogo/productos", params={"q": "inexistente"}).json(), [])
+
+        ub_res = self.client.get("/api/ubicaciones", params={"q": "Centro"}).json()
+        self.assertEqual([u["nombre"] for u in ub_res], ["Centro"])
+        self.assertEqual(self.client.get("/api/ubicaciones", params={"q": "inexistente"}).json(), [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,7 +7,7 @@
     "dev": "vite --port 5173",
     "build": "vite build",
     "preview": "vite preview --port 4173",
-    "check": "node scripts/check_frontend.mjs && node scripts/check_ventas_caja.mjs && node scripts/check_auth.mjs"
+    "check": "node scripts/check_frontend.mjs && node scripts/check_ventas_caja.mjs && node scripts/check_auth.mjs && node scripts/check_shared_controls.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

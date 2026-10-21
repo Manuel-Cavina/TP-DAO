@@ -79,8 +79,13 @@ class Producto_Service:
             raise Entidad_No_Encontrada_Exception(f"No existe el producto {producto_id}.")
         return producto
 
-    def listar(self, solo_activos: bool = False, categoria_id: int | None = None) -> list[Producto]:
-        return self._repository.listar(solo_activos, categoria_id)
+    def listar(
+        self,
+        solo_activos: bool = False,
+        categoria_id: int | None = None,
+        q: str | None = None,
+    ) -> list[Producto]:
+        return self._repository.listar(solo_activos, categoria_id, q=q)
 
     def _validar_categoria_y_proveedor(self, categoria_id: int, proveedor_id: int) -> None:
         categoria = self._categorias.obtener_por_id(categoria_id)

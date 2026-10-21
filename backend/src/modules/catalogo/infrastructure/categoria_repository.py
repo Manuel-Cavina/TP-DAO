@@ -36,10 +36,13 @@ class Categoria_Repository:
         modelo = self._get_session().scalars(stmt).first()
         return self._a_dominio(modelo) if modelo is not None else None
 
-    def listar(self, solo_activas: bool = False) -> list[Categoria]:
+    def listar(self, solo_activas: bool = False, q: str | None = None) -> list[Categoria]:
         stmt = select(Categoria_Model).order_by(Categoria_Model.nombre)
         if solo_activas:
             stmt = stmt.where(Categoria_Model.activo.is_(True))
+        if q and q.strip():
+            patron = f"%{q.strip()}%"
+            stmt = stmt.where(Categoria_Model.nombre.ilike(patron))
         return [self._a_dominio(m) for m in self._get_session().scalars(stmt)]
 
     def _flush(self, nombre: str) -> None:

@@ -1,4 +1,4 @@
-﻿/* Shared UI: switch, segmented control, filter toolbar and avatar. */
+/* Shared UI: switch, segmented control, filter toolbar and avatar. */
 
 /* ==========================================================================
  * 5. ARC SWITCH (Tactile Toggle with Spring Thumb)
@@ -274,3 +274,38 @@
   line-height: 1.1;
 }
 
+/* ==========================================================================
+ * 9. SEARCHABLE SELECT CLEAR BUTTON
+ * ========================================================================== */
+.search-select-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  transition: color var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
+  z-index: 2;
+}
+
+.search-select-clear:hover {
+  color: var(--foreground);
+  background: var(--surface-muted);
+}
+
+.search-select-clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

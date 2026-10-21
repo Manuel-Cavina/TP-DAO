@@ -42,9 +42,10 @@ def get_producto_service() -> Producto_Service:
 @router.get("/categorias", response_model=list[Categoria_DTO], summary="Listar categorías")
 def listar_categorias(
     solo_activas: bool = Query(False),
+    q: str | None = Query(None, description="Término de búsqueda"),
     service: Categoria_Service = Depends(get_categoria_service),
 ) -> list[Categoria_DTO]:
-    return [Catalogo_Mapper.categoria_a_dto(c) for c in service.listar(solo_activas)]
+    return [Catalogo_Mapper.categoria_a_dto(c) for c in service.listar(solo_activas, q=q)]
 
 
 @router.post("/categorias", response_model=Categoria_DTO, status_code=status.HTTP_201_CREATED, summary="Alta de categoría")
@@ -88,9 +89,10 @@ def desactivar_categoria(
 @router.get("/proveedores", response_model=list[Proveedor_DTO], summary="Listar proveedores")
 def listar_proveedores(
     solo_activos: bool = Query(False),
+    q: str | None = Query(None, description="Término de búsqueda"),
     service: Proveedor_Service = Depends(get_proveedor_service),
 ) -> list[Proveedor_DTO]:
-    return [Catalogo_Mapper.proveedor_a_dto(p) for p in service.listar(solo_activos)]
+    return [Catalogo_Mapper.proveedor_a_dto(p) for p in service.listar(solo_activos, q=q)]
 
 
 @router.post(
@@ -141,10 +143,11 @@ def desactivar_proveedor(
 @router.get("/productos", response_model=list[Producto_DTO], summary="Listar productos")
 def listar_productos(
     solo_activos: bool = Query(False),
+    q: str | None = Query(None, description="Término de búsqueda"),
     categoria_id: int | None = Query(None, gt=0, le=2**63 - 1),
     service: Producto_Service = Depends(get_producto_service),
 ) -> list[Producto_DTO]:
-    return [Catalogo_Mapper.producto_a_dto(p) for p in service.listar(solo_activos, categoria_id)]
+    return [Catalogo_Mapper.producto_a_dto(p) for p in service.listar(solo_activos, categoria_id, q=q)]
 
 
 @router.post(

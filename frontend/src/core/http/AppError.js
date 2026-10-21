@@ -20,5 +20,8 @@ export function isAppError(error) {
 
 export function toAppError(error) {
   if (isAppError(error)) return error;
+  if (typeof error === "string") {
+    return new AppError({ kind: "domain", message: error });
+  }
   return new AppError({ kind: "unknown", message: error?.message || "Ocurrio un error inesperado." });
 }

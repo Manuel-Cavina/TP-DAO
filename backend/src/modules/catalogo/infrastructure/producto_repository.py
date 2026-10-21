@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -36,12 +36,20 @@ class Producto_Repository:
         modelo = self._get_session().scalars(stmt).first()
         return self._a_dominio(modelo) if modelo is not None else None
 
-    def listar(self, solo_activos: bool = False, categoria_id: int | None = None) -> list[Producto]:
+    def listar(self, solo_activos: bool = False, categoria_id: int | None = None, q: str | None = None) -> list[Producto]:
         stmt = select(Producto_Model).order_by(Producto_Model.codigo)
         if solo_activos:
             stmt = stmt.where(Producto_Model.activo.is_(True))
         if categoria_id is not None:
             stmt = stmt.where(Producto_Model.categoria_id == categoria_id)
+        if q and q.strip():
+            patron = f"%{q.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    Producto_Model.nombre.ilike(patron),
+                    Producto_Model.codigo.ilike(patron),
+                )
+            )
         return [self._a_dominio(m) for m in self._get_session().scalars(stmt)]
 
     def _flush(self, codigo: str) -> None:

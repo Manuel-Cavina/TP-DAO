@@ -33,8 +33,8 @@ class Categoria_Service:
             raise Entidad_No_Encontrada_Exception(f"No existe la categoría {categoria_id}.")
         return categoria
 
-    def listar(self, solo_activas: bool = False) -> list[Categoria]:
-        return self._repository.listar(solo_activas)
+    def listar(self, solo_activas: bool = False, q: str | None = None) -> list[Categoria]:
+        return self._repository.listar(solo_activas, q=q)
 
     def _validar_nombre_libre(self, nombre: str, excepto_id: int | None = None) -> None:
         existente = self._repository.obtener_por_nombre(nombre)
