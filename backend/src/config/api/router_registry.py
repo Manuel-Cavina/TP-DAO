@@ -10,10 +10,19 @@ def registrar_routers(app: FastAPI) -> None:
     """
     from modules.catalogo.api import catalogo_router
     from modules.logistica.api import logistica_router
+    from modules.reportes.api import reportes_router
     from modules.ubicaciones_stock.api import stock_router, ubicaciones_router
     from modules.ventas_caja.api import caja_router, ventas_router
 
-    for router in (catalogo_router, ubicaciones_router, stock_router, logistica_router, ventas_router, caja_router):
+    for router in (
+        catalogo_router,
+        ubicaciones_router,
+        stock_router,
+        logistica_router,
+        ventas_router,
+        caja_router,
+        reportes_router,
+    ):
         app.include_router(router)
 
     @app.get("/", tags=["Health"])
