@@ -17,6 +17,16 @@ export function useCategorias() {
     { successMessage: "Categoría creada exitosamente", onSuccess: reload }
   );
 
+  const actualizarMutation = useMutation(
+    ({ id, dto }) => categoriasService.actualizar(id, dto),
+    { successMessage: "Categoría actualizada correctamente", onSuccess: reload }
+  );
+
+  const bajaMutation = useMutation(
+    (id) => categoriasService.darDeBaja(id),
+    { successMessage: "Categoría dada de baja lógica", onSuccess: reload }
+  );
+
   return {
     categorias: data || [],
     status,
@@ -26,5 +36,10 @@ export function useCategorias() {
     crear: crearMutation.mutate,
     crearPending: crearMutation.pending,
     crearFieldErrors: crearMutation.fieldErrors,
+    actualizar: actualizarMutation.mutate,
+    actualizarPending: actualizarMutation.pending,
+    actualizarFieldErrors: actualizarMutation.fieldErrors,
+    darDeBaja: bajaMutation.mutate,
+    darDeBajaPending: bajaMutation.pending,
   };
 }

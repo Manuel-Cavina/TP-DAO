@@ -43,13 +43,13 @@
 
 **Independent test**: create/edit/deactivate a location and master record, search a large relationship set, then atomically increase and decrease 50 product prices by percentage with one invalid-row rollback.
 
-- [ ] T020 [P] [US1] Complete create/edit/deactivate drawers for CDs and branches with historical inactive references in `frontend/src/modules/ubicaciones_stock/components/UbicacionModal.jsx` and `frontend/src/modules/ubicaciones_stock/pages/UbicacionesPage.jsx`
-- [ ] T021 [P] [US1] Complete create/edit/deactivate drawers for products, categories, and providers using searchable relationships in `frontend/src/modules/catalogo/components/ProductoDrawer.jsx`, `frontend/src/modules/catalogo/components/CategoriaModal.jsx`, and `frontend/src/modules/catalogo/components/ProveedorModal.jsx`
-- [ ] T022 [US1] Extend the bulk proposal to choose exactly one attribute/rule, support fixed or percentage price changes, and preview prior/rule/delta/result per selected product in `frontend/src/modules/catalogo/components/ActualizacionMasivaModal.jsx`
-- [ ] T023 [US1] Support bulk category, provider, active state, price, and minimum payload validation while preserving the existing atomic transaction in `backend/src/modules/catalogo/dto/catalogo_dto.py`, `backend/src/modules/catalogo/application/producto_service.py`, and `backend/src/modules/catalogo/api/catalogo_router.py`
-- [ ] T024 [US1] Keep selected rows and filters stable across preview errors/success and expose only one page-level primary action in `frontend/src/modules/catalogo/pages/ProductosPage.jsx`
-- [ ] T025 [P] [US1] Verify rollback on any invalid/stale row, percentage boundaries, inactive relationships, 50-product updates, and sanitised inputs in `backend/tests/modules/catalogo/api/test_catalogo_bulk.py`
-- [ ] T026 [US1] Verify the master-data journey, keyboard drawers, searchable selectors, button hierarchy, and under-three-minute outcome in `specs/001-stocky-operational-ux/checklists/implementation.md`
+- [x] T020 [P] [US1] Complete create/edit/deactivate drawers for CDs and branches with historical inactive references in `frontend/src/modules/ubicaciones_stock/components/UbicacionModal.jsx` and `frontend/src/modules/ubicaciones_stock/pages/UbicacionesPage.jsx`
+- [x] T021 [P] [US1] Complete create/edit/deactivate drawers for products, categories, and providers using searchable relationships in `frontend/src/modules/catalogo/components/ProductoDrawer.jsx`, `frontend/src/modules/catalogo/components/CategoriaModal.jsx`, and `frontend/src/modules/catalogo/components/ProveedorModal.jsx`
+- [x] T022 [US1] Extend the bulk proposal to choose exactly one attribute/rule, support fixed or percentage price changes, and preview prior/rule/delta/result per selected product in `frontend/src/modules/catalogo/components/ActualizacionMasivaModal.jsx`
+- [x] T023 [US1] Support bulk category, provider, active state, price, and minimum payload validation while preserving the existing atomic transaction in `backend/src/modules/catalogo/dto/catalogo_dto.py`, `backend/src/modules/catalogo/application/producto_service.py`, and `backend/src/modules/catalogo/api/catalogo_router.py`
+- [x] T024 [US1] Keep selected rows and filters stable across preview errors/success and expose only one page-level primary action in `frontend/src/modules/catalogo/pages/ProductosPage.jsx`
+- [x] T025 [P] [US1] Verify rollback on any invalid/stale row, percentage boundaries, inactive relationships, 50-product updates, and sanitised inputs in `backend/tests/modules/catalogo/api/test_catalogo_bulk.py`
+- [x] T026 [US1] Verify the master-data journey, keyboard drawers, searchable selectors, button hierarchy, and under-three-minute outcome in `specs/001-stocky-operational-ux/checklists/implementation.md`
 
 ## Phase 4: User Story 2 - Receive and monitor inventory (P1)
 

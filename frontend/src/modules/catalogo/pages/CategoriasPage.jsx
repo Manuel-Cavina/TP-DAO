@@ -3,6 +3,7 @@ import {
   SortableDataTable,
   FilterToolbar,
   Button,
+  StatusBadge,
 } from "../../../shared";
 import { useDisclosure } from "../../../shared/hooks";
 import { useCategorias } from "../hooks/useCategorias";
@@ -18,9 +19,16 @@ export function CategoriasPage() {
     crear: crearCat,
     crearPending: pendingCat,
     crearFieldErrors: errorsCat,
+    actualizar: actualizarCat,
+    actualizarPending: pendingEditCat,
+    actualizarFieldErrors: errorsEditCat,
+    darDeBaja: darDeBajaCat,
+    darDeBajaPending: pendingBajaCat,
   } = useCategorias();
 
   const catModal = useDisclosure(false);
+  const [modalMode, setModalMode] = useState("create");
+  const [selectedCategoria, setSelectedCategoria] = useState(null);
 
   const filteredCategorias = useMemo(() => {
     if (!search.trim()) return categorias;
@@ -28,9 +36,69 @@ export function CategoriasPage() {
     return categorias.filter((c) => c.nombre.toLowerCase().includes(q));
   }, [categorias, search]);
 
+  const handleOpenCreate = () => {
+    setSelectedCategoria(null);
+    setModalMode("create");
+    catModal.onOpen();
+  };
+
+  const handleOpenEdit = (categoria) => {
+    setSelectedCategoria(categoria);
+    setModalMode("edit");
+    catModal.onOpen();
+  };
+
+  const handleOpenDeactivate = (categoria) => {
+    setSelectedCategoria(categoria);
+    setModalMode("deactivate");
+    catModal.onOpen();
+  };
+
+  const handleSubmitModal = async (payload) => {
+    if (modalMode === "edit") {
+      return await actualizarCat(payload);
+    }
+    return await crearCat(payload);
+  };
+
+  const handleDeactivate = async (id) => {
+    return await darDeBajaCat(id);
+  };
+
   const columns = [
     { key: "id", header: "ID", mono: true, sortable: true },
     { key: "nombre", header: "Nombre de categoría", sortable: true },
+    {
+      key: "activo",
+      header: "Estado",
+      render: (v) => <StatusBadge status={v !== false ? "Activo" : "Inactivo"} />,
+    },
+    {
+      key: "acciones",
+      header: "Acciones",
+      align: "right",
+      sortable: false,
+      render: (_, row) => (
+        <div className="row gap-2 justify-end align-center">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => handleOpenEdit(row)}
+          >
+            Editar
+          </Button>
+          {row.activo !== false && (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => handleOpenDeactivate(row)}
+            >
+              Desactivar
+            </Button>
+          )}
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -48,7 +116,7 @@ export function CategoriasPage() {
           </p>
         </div>
         <div>
-          <Button variant="primary" iconLeft="plus" onClick={catModal.onOpen}>
+          <Button variant="primary" iconLeft="plus" onClick={handleOpenCreate}>
             Nueva categoría
           </Button>
         </div>
@@ -79,9 +147,12 @@ export function CategoriasPage() {
       <CategoriaModal
         open={catModal.isOpen}
         onClose={catModal.onClose}
-        onSubmit={crearCat}
-        pending={pendingCat}
-        fieldErrors={errorsCat}
+        mode={modalMode}
+        categoria={selectedCategoria}
+        onSubmit={handleSubmitModal}
+        onDeactivate={handleDeactivate}
+        pending={pendingCat || pendingEditCat || pendingBajaCat}
+        fieldErrors={{ ...errorsCat, ...errorsEditCat }}
       />
     </div>
   );

@@ -3,6 +3,7 @@ import {
   SortableDataTable,
   FilterToolbar,
   SegmentedControl,
+  Select,
   Button,
   Badge,
   StatusBadge,
@@ -41,11 +42,11 @@ export function ProductosPage() {
   const { proveedores } = useProveedores({ activos: true });
 
   const catMap = useMemo(
-    () => new Map(categorias.map((c) => [c.id, c.nombre])),
+    () => new Map((categorias || []).map((c) => [c.id, c.nombre])),
     [categorias]
   );
   const provMap = useMemo(
-    () => new Map(proveedores.map((p) => [p.id, p.razonSocial])),
+    () => new Map((proveedores || []).map((p) => [p.id, p.razonSocial])),
     [proveedores]
   );
 
@@ -85,7 +86,6 @@ export function ProductosPage() {
   const handleBulkConfirm = async (payload) => {
     const res = await actualizarMasivo(payload);
     if (res?.ok !== false) {
-      setSelectedKeys([]);
       bulkModal.onClose();
     }
     return res;
@@ -160,7 +160,7 @@ export function ProductosPage() {
             <ConfirmMorph
               triggerLabel="Baja"
               confirmTitle="¿Dar de baja producto?"
-              onConfirm={() => darDeBajaProd(row.codigo)}
+              onConfirm={() => darDeBajaProd(row.id || row.codigo)}
             />
           )}
         </div>
@@ -183,35 +183,61 @@ export function ProductosPage() {
           </p>
         </div>
         <div className="row gap-2 align-center">
-          {selectedKeys.length > 0 && (
-            <Button
-              variant="secondary"
-              iconLeft="refresh"
-              onClick={bulkModal.onOpen}
-            >
-              Actualización masiva ({selectedKeys.length})
+          {selectedKeys.length > 0 ? (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedKeys([])}
+              >
+                Limpiar selección ({selectedKeys.length})
+              </Button>
+              <Button
+                variant="primary"
+                iconLeft="refresh"
+                onClick={bulkModal.onOpen}
+              >
+                Actualización masiva ({selectedKeys.length})
+              </Button>
+              <Button
+                variant="secondary"
+                iconLeft="plus"
+                onClick={prodDrawer.onOpen}
+              >
+                Nuevo producto
+              </Button>
+            </>
+          ) : (
+            <Button variant="primary" iconLeft="plus" onClick={prodDrawer.onOpen}>
+              Nuevo producto
             </Button>
           )}
-          <Button variant="primary" iconLeft="plus" onClick={prodDrawer.onOpen}>
-            Nuevo producto
-          </Button>
         </div>
       </div>
 
       <div className="row justify-between align-center wrap gap-3">
-        <div className="row gap-2 wrap align-center">
+        <div className="row gap-3 wrap align-center">
           <SegmentedControl
             value={filterEstado}
-            onChange={(val) => {
-              setFilterEstado(val);
-              setSelectedKeys([]);
-            }}
+            onChange={setFilterEstado}
             options={[
               { value: "activos", label: "Activos" },
               { value: "todos", label: "Todos" },
               { value: "inactivos", label: "Inactivos" },
             ]}
           />
+          {categorias.length > 0 && (
+            <div className="w-48">
+              <Select
+                value={selectedCategoria}
+                onChange={setSelectedCategoria}
+                options={[
+                  { value: "todas", label: "Todas las categorías" },
+                  ...categorias.map((c) => ({ value: String(c.id), label: c.nombre })),
+                ]}
+              />
+            </div>
+          )}
         </div>
 
         <FilterToolbar
@@ -249,7 +275,13 @@ export function ProductosPage() {
         open={Boolean(selectedProdPrecio)}
         onClose={() => setSelectedProdPrecio(null)}
         producto={selectedProdPrecio}
-        onSubmit={({ codigo, precio }) => actualizarPrecio({ codigo, precio })}
+        onSubmit={({ codigo, precio }) =>
+          actualizarPrecio({
+            id: selectedProdPrecio?.id || codigo,
+            codigo,
+            precio,
+          })
+        }
         pending={actualizarPrecioPending}
       />
 
@@ -257,6 +289,8 @@ export function ProductosPage() {
         open={bulkModal.isOpen}
         onClose={bulkModal.onClose}
         selectedProducts={selectedProductsData}
+        categorias={categorias}
+        proveedores={proveedores}
         onConfirm={handleBulkConfirm}
         pending={actualizarMasivoPending}
       />

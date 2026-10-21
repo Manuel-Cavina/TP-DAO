@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, Path, Query, status
 
 from modules.catalogo.application import Categoria_Service, Producto_Service, Proveedor_Service
 from modules.catalogo.dto import (
+    Actualizacion_Masiva_Request_DTO,
+    Actualizacion_Masiva_Response_DTO,
     Actualizar_Producto_Request_DTO,
     Actualizar_Proveedor_Request_DTO,
     Categoria_DTO,
@@ -170,6 +172,23 @@ def crear_producto(
         nivel_minimo_existencia=req.nivel_minimo_existencia,
     )
     return Catalogo_Mapper.producto_a_dto(producto)
+
+
+@router.post(
+    "/productos/actualizacion-masiva",
+    response_model=Actualizacion_Masiva_Response_DTO,
+    status_code=status.HTTP_200_OK,
+    summary="Actualización masiva atómica de productos y stocks mínimos",
+)
+def actualizacion_masiva_productos(
+    req: Actualizacion_Masiva_Request_DTO,
+    service: Producto_Service = Depends(get_producto_service),
+) -> Actualizacion_Masiva_Response_DTO:
+    actualizados = service.actualizar_masivo(req.actualizaciones)
+    return Actualizacion_Masiva_Response_DTO(
+        actualizados=len(actualizados),
+        productos=[Catalogo_Mapper.producto_a_dto(p) for p in actualizados],
+    )
 
 
 @router.get("/productos/{producto_id}", response_model=Producto_DTO, summary="Obtener producto")

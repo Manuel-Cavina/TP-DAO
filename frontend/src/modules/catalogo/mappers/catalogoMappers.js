@@ -60,5 +60,6 @@ export function mapCategoriaToUI(dto) {
   return {
     id: dto.id,
     nombre: dto.nombre,
+    activo: dto.activo !== undefined ? Boolean(dto.activo) : true,
   };
 }

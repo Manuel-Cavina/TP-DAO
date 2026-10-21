@@ -82,6 +82,9 @@ class Producto:
     def desactivar(self) -> None:
         self._activo = False
 
+    def activar(self) -> None:
+        self._activo = True
+
 
 def _importe_positivo(valor: Decimal, campo: str) -> Decimal:
     if not isinstance(valor, Decimal) or not valor.is_finite() or valor <= 0:

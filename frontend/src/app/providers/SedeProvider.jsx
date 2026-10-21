@@ -46,7 +46,12 @@ export function SedeProvider({ children }) {
 
   const reloadSedes = useCallback(async () => {
     try {
-      const resp = await http.get("/api/stock/ubicaciones", { params: { activas: true } });
+      let resp;
+      try {
+        resp = await http.get("/api/ubicaciones", { params: { solo_activas: true } });
+      } catch {
+        resp = await http.get("/api/stock/ubicaciones", { params: { activas: true } });
+      }
       const items = Array.isArray(resp) ? resp : resp?.data || [];
       if (items.length > 0) {
         const mapped = items.map(mapUbicacionToOption);

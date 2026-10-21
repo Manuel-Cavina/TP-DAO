@@ -175,7 +175,7 @@ export function UbicacionesPage() {
           >
             Editar
           </Button>
-          {row.activo ? (
+          {row.tipo === "LOCAL" && row.activo && (
             <Button
               variant="danger"
               size="sm"
@@ -183,7 +183,8 @@ export function UbicacionesPage() {
             >
               Desactivar
             </Button>
-          ) : (
+          )}
+          {!row.activo && (
             <Button
               variant="secondary"
               size="sm"

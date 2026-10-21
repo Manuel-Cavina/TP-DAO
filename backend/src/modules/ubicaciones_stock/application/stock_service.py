@@ -45,6 +45,11 @@ class Stock_Service(Inicializador_Stock_Contract):
                     Stock(producto_id, ubicacion.id, nivel_minimo_existencia, es_local=ubicacion.es_local)
                 )
 
+    def actualizar_nivel_minimo_para_producto(self, producto_id: int, nivel_minimo_existencia: int) -> None:
+        """Actualiza el nivel mínimo de existencia del producto en todas sus ubicaciones."""
+        for stock in self.listar(producto_id=producto_id):
+            self.actualizar_nivel_minimo(producto_id, stock.ubicacion_id, nivel_minimo_existencia)
+
     def ingresar_mercaderia_cd(self, producto_id: int, cd_id: int, cantidad: int) -> Stock:
         """Ingreso de proveedor: suma disponible solo en el CD, nunca directo a un local."""
         ubicacion = self._ubicaciones.obtener_por_id(cd_id)

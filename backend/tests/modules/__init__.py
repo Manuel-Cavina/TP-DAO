@@ -11,7 +11,7 @@ _SRC_DIR = str(_TESTS_MODULES_DIR.parents[1] / "src")
 if _SRC_DIR not in sys.path:
     sys.path.insert(0, _SRC_DIR)
 
-__path__ = extend_path([str(_TESTS_MODULES_DIR.parents[1] / "src" / "modules")], __name__)
+__path__ = [str(_TESTS_MODULES_DIR)]
 
 
 def load_tests(

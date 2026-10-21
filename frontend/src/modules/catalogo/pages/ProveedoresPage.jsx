@@ -5,7 +5,6 @@ import {
   SegmentedControl,
   Button,
   StatusBadge,
-  ConfirmMorph,
 } from "../../../shared";
 import { useDisclosure } from "../../../shared/hooks";
 import { useProveedores } from "../hooks/useProveedores";
@@ -15,6 +14,7 @@ export function ProveedoresPage() {
   const [search, setSearch] = useState("");
   const [filterEstado, setFilterEstado] = useState("activos");
   const [selectedProveedor, setSelectedProveedor] = useState(null);
+  const [modalMode, setModalMode] = useState("create");
 
   const {
     proveedores,
@@ -26,7 +26,9 @@ export function ProveedoresPage() {
     crearFieldErrors: errorsProv,
     actualizar: actualizarProv,
     actualizarPending: pendingEditProv,
+    actualizarFieldErrors: errorsEditProv,
     darDeBaja: darDeBajaProv,
+    darDeBajaPending: pendingBajaProv,
   } = useProveedores({ activos: filterEstado !== "inactivos" });
 
   const provModal = useDisclosure(false);
@@ -55,12 +57,31 @@ export function ProveedoresPage() {
 
   const handleOpenCreate = () => {
     setSelectedProveedor(null);
+    setModalMode("create");
     provModal.onOpen();
   };
 
   const handleOpenEdit = (proveedor) => {
     setSelectedProveedor(proveedor);
+    setModalMode("edit");
     provModal.onOpen();
+  };
+
+  const handleOpenDeactivate = (proveedor) => {
+    setSelectedProveedor(proveedor);
+    setModalMode("deactivate");
+    provModal.onOpen();
+  };
+
+  const handleSubmitModal = async (payload) => {
+    if (modalMode === "edit") {
+      return await actualizarProv(payload);
+    }
+    return await crearProv(payload);
+  };
+
+  const handleDeactivate = async (id) => {
+    return await darDeBajaProv(id);
   };
 
   const columns = [
@@ -89,18 +110,20 @@ export function ProveedoresPage() {
       render: (_, row) => (
         <div className="row gap-2 justify-end align-center">
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
             onClick={() => handleOpenEdit(row)}
           >
             Editar
           </Button>
           {row.activo && (
-            <ConfirmMorph
-              triggerLabel="Baja"
-              confirmTitle="¿Dar de baja proveedor?"
-              onConfirm={() => darDeBajaProv(row.cuit)}
-            />
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => handleOpenDeactivate(row)}
+            >
+              Desactivar
+            </Button>
           )}
         </div>
       ),
@@ -160,10 +183,12 @@ export function ProveedoresPage() {
       <ProveedorModal
         open={provModal.isOpen}
         onClose={provModal.onClose}
+        mode={modalMode}
         proveedor={selectedProveedor}
-        onSubmit={selectedProveedor ? (dto) => actualizarProv({ cuit: selectedProveedor.cuit, dto }) : crearProv}
-        pending={pendingProv || pendingEditProv}
-        fieldErrors={errorsProv}
+        onSubmit={handleSubmitModal}
+        onDeactivate={handleDeactivate}
+        pending={pendingProv || pendingEditProv || pendingBajaProv}
+        fieldErrors={{ ...errorsProv, ...errorsEditProv }}
       />
     </div>
   );

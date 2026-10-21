@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Drawer } from "../../../shared/components/Motion";
 import { Button } from "../../../shared/components/Button";
-import { FormField, TextInput, NumberInput } from "../../../shared/components/FormControls";
-import { Select } from "../../../shared/components/Select";
+import { TextInput, NumberInput } from "../../../shared/components/FormControls";
+import { SearchableSelect } from "../../../shared/components/SearchableSelect";
 import { Badge } from "../../../shared/components/Badge";
 import { mapProductoFormToDTO } from "../mappers/catalogoMappers";
 
@@ -25,8 +25,17 @@ export function ProductoDrawer({
     nivelMinimo: 10,
   });
 
-  const catOptions = categorias.map((c) => ({ value: String(c.id), label: c.nombre }));
-  const provOptions = proveedores.map((p) => ({ value: String(p.id), label: `${p.razonSocial} (${p.cuit})` }));
+  const catOptions = (categorias || []).map((c) => ({
+    value: String(c.id),
+    label: c.nombre,
+    sublabel: c.activo === false ? "Inactiva" : undefined,
+  }));
+
+  const provOptions = (proveedores || []).map((p) => ({
+    value: String(p.id),
+    label: p.razonSocial,
+    description: `CUIT: ${p.cuit}`,
+  }));
 
   const precio = Number(form.precioVenta) || 0;
   const costo = Number(form.costoUnitario) || 0;
@@ -37,7 +46,15 @@ export function ProductoDrawer({
     const dto = mapProductoFormToDTO(form);
     const res = await onSubmit(dto);
     if (res?.ok) {
-      setForm({ codigo: "", nombre: "", precioVenta: "", costoUnitario: "", categoriaId: "", proveedorId: "", nivelMinimo: 10 });
+      setForm({
+        codigo: "",
+        nombre: "",
+        precioVenta: "",
+        costoUnitario: "",
+        categoriaId: "",
+        proveedorId: "",
+        nivelMinimo: 10,
+      });
       onClose();
     }
   };
@@ -54,7 +71,12 @@ export function ProductoDrawer({
           <Button variant="ghost" onClick={onClose} disabled={pending}>
             Cancelar
           </Button>
-          <Button variant="primary" onClick={handleSubmit} loading={pending} loadingLabel="Guardando...">
+          <Button
+            variant="primary"
+            onClick={handleSubmit}
+            loading={pending}
+            loadingLabel="Guardando..."
+          >
             Crear producto
           </Button>
         </div>
@@ -112,23 +134,25 @@ export function ProductoDrawer({
           </span>
         </div>
 
-        <FormField label="Categoría" required error={fieldErrors.categoria_id}>
-          <Select
-            options={catOptions}
-            value={form.categoriaId ? String(form.categoriaId) : (catOptions[0]?.value || "")}
-            onChange={(val) => setForm((f) => ({ ...f, categoriaId: val }))}
-            placeholder="Seleccionar categoría"
-          />
-        </FormField>
+        <SearchableSelect
+          label="Categoría"
+          placeholder="Buscar o seleccionar categoría..."
+          options={catOptions}
+          value={form.categoriaId ? String(form.categoriaId) : ""}
+          onChange={(val) => setForm((f) => ({ ...f, categoriaId: val }))}
+          error={fieldErrors.categoria_id}
+          helpText="Clasificación taxonómica para reportes e inventario"
+        />
 
-        <FormField label="Proveedor principal" required error={fieldErrors.proveedor_id}>
-          <Select
-            options={provOptions}
-            value={form.proveedorId ? String(form.proveedorId) : (provOptions[0]?.value || "")}
-            onChange={(val) => setForm((f) => ({ ...f, proveedorId: val }))}
-            placeholder="Seleccionar proveedor"
-          />
-        </FormField>
+        <SearchableSelect
+          label="Proveedor principal"
+          placeholder="Buscar o seleccionar proveedor..."
+          options={provOptions}
+          value={form.proveedorId ? String(form.proveedorId) : ""}
+          onChange={(val) => setForm((f) => ({ ...f, proveedorId: val }))}
+          error={fieldErrors.proveedor_id}
+          helpText="Abastecedor autorizado para el ingreso de mercadería al CD"
+        />
 
         <NumberInput
           label="Nivel mínimo sugerido"
@@ -142,3 +166,5 @@ export function ProductoDrawer({
     </Drawer>
   );
 }
+
+export default ProductoDrawer;

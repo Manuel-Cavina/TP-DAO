@@ -18,12 +18,12 @@ export function useProveedores({ activos = true } = {}) {
   );
 
   const actualizarMutation = useMutation(
-    ({ cuit, dto }) => proveedoresService.actualizar(cuit, dto),
+    ({ id, dto }) => proveedoresService.actualizar(id, dto),
     { successMessage: "Proveedor actualizado correctamente", onSuccess: reload }
   );
 
   const bajaMutation = useMutation(
-    (cuit) => proveedoresService.darDeBaja(cuit),
+    (id) => proveedoresService.darDeBaja(id),
     { successMessage: "Proveedor dado de baja lógica", onSuccess: reload }
   );
 
@@ -38,6 +38,8 @@ export function useProveedores({ activos = true } = {}) {
     crearFieldErrors: crearMutation.fieldErrors,
     actualizar: actualizarMutation.mutate,
     actualizarPending: actualizarMutation.pending,
+    actualizarFieldErrors: actualizarMutation.fieldErrors,
     darDeBaja: bajaMutation.mutate,
+    darDeBajaPending: bajaMutation.pending,
   };
 }

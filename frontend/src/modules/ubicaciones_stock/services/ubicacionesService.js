@@ -1,12 +1,12 @@
 import { http } from "../../../core/http";
 
-const BASE = "/api/stock/ubicaciones";
+const BASE = "/api/ubicaciones";
 
 export const ubicacionesService = {
-  listar: ({ activas = true } = {}, options) =>
-    http.get(BASE, { ...options, params: { activas } }),
+  listar: ({ activas = false } = {}, options) =>
+    http.get(BASE, { ...options, params: { solo_activas: activas, activas } }),
   obtener: (id, options) => http.get(`${BASE}/${encodeURIComponent(id)}`, options),
-  crearCD: (dto) => http.post(`${BASE}/cd`, dto),
+  crearCD: (dto) => http.post(`${BASE}/centros-distribucion`, dto),
   crearLocal: (dto) => http.post(`${BASE}/locales`, dto),
   actualizar: (id, dto) => http.put(`${BASE}/${encodeURIComponent(id)}`, dto),
   darDeBaja: (id) => http.del(`${BASE}/${encodeURIComponent(id)}`),

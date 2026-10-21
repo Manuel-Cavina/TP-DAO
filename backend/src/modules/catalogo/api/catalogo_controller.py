@@ -183,6 +183,32 @@ class Catalogo_Controller:
         except Exception as e:
             return HTTP_Response(status_code=500, error="Error interno.")
 
+    def actualizacion_masiva(self, body: dict[str, Any]) -> HTTP_Response:
+        try:
+            items_raw = body.get("actualizaciones") or body.get("items") or []
+            if isinstance(body, list):
+                items_raw = body
+            from modules.catalogo.dto import Item_Actualizacion_Masiva_DTO
+            items = [
+                Item_Actualizacion_Masiva_DTO(**it) if isinstance(it, dict) else it
+                for it in items_raw
+            ]
+            resultado = self._producto_service.actualizar_masivo(items)
+            from modules.catalogo.mappers import Catalogo_Mapper
+            return HTTP_Response(
+                status_code=200,
+                data={
+                    "actualizados": len(resultado),
+                    "productos": [Catalogo_Mapper.producto_a_dto(p).model_dump() for p in resultado],
+                },
+            )
+        except Datos_Invalidos_Exception as e:
+            return HTTP_Response(status_code=400, error=str(e))
+        except Entidad_No_Encontrada_Exception as e:
+            return HTTP_Response(status_code=404, error=str(e))
+        except Exception as e:
+            return HTTP_Response(status_code=500, error=str(e))
+
     def dar_de_baja_producto(self, codigo: str) -> HTTP_Response:
         try:
             self._producto_service.dar_de_baja_producto(codigo)

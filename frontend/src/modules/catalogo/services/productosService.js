@@ -2,15 +2,18 @@ import { http } from "../../../core/http";
 
 const BASE = "/api/catalogo/productos";
 
-/** Contrato: GET/POST /productos, GET/DELETE /productos/{codigo}, PATCH /productos/{codigo}/precio, POST /productos/actualizacion-masiva */
+/** Contrato: GET/POST /productos, GET/DELETE /productos/{id}, PATCH /productos/{id}/precio, POST /productos/actualizacion-masiva */
 export const productosService = {
   listar: ({ activos = true, categoriaId } = {}, options) =>
-    http.get(BASE, { ...options, params: { activos, categoria_id: categoriaId } }),
-  obtener: (codigo, options) => http.get(`${BASE}/${encodeURIComponent(codigo)}`, options),
+    http.get(BASE, { ...options, params: { solo_activos: activos, activos, categoria_id: categoriaId } }),
+  obtener: (idOrCodigo, options) => http.get(`${BASE}/${encodeURIComponent(idOrCodigo)}`, options),
   crear: (dto) => http.post(BASE, dto),
-  actualizarPrecio: (codigo, precioVenta) =>
-    http.patch(`${BASE}/${encodeURIComponent(codigo)}/precio`, { precio_venta: precioVenta }),
+  actualizarPrecio: (idOrCodigo, precioVenta) =>
+    http.patch(`${BASE}/${encodeURIComponent(idOrCodigo)}/precio`, { precio_venta: precioVenta }),
   actualizacionMasiva: (actualizaciones) =>
-    http.post(`${BASE}/actualizacion-masiva`, { actualizaciones }),
-  darDeBaja: (codigo) => http.del(`${BASE}/${encodeURIComponent(codigo)}`),
+    http.post(
+      `${BASE}/actualizacion-masiva`,
+      Array.isArray(actualizaciones) ? { actualizaciones } : actualizaciones
+    ),
+  darDeBaja: (idOrCodigo) => http.del(`${BASE}/${encodeURIComponent(idOrCodigo)}`),
 };
