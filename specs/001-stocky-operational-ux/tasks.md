@@ -57,14 +57,14 @@
 
 **Independent test**: open one home page, resolve an alert through its filtered destination, record incoming stock at a selected CD, inspect recent movement/trend context, and use the notification panel.
 
-- [ ] T027 [P] [US2] Compose actionable alerts, pending work, lifecycle counts, recent movements, and comparison-window trends from existing APIs in `frontend/src/app/dashboard/useAdminDashboard.js`
-- [ ] T028 [US2] Build the single Administrator control panel with filtered deep links and exactly one primary next action per work card in `frontend/src/app/dashboard/AdminDashboardPage.jsx`
-- [ ] T029 [P] [US2] Add a real notification panel with unread/read state, category, timestamp, related entity, and direct resolution action in `frontend/src/shared/components/NotificationPanel.jsx`
-- [ ] T030 [US2] Add explicit resolution buttons to every stock/logistics alert and preserve the alert filter in destination navigation in `frontend/src/modules/ubicaciones_stock/pages/AlertasPage.jsx`
-- [ ] T031 [P] [US2] Label every live KPI with comparison period, numeric direction, and favourable/unfavourable/neutral meaning in `frontend/src/shared/components/DomainWidgets.jsx`
-- [ ] T032 [US2] Apply live freshness, selected-CD validation, movement consequence, and mutation refresh to stock/incoming screens in `frontend/src/modules/ubicaciones_stock/pages/StockPage.jsx`, `frontend/src/modules/ubicaciones_stock/components/IngresoCdModal.jsx`, and `frontend/src/modules/ubicaciones_stock/hooks/useStockMatriz.js`
-- [ ] T033 [P] [US2] Verify incoming-stock, minimum-alert, movement-history, and stale/conflict behavior in `backend/tests/modules/ubicaciones_stock/test_stock_ingress_and_alerts.py`
-- [ ] T034 [US2] Verify every dashboard alert reaches an already-filtered resolution view in one action and trends are understandable without color in `specs/001-stocky-operational-ux/checklists/implementation.md`
+- [x] T027 [P] [US2] Compose actionable alerts, pending work, lifecycle counts, recent movements, and comparison-window trends from existing APIs in `frontend/src/app/dashboard/useAdminDashboard.js`
+- [x] T028 [US2] Build the single Administrator control panel with filtered deep links and exactly one primary next action per work card in `frontend/src/app/dashboard/AdminDashboardPage.jsx`
+- [x] T029 [P] [US2] Add a real notification panel with unread/read state, category, timestamp, related entity, and direct resolution action in `frontend/src/shared/components/NotificationPanel.jsx`
+- [x] T030 [US2] Add explicit resolution buttons to every stock/logistics alert and preserve the alert filter in destination navigation in `frontend/src/modules/ubicaciones_stock/pages/AlertasPage.jsx`
+- [x] T031 [P] [US2] Label every live KPI with comparison period, numeric direction, and favourable/unfavourable/neutral meaning in `frontend/src/shared/components/DomainWidgets.jsx`
+- [x] T032 [US2] Apply live freshness, selected-CD validation, movement consequence, and mutation refresh to stock/incoming screens in `frontend/src/modules/ubicaciones_stock/pages/StockPage.jsx`, `frontend/src/modules/ubicaciones_stock/components/IngresoCdModal.jsx`, and `frontend/src/modules/ubicaciones_stock/hooks/useStockMatriz.js`
+- [x] T033 [P] [US2] Verify incoming-stock, minimum-alert, movement-history, and stale/conflict behavior in `backend/tests/modules/ubicaciones_stock/test_stock_ingress_and_alerts.py`
+- [x] T034 [US2] Verify every dashboard alert reaches an already-filtered resolution view in one action and trends are understandable without color in `specs/001-stocky-operational-ux/checklists/implementation.md`
 
 ## Phase 5: User Story 3 - Create a replenishment order (P1)
 

@@ -1,6 +1,6 @@
 # Implementation evidence
 
-**Last verified**: 2026-10-20  
+**Last verified**: 2026-10-21  
 **Feature branch**: `CayetanoAmaro/feautere-1`  
 **Integrated upstream**: `origin/main` at `85f858745e0148a32b3a9a2e681a3dafb64cffde`  
 **Local merge commit**: `55297ec`
@@ -23,6 +23,16 @@
 - [x] A sale that reaches minimum stock creates both an alert and a pending replenishment need through existing Stock/Logistics services.
 - [x] Browser demo/localStorage persistence and the old mock flag are not used by Sales/Cash.
 
+## User Story 2: Receive and monitor inventory (T027 - T034)
+
+- [x] Dashboard unifies operational alerts, pending work, recent movements, lifecycle workload, and direct links without page duplication (FR-024).
+- [x] Every live indicator states its comparison window, numeric direction, and operational meaning in text without color dependence (FR-044).
+- [x] Dashboard alerts navigate to prefiltered destinations in exactly one action (FR-024, FR-026, SC-011).
+- [x] Task contexts maintain at most one visually primary action at a time (FR-043, SC-022).
+- [x] Operative notification panel with read/unread filtering, timestamp, category, linked entity and direct resolution (FR-024).
+- [x] AlertasPage provides explicit resolution buttons ("Marcar leída", "Reponer", "Ingresar stock") and preserves filter state across navigation (FR-026).
+- [x] StockPage and IngresoCdModal enforce 15-second live freshness, validate CD selection strictly for provider ingress, preview operational impact, and refresh state upon mutation (FR-020, FR-028, SC-014).
+
 ## Automated evidence
 
 - [x] Modular structure check: passed.
@@ -30,7 +40,7 @@
 - [x] Full backend suite: 147 tests passed.
 - [x] Focused Sales/Cash suite: 112 tests passed, including alert plus replenishment need.
 - [x] Frontend `npm run check`: passed, including Sales/Cash contract assertions.
-- [x] Frontend production build: passed; 133 modules, 500.14 kB bundle, 131.00 kB gzip.
+- [x] Frontend production build: passed; 149 modules transformed.
 
 ## Required before production
 

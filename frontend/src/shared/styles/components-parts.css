@@ -133,3 +133,10 @@
 .arc-toast__icon { margin-top: 2px; color: var(--success); }
 .arc-toast__icon--danger { color: var(--danger); }
 .arc-toast__icon--warning { color: var(--warning); }
+
+/* Notifications and KPI trends */
+.notification-item.is-read { opacity: 0.72; }
+.notification-item.is-read .dot { background: var(--line-strong); }
+.notification-list { max-height: 380px; overflow-y: auto; }
+.trend-meaning { opacity: 0.88; margin-left: 2px; }
+

@@ -1,21 +1,55 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../../shared/feedback/ToastContext";
+import { LiveIndicator } from "../../shared/hooks/useLiveResource.jsx";
+import { KpiTrendChip } from "../../shared/components/DomainWidgets";
+import { NotificationPanel } from "../../shared/components/NotificationPanel";
+import { useAdminDashboard } from "./useAdminDashboard";
 
 export function AdminDashboardPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [drawerPackage, setDrawerPackage] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const {
+    loading,
+    error,
+    refresh,
+    freshnessSeconds,
+    isStale,
+    redInfo,
+    alertasAccionables,
+    trabajoPendiente,
+    metricasTendencia,
+    ultimosMovimientos,
+    notifications,
+    marcarNotificacionLeida,
+    marcarTodasNotificacionesLeidas,
+  } = useAdminDashboard();
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
         setDrawerPackage(false);
+        setShowNotifications(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  const handleExecuteAlerta = (alerta) => {
+    if (alerta.accionTipo === "drawer_package") {
+      setDrawerPackage(true);
+    } else if (alerta.accionRuta) {
+      navigate(alerta.accionRuta);
+    } else {
+      toast(`Acción iniciada para ${alerta.titulo}`);
+    }
+  };
+
+  const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
   return (
     <main>
@@ -29,22 +63,47 @@ export function AdminDashboardPage() {
         <span>
           <span className="micro">Centros activos</span>
           <br />
-          <strong>CD Central · CD Norte</strong>
+          <strong>{redInfo.centrosLabel}</strong>
         </span>
         <span className="separator" />
         <span>
           <span className="micro">Locales activos</span>
           <br />
-          <strong>Palermo · Centro · Norte · Sur</strong>
+          <strong>{redInfo.localesLabel}</strong>
         </span>
         <button
           type="button"
           className="button small context-strip__action"
-          onClick={() => toast("Abriendo configuración de alcance")}
+          onClick={() => toast("Mostrando configuración de alcance de red")}
         >
           Cambiar alcance
         </button>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label={`Notificaciones operativas (${unreadNotificationsCount} sin leer)`}
+          title="Notificaciones operativas"
+          onClick={() => setShowNotifications((prev) => !prev)}
+        >
+          &#128276;
+          {unreadNotificationsCount > 0 && <span className="notification-dot" />}
+        </button>
       </div>
+
+      {showNotifications && (
+        <NotificationPanel
+          open={showNotifications}
+          onClose={() => setShowNotifications(false)}
+          notifications={notifications}
+          onMarkRead={marcarNotificacionLeida}
+          onMarkAllRead={marcarTodasNotificacionesLeidas}
+          onResolve={(notif) => {
+            setShowNotifications(false);
+            if (notif.actionRuta) navigate(notif.actionRuta);
+            else toast(`Resolviendo: ${notif.title}`);
+          }}
+        />
+      )}
 
       <div className="page-head">
         <div>
@@ -53,100 +112,92 @@ export function AdminDashboardPage() {
             Alertas con resolución directa, trabajo pendiente y últimos movimientos.
           </p>
         </div>
-        <span className="micro tabular">Actualizado hace 6 s</span>
+        <LiveIndicator
+          freshnessSeconds={freshnessSeconds}
+          isStale={isStale}
+          onRefresh={refresh}
+        />
       </div>
 
+      {error && (
+        <div className="validation-note mb-4 text-danger">
+          No se pudieron sincronizar todos los datos en vivo. Mostrando últimos datos disponibles.
+          <button type="button" className="button ghost small ml-2" onClick={refresh}>
+            Reintentar
+          </button>
+        </div>
+      )}
+
       <div className="grid kpis">
-        <article className="card metric">
-          <span className="micro">Tareas críticas</span>
-          <strong className="tabular">7</strong>
-          <span className="badge bad">2 vencidas</span>
-          <span className="trend-chip down">&uarr; 2 desde ayer</span>
-        </article>
-        <article className="card metric">
-          <span className="micro">En preparación</span>
-          <strong className="tabular">12</strong>
-          <span className="trend muted">4 requieren precinto</span>
-          <span className="trend-chip up">&uarr; 12% esta semana</span>
-        </article>
-        <article className="card metric">
-          <span className="micro">En tránsito</span>
-          <strong className="tabular">5</strong>
-          <span className="trend muted">84 unidades</span>
-          <span className="trend-chip up">&darr; 8% vs. ayer</span>
-        </article>
-        <article className="card metric">
-          <span className="micro">Por verificar</span>
-          <strong className="tabular">8</strong>
-          <span className="badge warn">1 incidencia</span>
-          <span className="trend-chip down">&uarr; 3 en la última hora</span>
-        </article>
+        {metricasTendencia.map((kpi) => (
+          <article
+            key={kpi.id}
+            className="card metric interactive cursor-pointer"
+            onClick={() => kpi.deepLink && navigate(kpi.deepLink)}
+            title={`Abrir filtro para ${kpi.label}`}
+          >
+            <span className="micro">{kpi.label}</span>
+            <strong className="tabular">{loading ? "..." : kpi.valor}</strong>
+            {kpi.badgeText && (
+              <span className={`badge ${kpi.badgeTone || "info"}`}>
+                {kpi.badgeText}
+              </span>
+            )}
+            {kpi.subtext && <span className="trend muted">{kpi.subtext}</span>}
+            {kpi.trend && (
+              <KpiTrendChip
+                direction={kpi.trend.direction}
+                difference={kpi.trend.difference}
+                period={kpi.trend.period}
+                meaning={kpi.trend.meaning}
+              />
+            )}
+          </article>
+        ))}
       </div>
 
       <div className="grid two dashboard-grid-two">
         <article className="card">
-          <div className="row">
+          <div className="row justify-between align-center">
             <h2>Alertas accionables</h2>
             <button
               type="button"
               className="button ghost small"
-              onClick={() => toast("Mostrando todas las alertas")}
+              onClick={() => navigate("/stock/alertas?estado=pendientes")}
             >
               Ver todas
             </button>
           </div>
           <ul className="list">
-            <li>
-              <span>
-                <strong>Remito RM-000078 demorado</strong>
-                <br />
-                <span className="micro">Local Palermo · 3 h sin recepción</span>
-              </span>
-              <span className="list-actions">
-                <span className="badge bad">Crítica</span>
-                <button
-                  type="button"
-                  className="button small"
-                  onClick={() => navigate("/operador")}
-                >
-                  Registrar recepción
-                </button>
-              </span>
-            </li>
-            <li>
-              <span>
-                <strong>4 productos bajo mínimo</strong>
-                <br />
-                <span className="micro">CD Central · sugerencia calculada</span>
-              </span>
-              <span className="list-actions">
-                <span className="badge warn">Stock</span>
-                <button
-                  type="button"
-                  className="button small"
-                  onClick={() => navigate("/logistica/wizard")}
-                >
-                  Crear reposición
-                </button>
-              </span>
-            </li>
-            <li>
-              <span>
-                <strong>2 bultos sin precinto</strong>
-                <br />
-                <span className="micro">Orden OR-000115</span>
-              </span>
-              <span className="list-actions">
-                <span className="badge warn">Bloqueo</span>
-                <button
-                  type="button"
-                  className="button small"
-                  onClick={() => setDrawerPackage(true)}
-                >
-                  Asignar precintos
-                </button>
-              </span>
-            </li>
+            {alertasAccionables.slice(0, 5).map((alerta) => (
+              <li key={alerta.id}>
+                <span>
+                  <strong>{alerta.titulo}</strong>
+                  <br />
+                  <span className="micro">{alerta.descripcion}</span>
+                </span>
+                <span className="list-actions">
+                  <span
+                    className={`badge ${
+                      alerta.severidad === "critica"
+                        ? "bad"
+                        : alerta.severidad === "alta"
+                        ? "warn"
+                        : "info"
+                    }`}
+                  >
+                    {alerta.categoria}
+                  </span>
+                  <button
+                    type="button"
+                    className="button small"
+                    onClick={() => handleExecuteAlerta(alerta)}
+                  >
+                    {alerta.accionLabel}
+                  </button>
+                </span>
+              </li>
+            ))}
           </ul>
         </article>
 
@@ -155,21 +206,27 @@ export function AdminDashboardPage() {
           <ul className="list">
             <li>
               <span>Órdenes por preparar</span>
-              <strong className="tabular">4</strong>
+              <strong className="tabular">
+                {trabajoPendiente.ordenesPorPreparar}
+              </strong>
             </li>
             <li>
               <span>Remitos por despachar</span>
-              <strong className="tabular">2</strong>
+              <strong className="tabular">
+                {trabajoPendiente.remitosPorDespachar}
+              </strong>
             </li>
             <li>
               <span>Bultos por verificar</span>
-              <strong className="tabular">8</strong>
+              <strong className="tabular">
+                {trabajoPendiente.bultosPorVerificar}
+              </strong>
             </li>
           </ul>
           <button
             type="button"
             className="button primary"
-            onClick={() => navigate("/logistica/kanban")}
+            onClick={() => navigate("/logistica/empaquetado")}
           >
             Abrir operación activa
           </button>
@@ -177,7 +234,7 @@ export function AdminDashboardPage() {
       </div>
 
       <article className="card dashboard-movements-card">
-        <div className="row">
+        <div className="row justify-between align-center">
           <h2>Últimos movimientos</h2>
           <button
             type="button"
@@ -199,27 +256,23 @@ export function AdminDashboardPage() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td className="tabular">14:31</td>
-              <td>BU-000045</td>
-              <td>Verificado</td>
-              <td>
-                <span className="row row-start">
-                  <span className="avatar sm light">AR</span>
-                  Ana Ruiz
-                </span>
-              </td>
-              <td>Local Palermo</td>
-              <td>+12 u. disponibles</td>
-            </tr>
-            <tr>
-              <td className="tabular">14:26</td>
-              <td>RM-000077</td>
-              <td>Despachado</td>
-              <td>Laura Pérez</td>
-              <td>CD Central</td>
-              <td>4 bultos en tránsito</td>
-            </tr>
+            {ultimosMovimientos.map((mov) => (
+              <tr key={mov.id}>
+                <td className="tabular">{mov.hora}</td>
+                <td>
+                  <span className="font-mono text-xs">{mov.entidad}</span>
+                </td>
+                <td>{mov.accion}</td>
+                <td>
+                  <span className="row row-start align-center gap-1">
+                    <span className="avatar sm light">{mov.responsableInitials}</span>
+                    <span>{mov.responsableNombre}</span>
+                  </span>
+                </td>
+                <td>{mov.sede}</td>
+                <td>{mov.consecuencia}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </article>

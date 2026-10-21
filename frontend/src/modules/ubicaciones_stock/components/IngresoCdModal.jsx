@@ -12,21 +12,22 @@ import { useProductos } from "../../catalogo/hooks/useProductos";
 import { stockService } from "../services";
 
 /**
- * Modal para el ingreso de mercadería a Centro de Distribución.
- * Cumple US2: Selección explícita de CD activo, proveedor activo, producto,
- * y resumen de impacto del movimiento antes y después de confirmar.
+ * Modal para el ingreso de mercaderia a Centro de Distribucion.
+ * Cumple US2: Seleccion explicita de CD activo, proveedor activo, producto,
+ * validacion estricta de CD receptor y resumen de consecuencia operacional.
  */
 export function IngresoCdModal({
   open,
   onClose,
   defaultCdId,
+  defaultProductoId,
   onSuccess,
 }) {
   const { ubicaciones, loading: loadingUbic } = useUbicaciones({ activas: true });
   const { proveedores, loading: loadingProv } = useProveedores({ activos: true });
   const { productos, loading: loadingProd } = useProductos();
 
-  // Filtrar exclusivamente Centros de Distribución activos
+  // Filtrar exclusivamente Centros de Distribucion activos
   const centrosDistribucion = useMemo(() => {
     return (ubicaciones || []).filter(
       (u) => (u.tipo === "CD" || u.scope === "CD") && u.activo !== false
@@ -67,11 +68,14 @@ export function IngresoCdModal({
       if (proveedores.length > 0 && !proveedorId) {
         setProveedorId(String(proveedores[0].id));
       }
-      if (productos.length > 0 && !productoId) {
+
+      if (defaultProductoId) {
+        setProductoId(String(defaultProductoId));
+      } else if (productos.length > 0 && !productoId) {
         setProductoId(String(productos[0].id));
       }
     }
-  }, [open, centrosDistribucion, proveedores, productos, defaultCdId]);
+  }, [open, centrosDistribucion, proveedores, productos, defaultCdId, defaultProductoId]);
 
   // Actualizar consulta de saldo anterior al cambiar CD o Producto
   const fetchSaldo = useCallback(async (currentCdId, currentProdId) => {
@@ -146,6 +150,13 @@ export function IngresoCdModal({
       setErrorMessage("Debe seleccionar un Centro de Distribución activo.");
       return;
     }
+
+    const isValidCd = centrosDistribucion.some((c) => String(c.id) === String(cdId));
+    if (!isValidCd) {
+      setErrorMessage("Solo los Centros de Distribución (CD) pueden recibir mercadería de proveedores. Los locales comerciales se abastecen mediante remitos de distribución.");
+      return;
+    }
+
     if (!proveedorId) {
       setErrorMessage("Debe seleccionar un proveedor activo.");
       return;
@@ -358,6 +369,10 @@ export function IngresoCdModal({
               title="Revisión de impacto antes de confirmar"
               description="Verifica los datos del comprobante y el saldo proyectado antes de registrar el alta de inventario."
             />
+
+            <div className="validation-note">
+              <strong>Consecuencia operativa:</strong> Se acreditarán +{cantNum} u. en {selectedCd?.nombre}. El stock disponible pasará a {nuevoSaldoProyectado} u. y quedará listo para despacho a locales comerciales.
+            </div>
 
             <div className="erp-table-card p-4 stack gap-3">
               <div className="row justify-between align-center border-b pb-2">

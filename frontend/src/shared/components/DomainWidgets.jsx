@@ -9,6 +9,7 @@ import { Badge, StatusBadge } from "./Badge";
  * 2. `RadioCards` / `PaymentStrategySelector` -> Strategy Pattern (`Pago_Efectivo`, `Pago_Tarjeta`, `Pago_Transferencia`)
  * 3. `StockSplitBar` -> Observer Pattern (`cantidad_disponible` vs `cantidad_en_transito` + `nivel_minimo_existencia`)
  * 4. `PlotlyReportCard` -> Wrapper for `reportes` module charts
+ * 5. `KpiTrendChip` & `LiveKpiCard` -> Live metrics with semantic trend indicators (FR-044)
  */
 
 const BULTO_STEPS = [
@@ -195,5 +196,96 @@ export function PlotlyReportCard({ title, subtitle, badgeText, children }) {
       </div>
       <div>{children}</div>
     </div>
+  );
+}
+
+/**
+ * Indicador semántico de tendencia en tiempo real (FR-044).
+ * Expresa ventana de comparación, dirección numérica y significado operacional
+ * (favorable / desfavorable / neutral) en texto explícito, sin depender únicamente de color.
+ */
+export function KpiTrendChip({
+  direction = "none",
+  difference = "",
+  period = "",
+  meaning = "neutral",
+  className = "",
+}) {
+  const isUp = direction === "up";
+  const isDown = direction === "down";
+  const arrow = isUp ? "\u2191" : isDown ? "\u2193" : "=";
+  const chipTone =
+    meaning === "favorable" ? "up" : meaning === "desfavorable" ? "down" : "";
+
+  const meaningLabel =
+    meaning === "favorable"
+      ? "Favorable"
+      : meaning === "desfavorable"
+      ? "Desfavorable"
+      : "Neutral";
+
+  const directionWord = isUp
+    ? "Aumento"
+    : isDown
+    ? "Disminución"
+    : "Sin variación";
+
+  const fullDescription = `${directionWord} ${difference} ${period} (${meaningLabel})`;
+
+  return (
+    <span
+      className={`trend-chip ${chipTone} ${className}`.trim()}
+      title={fullDescription}
+      aria-label={fullDescription}
+    >
+      <span aria-hidden="true">{arrow}</span>
+      <span>
+        {difference} {period}
+      </span>
+      <span className="trend-meaning">· {meaningLabel}</span>
+    </span>
+  );
+}
+
+/**
+ * Tarjeta de KPI en vivo con soporte de tendencia semántica (FR-044).
+ */
+export function LiveKpiCard({
+  label,
+  value,
+  subtext,
+  badgeText,
+  badgeTone = "neutral",
+  trend,
+  className = "",
+  onClick,
+}) {
+  const badgeClass =
+    badgeTone === "danger" || badgeTone === "bad"
+      ? "badge bad"
+      : badgeTone === "warning" || badgeTone === "warn"
+      ? "badge warn"
+      : badgeTone === "success" || badgeTone === "ok"
+      ? "badge ok"
+      : "badge info";
+
+  return (
+    <article
+      className={`card metric ${onClick ? "interactive cursor-pointer" : ""} ${className}`.trim()}
+      onClick={onClick}
+    >
+      <span className="micro">{label}</span>
+      <strong className="tabular">{value}</strong>
+      {badgeText && <span className={badgeClass}>{badgeText}</span>}
+      {subtext && <span className="trend muted">{subtext}</span>}
+      {trend && (
+        <KpiTrendChip
+          direction={trend.direction}
+          difference={trend.difference}
+          period={trend.period}
+          meaning={trend.meaning}
+        />
+      )}
+    </article>
   );
 }

@@ -32,7 +32,10 @@ export {
   PaymentStrategySelector,
   StockSplitBar,
   PlotlyReportCard,
+  KpiTrendChip,
+  LiveKpiCard,
 } from "./components/DomainWidgets";
+export { NotificationPanel } from "./components/NotificationPanel";
 export {
   ScreenTransition,
   StaggerItem,

@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   SortableDataTable,
   FilterToolbar,
@@ -7,8 +7,6 @@ import {
   Button,
   Badge,
   MetricCard,
-  Alert,
-  Icon,
 } from "../../../shared";
 import { useDisclosure } from "../../../shared/hooks";
 import { useAlertasStock } from "../hooks/useAlertasStock";
@@ -17,23 +15,36 @@ import { useProductos } from "../../catalogo/hooks/useProductos";
 import { IngresoCdModal } from "../components/IngresoCdModal";
 
 /**
- * Vista dedicada de alertas de reposición por stock bajo mínimo (/stock/alertas).
- * Cumple US2 / T021:
- * - Urgencia en texto ("Crítica: stock agotado", "Alta: por debajo del mínimo", etc.)
- * - Producto y SKU
- * - Ubicación física afectada
- * - Cantidad actual y nivel mínimo requerido
- * - Acción sugerida con enlace directo a /logistica/ordenes/crear o /stock/ingresos
- * - Estado de resolución (Pendiente / Resuelta) con acción para marcar resolución
+ * Vista dedicada de alertas de reposicion por stock bajo minimo (/stock/alertas).
+ * Cumple US2 / T030:
+ * - Botones explicitos de resolucion ("Marcar leida", "Reponer", "Ingresar stock").
+ * - Preservacion del filtro en la URL y en la navegacion hacia destino.
+ * - Exactamente una accion primaria visible a nivel contexto (FR-043).
  */
 export function AlertasPage() {
   const navigate = useNavigate();
-  const [urgenciaFiltro, setUrgenciaFiltro] = useState("todas");
-  const [estadoFiltro, setEstadoFiltro] = useState("pendientes");
-  const [search, setSearch] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Preservacion de filtros via URL query params
+  const urgenciaFiltro = searchParams.get("urgencia") || "todas";
+  const estadoFiltro = searchParams.get("estado") || "pendientes";
+  const search = searchParams.get("q") || "";
+  const ubicacionIdParam = searchParams.get("ubicacionId");
+  const productoIdParam = searchParams.get("productoId");
+
+  const updateParam = (key, value) => {
+    const next = new URLSearchParams(searchParams);
+    if (value && value !== "todas") {
+      next.set(key, value);
+    } else {
+      next.delete(key);
+    }
+    setSearchParams(next, { replace: true });
+  };
 
   const ingresoModal = useDisclosure(false);
   const [modalCdId, setModalCdId] = useState(undefined);
+  const [modalProdId, setModalProdId] = useState(undefined);
 
   const {
     alertas,
@@ -47,7 +58,7 @@ export function AlertasPage() {
   const { ubicaciones } = useUbicaciones({ activas: false });
   const { productos } = useProductos();
 
-  // Mapear alertas enriquecidas con entidades de producto y ubicación
+  // Mapear alertas enriquecidas con producto y ubicacion
   const enrichedAlertas = useMemo(() => {
     const prodMap = new Map((productos || []).map((p) => [p.id, p]));
     const ubicMap = new Map((ubicaciones || []).map((u) => [u.id, u]));
@@ -60,7 +71,6 @@ export function AlertasPage() {
       const min = a.nivelMinimo;
       const isCD = ubic?.tipo === "CD" || ubic?.scope === "CD";
 
-      // Urgencia explícita en texto según severidad de existencias
       let urgenciaTexto = "Alta: por debajo del mínimo";
       let urgenciaTone = "warning";
       let urgenciaKey = "alta";
@@ -74,20 +84,6 @@ export function AlertasPage() {
         urgenciaTone = "info";
         urgenciaKey = "media";
       }
-
-      // Acción sugerida según tipo de sede afectada
-      const accionSugerida = isCD
-        ? {
-            label: "Ingresar mercadería de proveedor",
-            path: "/stock/ingresos",
-            tipo: "ingreso_cd",
-            cdId: a.ubicacionId,
-          }
-        : {
-            label: "Iniciar orden de reposición",
-            path: "/logistica/ordenes/crear",
-            tipo: "orden_reposicion",
-          };
 
       return {
         id: a.id,
@@ -106,7 +102,7 @@ export function AlertasPage() {
         urgenciaTexto,
         urgenciaTone,
         urgenciaKey,
-        accionSugerida,
+        isCD,
         leida: a.leida,
         estadoTexto: a.leida ? "Resuelta" : "Pendiente de atención",
         fechaEmision: a.fechaEmision
@@ -122,7 +118,7 @@ export function AlertasPage() {
     });
   }, [alertas, productos, ubicaciones]);
 
-  // Filtrado compuesto por urgencia, resolución y búsqueda
+  // Filtrado compuesto con preservacion en navegacion
   const filteredAlertas = useMemo(() => {
     let result = enrichedAlertas;
 
@@ -140,6 +136,14 @@ export function AlertasPage() {
       result = result.filter((a) => a.urgenciaKey === "media");
     }
 
+    if (ubicacionIdParam) {
+      result = result.filter((a) => String(a.ubicacionId) === String(ubicacionIdParam));
+    }
+
+    if (productoIdParam) {
+      result = result.filter((a) => String(a.productoId) === String(productoIdParam));
+    }
+
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -152,7 +156,7 @@ export function AlertasPage() {
     }
 
     return result;
-  }, [enrichedAlertas, estadoFiltro, urgenciaFiltro, search]);
+  }, [enrichedAlertas, estadoFiltro, urgenciaFiltro, ubicacionIdParam, productoIdParam, search]);
 
   const totalCriticas = useMemo(
     () => enrichedAlertas.filter((a) => a.urgenciaKey === "critica" && !a.leida).length,
@@ -167,13 +171,18 @@ export function AlertasPage() {
     [enrichedAlertas]
   );
 
-  const handleExecuteAccion = (accion) => {
-    if (accion.tipo === "ingreso_cd") {
-      setModalCdId(accion.cdId);
-      ingresoModal.onOpen();
-    } else {
-      navigate(accion.path);
-    }
+  const handleOpenIngresoModal = (alerta) => {
+    setModalCdId(alerta.ubicacionId);
+    setModalProdId(alerta.productoId);
+    ingresoModal.onOpen();
+  };
+
+  const handleNavigateCrearOrden = (alerta) => {
+    const returnPath = `/stock/alertas?${searchParams.toString()}`;
+    navigate(
+      `/logistica/ordenes/crear?productoId=${alerta.productoId}&destinoId=${alerta.ubicacionId}`,
+      { state: { returnTo: returnPath } }
+    );
   };
 
   const columns = [
@@ -243,31 +252,35 @@ export function AlertasPage() {
     },
     {
       key: "accionSugerida",
-      header: "Acción sugerida",
-      render: (acc) => (
-        <Button
-          variant="secondary"
-          size="sm"
-          iconRight="arrow-right"
-          onClick={() => handleExecuteAccion(acc)}
-        >
-          {acc.label}
-        </Button>
-      ),
-    },
-    {
-      key: "estadoTexto",
-      header: "Estado",
-      sortable: true,
-      render: (v, r) => (
-        <Badge tone={r.leida ? "success" : "warning"}>
-          {v}
-        </Badge>
-      ),
+      header: "Acción de reposición",
+      render: (_, r) => {
+        if (r.isCD) {
+          return (
+            <Button
+              variant="secondary"
+              size="sm"
+              iconRight="arrow-right"
+              onClick={() => handleOpenIngresoModal(r)}
+            >
+              Ingresar stock
+            </Button>
+          );
+        }
+        return (
+          <Button
+            variant="secondary"
+            size="sm"
+            iconRight="arrow-right"
+            onClick={() => handleNavigateCrearOrden(r)}
+          >
+            Reponer
+          </Button>
+        );
+      },
     },
     {
       key: "resolucion",
-      header: "Gestión",
+      header: "Gestión de alerta",
       align: "right",
       render: (_, r) => {
         if (!r.leida) {
@@ -279,14 +292,14 @@ export function AlertasPage() {
               onClick={() => marcarLeida(r.id)}
               disabled={marcarPending}
             >
-              Marcar resuelta
+              Marcar leída
             </Button>
           );
         }
         return (
-          <span className="text-xs text-muted">
-            {r.fechaEmision}
-          </span>
+          <Badge tone="success">
+            Resuelta
+          </Badge>
         );
       },
     },
@@ -316,6 +329,7 @@ export function AlertasPage() {
             iconLeft="plus"
             onClick={() => {
               setModalCdId(undefined);
+              setModalProdId(undefined);
               ingresoModal.onOpen();
             }}
           >
@@ -354,10 +368,7 @@ export function AlertasPage() {
         <div className="row align-center gap-3 wrap">
           <SegmentedControl
             value={estadoFiltro}
-            onChange={(v) => {
-              setEstadoFiltro(v);
-              setSearch("");
-            }}
+            onChange={(v) => updateParam("estado", v)}
             options={[
               { value: "pendientes", label: "Pendientes", count: totalPendientes },
               { value: "resueltas", label: "Resueltas" },
@@ -367,21 +378,34 @@ export function AlertasPage() {
 
           <SegmentedControl
             value={urgenciaFiltro}
-            onChange={(v) => {
-              setUrgenciaFiltro(v);
-              setSearch("");
-            }}
+            onChange={(v) => updateParam("urgencia", v)}
             options={[
               { value: "todas", label: "Cualquier urgencia" },
               { value: "critica", label: "Crítica", count: totalCriticas },
               { value: "alta", label: "Alta", count: totalAltas },
             ]}
           />
+
+          {(ubicacionIdParam || productoIdParam) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              iconLeft="x"
+              onClick={() => {
+                const next = new URLSearchParams(searchParams);
+                next.delete("ubicacionId");
+                next.delete("productoId");
+                setSearchParams(next, { replace: true });
+              }}
+            >
+              Limpiar filtro específico
+            </Button>
+          )}
         </div>
 
         <FilterToolbar
           searchValue={search}
-          onSearchChange={setSearch}
+          onSearchChange={(v) => updateParam("q", v)}
           searchPlaceholder="Buscar por SKU, producto o sede..."
         />
       </div>
@@ -401,6 +425,7 @@ export function AlertasPage() {
         open={ingresoModal.open}
         onClose={ingresoModal.onClose}
         defaultCdId={modalCdId}
+        defaultProductoId={modalProdId}
         onSuccess={() => reloadAlertas()}
       />
     </div>

@@ -9,6 +9,7 @@ import {
   MetricCard,
   Alert,
   SegmentedControl,
+  LiveIndicator,
 } from "../../../shared";
 import { useDisclosure } from "../../../shared/hooks";
 import { useSede } from "../../../app/providers/SedeProvider";
@@ -19,10 +20,11 @@ import { IngresoCdModal } from "../components/IngresoCdModal";
 
 /**
  * Vista de existencias por ubicación y matriz de stock (/stock/stock).
+ * Aplica frescura live 15s (FR-028), validación de CD seleccionado y refresco tras mutación.
  */
 export function StockPage() {
   const navigate = useNavigate();
-  const { sede, sedeId, sedes } = useSede();
+  const { sede, sedeId } = useSede();
   const [search, setSearch] = useState("");
   const [filtroNivel, setFiltroNivel] = useState("todos");
 
@@ -33,11 +35,12 @@ export function StockPage() {
     loading: loadingStock,
     error: errorStock,
     reload: reloadStock,
+    freshnessSeconds,
+    isStale,
   } = useStockMatriz({ ubicacionId: sedeId });
 
   const {
     alertas,
-    loading: loadingAlertas,
     reload: reloadAlertas,
   } = useAlertasStock({ ubicacionId: sedeId });
 
@@ -156,7 +159,7 @@ export function StockPage() {
               variant="ghost"
               size="sm"
               iconRight="arrow-right"
-              onClick={() => navigate("/stock/alertas")}
+              onClick={() => navigate(`/stock/alertas?productoId=${r.productoId}&ubicacionId=${sedeId}`)}
             >
               Ver alerta
             </Button>
@@ -183,13 +186,20 @@ export function StockPage() {
             <span>·</span>
             <span>{sede?.label || "Sede activa"}</span>
           </div>
-          <h1 className="text-xl font-medium">Matriz de Stock por Ubicación</h1>
+          <div className="row align-center gap-3 wrap">
+            <h1 className="text-xl font-medium">Matriz de Stock por Ubicación</h1>
+            <LiveIndicator
+              freshnessSeconds={freshnessSeconds}
+              isStale={isStale}
+              onRefresh={reloadStock}
+            />
+          </div>
         </div>
         <div className="row gap-2 align-center">
           <Button
             variant="secondary"
             iconLeft="alert-triangle"
-            onClick={() => navigate("/stock/alertas")}
+            onClick={() => navigate(`/stock/alertas?ubicacionId=${sedeId}`)}
           >
             Alertas de reposición ({alertas.length})
           </Button>
