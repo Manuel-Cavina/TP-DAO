@@ -42,6 +42,16 @@
 - [x] Single visible primary action enforced per context across LogisticaPage, CrearOrdenPage and OrdenDetallePage (FR-043, SC-022).
 - [x] Standard replenishment order creation verified to complete in under eight minutes with clear guided steps without external instruction (T041, SC-003).
 
+## User Story 4: Seal, approve, remit, and dispatch packages (T042 - T053)
+
+- [x] Sealed-package approval eligibility, individual "Aprobar bulto" and batch "Aprobar elegibles" with review dialog and blocked reasons (T045, FR-041).
+- [x] Single visually primary action enforced per task context in EmpaquetadoPage (T045, FR-043, SC-022).
+- [x] Precintado individual and reviewed batch sealing with unique code per package and duplicate prevention (T046, FR-009, SC-021).
+- [x] ConsolidarModal enforces single complete delivery note without package-subset selection, displaying origin, destination, full package set, and 100% quantity review (T048, FR-006, FR-021).
+- [x] RemitoDetallePage separates legal document state (EMITIDO -> DESPACHADO -> RECIBIDO -> CERRADO) from physical package progress, full packages table, active dispatch blockers, immutable traceability timeline, 15s live freshness, and single primary "Despachar remito" action (T050, FR-026, FR-027, FR-028, FR-030, FR-043, SC-016).
+- [x] Separate Kanban boards by declared entity type (Preparacion / Despacho: Ordenes de reposicion en OrdenKanban; Recepcion / Control: Remitos en RemitoKanban) with 3-degree drag affordance, drop-to-action confirmation without direct mutation (FR-031), and accessible equivalent list view (T051, FR-031, SC-015).
+- [x] Complete preparation-to-dispatch journey, list equivalence, and Kanban cancel/confirm verified with zero inline styles and full test compliance (T053, SC-003, SC-015, SC-021).
+
 ## Automated evidence
 
 - [x] Modular structure check: passed.

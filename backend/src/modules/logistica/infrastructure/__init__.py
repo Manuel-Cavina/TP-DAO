@@ -1,10 +1,14 @@
 """Repositorios e infraestructura ORM del modulo de logistica."""
 
+from modules.logistica.infrastructure.aprobacion_bulto_repository import (
+    Aprobacion_Bulto_Repository,
+)
 from modules.logistica.infrastructure.bulto_repository import Bulto_Repository
 from modules.logistica.infrastructure.historial_bulto_repository import (
     Historial_Bulto_Repository,
 )
 from modules.logistica.infrastructure.models import (
+    Aprobacion_Bulto_Model,
     Bulto_Model,
     Detalle_Bulto_Model,
     Detalle_Orden_Reposicion_Model,
@@ -27,6 +31,7 @@ from modules.logistica.infrastructure.stock_logistica_adapter import Stock_Logis
 from modules.logistica.infrastructure.trazabilidad_repository import Trazabilidad_Repository
 
 __all__ = [
+    "Aprobacion_Bulto_Repository",
     "Bulto_Repository",
     "Historial_Bulto_Repository",
     "Necesidad_Reposicion_Repository",
@@ -35,6 +40,7 @@ __all__ = [
     "Remito_Repository",
     "Stock_Logistica_Adapter",
     "Trazabilidad_Repository",
+    "Aprobacion_Bulto_Model",
     "Bulto_Model",
     "Detalle_Bulto_Model",
     "Detalle_Orden_Reposicion_Model",

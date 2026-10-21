@@ -1,6 +1,10 @@
 """DTOs para entrada/salida de la API del modulo de logistica."""
 
 from modules.logistica.dto.logistica_dtos import (
+    Aprobacion_Bulto_DTO,
+    Aprobar_Bulto_Request_DTO,
+    Aprobar_Elegibles_Response_DTO,
+    Bloqueo_Bulto_DTO,
     Bulto_DTO,
     Cierre_Remito_Response_DTO,
     Consolidar_Orden_Request_DTO,
@@ -10,9 +14,11 @@ from modules.logistica.dto.logistica_dtos import (
     Detalle_Orden_Reposicion_DTO,
     Generar_Remito_Request_DTO,
     Historial_Bulto_DTO,
+    Item_Precintar_Bulto_DTO,
     Necesidad_Reposicion_DTO,
     Orden_Reposicion_DTO,
     Precintar_Bulto_Request_DTO,
+    Precintar_Lote_Request_DTO,
     Precinto_DTO,
     Registrar_Necesidad_Request_DTO,
     Registrar_Precinto_Request_DTO,
@@ -23,6 +29,10 @@ from modules.logistica.dto.logistica_dtos import (
 )
 
 __all__ = [
+    "Aprobacion_Bulto_DTO",
+    "Aprobar_Bulto_Request_DTO",
+    "Aprobar_Elegibles_Response_DTO",
+    "Bloqueo_Bulto_DTO",
     "Bulto_DTO",
     "Cierre_Remito_Response_DTO",
     "Consolidar_Orden_Request_DTO",
@@ -32,9 +42,11 @@ __all__ = [
     "Detalle_Orden_Reposicion_DTO",
     "Generar_Remito_Request_DTO",
     "Historial_Bulto_DTO",
+    "Item_Precintar_Bulto_DTO",
     "Necesidad_Reposicion_DTO",
     "Orden_Reposicion_DTO",
     "Precintar_Bulto_Request_DTO",
+    "Precintar_Lote_Request_DTO",
     "Precinto_DTO",
     "Registrar_Necesidad_Request_DTO",
     "Registrar_Precinto_Request_DTO",

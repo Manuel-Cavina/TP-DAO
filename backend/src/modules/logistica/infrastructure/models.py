@@ -62,6 +62,7 @@ class Remito_Model(Base):
     __tablename__ = "remitos"
 
     numero = Column(String(50), primary_key=True)
+    orden_id = Column(Integer, ForeignKey("ordenes_reposicion.id"), nullable=True, index=True)
     origen_id = Column(Integer, nullable=False, index=True)
     destino_id = Column(Integer, nullable=False, index=True)
     fecha_emision = Column(DateTime, nullable=False, default=datetime.now)
@@ -97,6 +98,26 @@ class Bulto_Model(Base):
         order_by="Historial_Bulto_Model.id",
         lazy="joined",
     )
+    aprobacion = relationship(
+        "Aprobacion_Bulto_Model",
+        back_populates="bulto",
+        uselist=False,
+        lazy="joined",
+    )
+
+
+class Aprobacion_Bulto_Model(Base):
+    """Modelo ORM para la tabla aprobaciones_bulto (evidencia inmutable de aprobación US4 / T042)."""
+
+    __tablename__ = "aprobaciones_bulto"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    bulto_id = Column(Integer, ForeignKey("bultos.id"), nullable=False, unique=True, index=True)
+    actor = Column(String(100), nullable=True)
+    fecha_hora = Column(DateTime, nullable=False, default=datetime.now)
+    observacion = Column(String(255), nullable=False, default="")
+
+    bulto = relationship("Bulto_Model", back_populates="aprobacion")
 
 
 class Detalle_Bulto_Model(Base):

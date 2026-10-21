@@ -39,6 +39,8 @@ export function mapBultoToUI(dto) {
     remitoNumero: dto.remito_numero,
     codigoPrecinto: dto.codigo_precinto,
     estado: dto.estado,
+    aprobado: Boolean(dto.aprobado || dto.aprobacion || dto.es_aprobado),
+    aprobacion: dto.aprobacion || null,
     detalles: (dto.detalles || []).map((d) => ({
       id: d.id,
       productoId: d.producto_id,
@@ -54,6 +56,7 @@ export function mapBultoResumenToUI(dto) {
     codigo: dto.codigo || `BLT-${String(dto.id).padStart(4, "0")}`,
     codigoPrecinto: dto.codigo_precinto || null,
     estado: dto.estado,
+    aprobado: Boolean(dto.aprobado || dto.aprobacion || dto.es_aprobado),
     cantidadItems: Number(dto.cantidad_items) || 0,
   };
 }
@@ -98,7 +101,6 @@ export function mapRemitoToUI(dto) {
     bultosRechazados,
     bultosPendientes,
     bultosResumen,
-    bultosIds: dto.bultos_ids || bultosResumen.map((b) => b.id),
-    bultos: (dto.bultos || []).map(mapBultoToUI),
+    bultosIds: dto.bultos_ids || (bultosResumen || []).map((b) => b.id),
   };
 }

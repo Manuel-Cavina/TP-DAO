@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from modules.logistica.domain.aprobacion_bulto import Aprobacion_Bulto
 from modules.logistica.domain.detalle_bulto import Detalle_Bulto
 from modules.logistica.domain.estado_bulto import Estado_Bulto, Estado_Preparado
 from modules.logistica.domain.exceptions import Transicion_Estado_Invalida_Exception
@@ -18,6 +19,7 @@ class Bulto:
         precinto: Precinto | None = None,
         detalles: list[Detalle_Bulto] | None = None,
         historial: list[Historial_Bulto] | None = None,
+        aprobacion: Aprobacion_Bulto | None = None,
     ) -> None:
         self._id: int | None = id
         self._orden_id: int = orden_id
@@ -25,6 +27,7 @@ class Bulto:
         self._precinto: Precinto | None = precinto
         self._detalles: list[Detalle_Bulto] = list(detalles) if detalles else []
         self._historial: list[Historial_Bulto] = list(historial) if historial else []
+        self._aprobacion: Aprobacion_Bulto | None = aprobacion
 
         if not self._historial:
             self._historial.append(
@@ -66,6 +69,20 @@ class Bulto:
     @property
     def historial(self) -> list[Historial_Bulto]:
         return list(self._historial)
+
+    @property
+    def aprobacion(self) -> Aprobacion_Bulto | None:
+        return self._aprobacion
+
+    @property
+    def esta_aprobado(self) -> bool:
+        return self._aprobacion is not None
+
+    def registrar_aprobacion(self, aprobacion: Aprobacion_Bulto) -> None:
+        """Asocia la evidencia de aprobación al bulto sin cambiar su estado del ciclo."""
+        if self._aprobacion is not None:
+            raise Transicion_Estado_Invalida_Exception("El bulto ya fue aprobado previamente.")
+        self._aprobacion = aprobacion
 
     def agregar_detalle(self, detalle: Detalle_Bulto) -> None:
         """Agrega mercaderia al bulto, solo permitido cuando esta en preparacion."""

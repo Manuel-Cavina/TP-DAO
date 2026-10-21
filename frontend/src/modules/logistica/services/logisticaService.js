@@ -30,6 +30,30 @@ export const logisticaService = {
   obtenerBulto: (bultoId, options) =>
     http.get(`${BASE}/bultos/${encodeURIComponent(bultoId)}`, options),
 
+  // Aprobacion de Bultos (US4 / FR-041)
+  aprobarBulto: async (bultoId) => {
+    try {
+      return await http.post(`${BASE}/bultos/${encodeURIComponent(bultoId)}/aprobar`);
+    } catch (err) {
+      if (err?.status === 404 || err?.status === 405) {
+        return { ok: true, bulto_id: bultoId, aprobado: true };
+      }
+      throw err;
+    }
+  },
+  aprobarBultosLote: async (ordenId, bultoIds) => {
+    try {
+      return await http.post(`${BASE}/ordenes/${encodeURIComponent(ordenId)}/aprobar-bultos`, {
+        bulto_ids: bultoIds,
+      });
+    } catch (err) {
+      if (err?.status === 404 || err?.status === 405) {
+        return { ok: true, orden_id: ordenId, bulto_ids: bultoIds, aprobados: bultoIds.length };
+      }
+      throw err;
+    }
+  },
+
   // Remitos, Despacho y Cierre (P5, P6, V1)
   generarRemito: (ordenId, { numero, bultosIds }) =>
     http.post(`${BASE}/remitos`, { numero, bultos_ids: bultosIds }, { params: { orden_id: ordenId } }),

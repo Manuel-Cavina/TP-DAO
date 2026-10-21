@@ -1,5 +1,6 @@
 """Entidades y reglas del dominio del modulo de logistica."""
 
+from modules.logistica.domain.aprobacion_bulto import Aprobacion_Bulto
 from modules.logistica.domain.bulto import Bulto
 from modules.logistica.domain.detalle_bulto import Detalle_Bulto
 from modules.logistica.domain.detalle_orden_reposicion import Detalle_Orden_Reposicion
@@ -17,6 +18,7 @@ from modules.logistica.domain.exceptions import (
     Bulto_Invalido_Exception,
     Bulto_No_Encontrado_Exception,
     Bulto_Vacio_Exception,
+    Bulto_Ya_Aprobado_Exception,
     Orden_Invalida_Exception,
     Orden_No_Encontrada_Exception,
     Precinto_Duplicado_Exception,
@@ -33,6 +35,7 @@ from modules.logistica.domain.precinto import Precinto
 from modules.logistica.domain.remito import Remito
 
 __all__ = [
+    "Aprobacion_Bulto",
     "Bulto",
     "Detalle_Bulto",
     "Detalle_Orden_Reposicion",
@@ -52,6 +55,7 @@ __all__ = [
     "Transicion_Estado_Invalida_Exception",
     "Precinto_Invalido_Exception",
     "Bulto_Vacio_Exception",
+    "Bulto_Ya_Aprobado_Exception",
     "Remito_Incompleto_Exception",
     "Orden_Invalida_Exception",
     "Bulto_Invalido_Exception",

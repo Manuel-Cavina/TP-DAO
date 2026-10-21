@@ -6,6 +6,7 @@ import { OrdenDetallePage } from "./pages/OrdenDetallePage";
 import { EmpaquetadoPage } from "./pages/EmpaquetadoPage";
 import { RemitoDetallePage } from "./pages/RemitoDetallePage";
 import { RecepcionPage } from "./pages/RecepcionPage";
+import { OperacionesPage } from "./pages/OperacionesPage";
 import { KanbanPage } from "./pages/KanbanPage";
 import { BultoDetallePage } from "./pages/BultoDetallePage";
 import { TrazabilidadPage } from "./pages/TrazabilidadPage";
@@ -28,7 +29,8 @@ export function LogisticaRoutes() {
       <Route path="ordenes/crear" element={<CrearOrdenPage />} />
       <Route path="ordenes/:id" element={<OrdenDetallePage />} />
       <Route path="wizard" element={<CrearOrdenPage />} />
-      <Route path="kanban" element={<KanbanPage />} />
+      <Route path="operaciones" element={<OperacionesPage />} />
+      <Route path="kanban" element={<OperacionesPage />} />
       <Route path="bultos/:id" element={<BultoDetallePage />} />
       <Route path="trazabilidad" element={<TrazabilidadPage />} />
       <Route path="empaquetado" element={<EmpaquetadoPage />} />
@@ -45,6 +47,7 @@ export {
   EmpaquetadoPage,
   RemitoDetallePage,
   RecepcionPage,
+  OperacionesPage,
   KanbanPage,
   BultoDetallePage,
   TrazabilidadPage,

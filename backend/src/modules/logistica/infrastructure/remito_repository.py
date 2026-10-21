@@ -23,6 +23,7 @@ class Remito_Repository:
         session = self._get_session()
         modelo = Remito_Model(
             numero=remito.numero,
+            orden_id=remito.orden_id,
             origen_id=remito.origen_id,
             destino_id=remito.destino_id,
             fecha_emision=remito.fecha_emision,
@@ -33,8 +34,10 @@ class Remito_Repository:
             session.flush()
         except IntegrityError as error:
             # Sin SAVEPOINT: la peticion termina en error y el middleware revierte la transaccion.
-            # Dos peticiones simultaneas con el mismo numero: la PK lo detecta y se informa como 409.
-            raise Remito_Duplicado_Exception(f"Ya existe un remito con numero '{remito.numero}'.") from error
+            # Dos peticiones simultaneas con el mismo numero o misma orden: la PK / UNIQUE lo detecta y se informa como 409.
+            raise Remito_Duplicado_Exception(
+                f"Ya existe un remito registrado con numero '{remito.numero}' o para la orden asociada."
+            ) from error
 
         for b in remito.bultos:
             if b.id is not None:
@@ -44,6 +47,42 @@ class Remito_Repository:
 
         session.flush()
         return remito
+
+    def existe_para_orden(self, orden_id: int) -> bool:
+        """Verifica si ya existe un remito emitido para la orden de reposición (US4 / T047)."""
+        session = self._get_session()
+        stmt = select(Remito_Model.numero).where(Remito_Model.orden_id == orden_id).limit(1)
+        if session.scalars(stmt).first() is not None:
+            return True
+        stmt_b = (
+            select(Bulto_Model.remito_numero)
+            .where(
+                Bulto_Model.orden_id == orden_id,
+                Bulto_Model.remito_numero.is_not(None),
+            )
+            .limit(1)
+        )
+        return session.scalars(stmt_b).first() is not None
+
+    def obtener_por_orden(self, orden_id: int) -> Remito | None:
+        """Obtiene el remito único de una orden si ya fue generado."""
+        session = self._get_session()
+        stmt = select(Remito_Model).where(Remito_Model.orden_id == orden_id).limit(1)
+        modelo = session.scalars(stmt).first()
+        if modelo is not None:
+            return self.obtener_por_numero(modelo.numero)
+        stmt_b = (
+            select(Bulto_Model.remito_numero)
+            .where(
+                Bulto_Model.orden_id == orden_id,
+                Bulto_Model.remito_numero.is_not(None),
+            )
+            .limit(1)
+        )
+        numero = session.scalars(stmt_b).first()
+        if numero:
+            return self.obtener_por_numero(numero)
+        return None
 
     def estado(self, numero: str) -> str | None:
         """Estado del remito sin reconstruir sus bultos, o None si no existe."""
@@ -59,6 +98,8 @@ class Remito_Repository:
         modelo = session.get(Remito_Model, remito.numero.strip())
         if modelo is not None:
             modelo.estado = remito.estado
+            if remito.orden_id is not None:
+                modelo.orden_id = remito.orden_id
             session.flush()
 
     def obtener_por_numero(self, numero: str) -> Remito | None:
@@ -76,6 +117,7 @@ class Remito_Repository:
             fecha_emision=modelo.fecha_emision,
             estado=modelo.estado,
             bultos=bultos,
+            orden_id=modelo.orden_id,
         )
 
     def listar_todos(self) -> list[Remito]:
@@ -94,6 +136,7 @@ class Remito_Repository:
                     fecha_emision=m.fecha_emision,
                     estado=m.estado,
                     bultos=bultos,
+                    orden_id=m.orden_id,
                 )
             )
         return remitos

@@ -1,26 +1,34 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Button } from "../../../shared/components/Button";
-import { StatusBadge } from "../../../shared/components/Badge";
-import { MetricCard } from "../../../shared/components/Feedback";
-import { SortableDataTable } from "../../../shared/components/SortableDataTable";
-import { Modal } from "../../../shared/components/Motion";
-import { useDisclosure } from "../../../shared/hooks";
+import {
+  Button,
+  StatusBadge,
+  SortableDataTable,
+  Modal,
+  useDisclosure,
+  useLiveResource,
+  LiveIndicator,
+} from "../../../shared";
 import { useUbicaciones } from "../../ubicaciones_stock/hooks/useUbicaciones";
+import { useAuth } from "../../../app/auth/AuthProvider";
 import { logisticaService } from "../services";
 import { mapRemitoToUI } from "../mappers/logisticaMappers";
+import { RemitoTimeline } from "../components/RemitoTimeline";
 
+/**
+ * RemitoDetallePage (T050 / US4):
+ * Detalle completo de remito con estado de documento separado del progreso
+ * operacional de bultos, bloqueadores de despacho, trazabilidad inmutable y
+ * boton unico primario de despacho.
+ */
 export function RemitoDetallePage() {
   const { numero } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { ubicaciones } = useUbicaciones();
 
-  const [remito, setRemito] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [despachando, setDespachando] = useState(false);
   const [despachoError, setDespachoError] = useState("");
-
   const despachoModal = useDisclosure(false);
 
   const ubicMap = useMemo(
@@ -28,31 +36,64 @@ export function RemitoDetallePage() {
     [ubicaciones]
   );
 
-  const loadRemito = async () => {
-    if (!numero) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await logisticaService.obtenerRemito(numero);
-      setRemito(mapRemitoToUI(res));
-    } catch (err) {
-      setError(err.message || "Error al cargar el remito.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadRemito();
+  const fetchRemitoData = useCallback(async () => {
+    if (!numero) return null;
+    const res = await logisticaService.obtenerRemito(numero);
+    return mapRemitoToUI(res);
   }, [numero]);
 
+  // Contrato de frescura operativo de 15 segundos (FR-028, SC-014)
+  const {
+    data: remito,
+    error,
+    isLoading,
+    freshnessSeconds,
+    isStale,
+    refresh,
+  } = useLiveResource(fetchRemitoData, {
+    enabled: Boolean(numero),
+    intervalMs: 15000,
+  });
+
+  const origenNombre = remito ? ubicMap.get(remito.origenId) || `CD #${remito.origenId}` : "";
+  const destinoNombre = remito ? ubicMap.get(remito.destinoId) || `Local #${remito.destinoId}` : "";
+  const responsableNombre = user?.displayName || user?.name || "Operador de Despacho";
+
+  // Identificacion de bloqueadores de despacho (FR-030)
+  const bloqueadoresDespacho = useMemo(() => {
+    if (!remito) return [];
+    const list = [];
+
+    if (remito.documentoEstado !== "EMITIDO") {
+      list.push(`El documento ya no está en estado EMITIDO (estado actual: ${remito.documentoEstado}).`);
+    }
+
+    if (!remito.bultosResumen || remito.bultosResumen.length === 0) {
+      list.push("El remito no cuenta con bultos asociados para transportar.");
+    }
+
+    const sinPrecinto = (remito.bultosResumen || []).filter((b) => !b.codigoPrecinto);
+    if (sinPrecinto.length > 0) {
+      list.push(`Existen ${sinPrecinto.length} bulto(s) sin precinto de seguridad registrado.`);
+    }
+
+    if (isStale) {
+      list.push("La frescura de los datos no pudo confirmarse (bloqueo preventivo por red).");
+    }
+
+    return list;
+  }, [remito, isStale]);
+
+  const esDespachable = remito?.documentoEstado === "EMITIDO" && bloqueadoresDespacho.length === 0;
+
   const handleConfirmarDespacho = async () => {
+    if (!esDespachable) return;
     setDespachando(true);
     setDespachoError("");
     try {
       await logisticaService.despacharRemito(numero);
       despachoModal.onClose();
-      await loadRemito();
+      await refresh();
     } catch (err) {
       setDespachoError(err.message || "Error al despachar el remito.");
     } finally {
@@ -75,11 +116,16 @@ export function RemitoDetallePage() {
       key: "codigoPrecinto",
       header: "Precinto de seguridad",
       mono: true,
-      render: (v) => v || <span className="text-muted">Sin precinto</span>,
+      render: (v) =>
+        v ? (
+          <span className="font-mono font-medium">{v}</span>
+        ) : (
+          <span className="text-muted text-xs">Sin precinto</span>
+        ),
     },
     {
       key: "estado",
-      header: "Estado operacional del bulto",
+      header: "Estado físico del bulto",
       render: (v) => <StatusBadge status={v} />,
     },
     {
@@ -90,7 +136,7 @@ export function RemitoDetallePage() {
     },
   ];
 
-  if (loading) {
+  if (isLoading && !remito) {
     return (
       <div className="p-8 text-center text-secondary">
         Cargando detalle del remito #{numero}...
@@ -112,51 +158,44 @@ export function RemitoDetallePage() {
     );
   }
 
-  const isEmitido = remito.documentoEstado === "EMITIDO";
-  const isDespachado = remito.documentoEstado === "DESPACHADO";
-  const isCerrado = remito.documentoEstado === "CERRADO";
-
   return (
     <div className="stack gap-5">
-      {/* Header con breadcrumb */}
+      {/* Header con breadcrumb y frescura */}
       <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">
-            <span
-              className="cursor-pointer text-secondary"
-              onClick={() => navigate("/logistica/remitos")}
-            >
+            <span className="cursor-pointer text-secondary" onClick={() => navigate("/logistica/remitos")}>
               Distribución
             </span>
             <span>·</span>
-            <span
-              className="cursor-pointer text-secondary"
-              onClick={() => navigate("/logistica/remitos")}
-            >
+            <span className="cursor-pointer text-secondary" onClick={() => navigate("/logistica/remitos")}>
               Remitos
             </span>
             <span>·</span>
             <span className="font-mono">{remito.numero}</span>
           </div>
+
           <div className="row gap-3 align-center mt-1">
-            <h1 className="text-xl">Remito de despacho {remito.numero}</h1>
+            <h1 className="text-xl">Remito de traslado {remito.numero}</h1>
             <StatusBadge status={remito.documentoEstado} />
+            <LiveIndicator freshnessSeconds={freshnessSeconds} isStale={isStale} onRefresh={refresh} />
           </div>
         </div>
 
-        {/* ÚNICA SIGUIENTE ACCIÓN EXPLÍCITA */}
-        <div className="row gap-2 align-center">
-          {isEmitido && (
+        {/* FR-043: Exactamente una accion primaria visible por contexto */}
+        <div>
+          {remito.documentoEstado === "EMITIDO" && (
             <Button
               variant="primary"
               iconLeft="truck"
               onClick={despachoModal.onOpen}
+              disabled={!esDespachable}
             >
-              Confirmar despacho
+              Despachar remito
             </Button>
           )}
 
-          {isDespachado && (
+          {remito.documentoEstado === "DESPACHADO" && (
             <Button
               variant="primary"
               iconRight="arrow-right"
@@ -166,87 +205,114 @@ export function RemitoDetallePage() {
             </Button>
           )}
 
-          {isCerrado && (
-            <span className="text-sm text-success font-medium">
+          {remito.documentoEstado === "RECIBIDO" && (
+            <Button
+              variant="primary"
+              iconRight="arrow-right"
+              onClick={() => navigate(`/logistica/recepcion?remito=${encodeURIComponent(remito.numero)}`)}
+            >
+              Continuar verificación de precintos
+            </Button>
+          )}
+
+          {remito.documentoEstado === "CERRADO" && (
+            <span className="badge-pill bg-success-subtle text-success text-sm font-medium">
               Remito cerrado y liquidado
             </span>
           )}
         </div>
       </div>
 
-      {/* Origen y Destino */}
+      {/* Origen, Destino y Fecha */}
       <div className="grid-3 gap-3">
         <div className="card p-4 stack gap-1">
-          <span className="text-xs text-muted">Centro de distribución emisor</span>
-          <span className="text-sm font-medium">
-            {ubicMap.get(remito.origenId) || `CD #${remito.origenId}`}
-          </span>
-          <span className="text-xs text-secondary">Sede origen</span>
+          <span className="text-xs text-muted">Centro de distribución (Origen)</span>
+          <span className="text-sm font-medium">{origenNombre}</span>
+          <span className="text-xs text-secondary">Sede emisora</span>
         </div>
 
         <div className="card p-4 stack gap-1">
-          <span className="text-xs text-muted">Sucursal receptora</span>
-          <span className="text-sm font-medium">
-            {ubicMap.get(remito.destinoId) || `Local #${remito.destinoId}`}
-          </span>
+          <span className="text-xs text-muted">Sucursal receptora (Destino)</span>
+          <span className="text-sm font-medium">{destinoNombre}</span>
           <span className="text-xs text-secondary">Destino final</span>
         </div>
 
         <div className="card p-4 stack gap-1">
           <span className="text-xs text-muted">Fecha de emisión</span>
           <span className="text-sm font-medium">
-            {remito.fechaEmision
-              ? new Date(remito.fechaEmision).toLocaleDateString("es-AR")
-              : "-"}
+            {remito.fechaEmision ? new Date(remito.fechaEmision).toLocaleDateString("es-AR") : "-"}
           </span>
-          <span className="text-xs text-secondary">
-            Documento legal de traslado
-          </span>
+          <span className="text-xs text-secondary">Documento formal de traslado</span>
         </div>
       </div>
 
-      {/* Métricas de progreso operacional de bultos */}
-      <div className="stack gap-2">
+      {/* Progreso de bultos separado del estado del documento (FR-027) */}
+      <div className="card p-4 stack gap-3">
         <div className="row justify-between align-center">
-          <h2 className="text-md">Progreso operacional de bultos</h2>
+          <h2 className="text-md font-medium">Progreso físico de bultos</h2>
           <span className="text-xs text-secondary">
-            {remito.progresoOperacional?.resumenTexto || `${remito.totalBultos} bultos`}
+            {remito.progresoOperacional?.resumenTexto || `${remito.totalBultos} bulto(s)`}
           </span>
         </div>
 
         <div className="grid-4 gap-3">
-          <MetricCard
-            label="Total bultos"
-            value={remito.totalBultos}
-            subtext="En este remito"
-          />
-          <MetricCard
-            label="Verificados conformes"
-            value={remito.bultosVerificados}
-            subtext="Precinto intacto"
-            badgeTone={remito.bultosVerificados > 0 ? "success" : "neutral"}
-          />
-          <MetricCard
-            label="Rechazados por merma"
-            value={remito.bultosRechazados}
-            subtext="Precinto violado"
-            badgeTone={remito.bultosRechazados > 0 ? "danger" : "neutral"}
-          />
-          <MetricCard
-            label="Pendientes de control"
-            value={remito.bultosPendientes}
-            subtext="En tránsito o recibidos"
-            badgeTone={remito.bultosPendientes > 0 ? "warning" : "success"}
-          />
+          <div className="p-3 rounded bg-surface-muted stack gap-1">
+            <span className="text-xs text-muted">Total bultos</span>
+            <span className="text-lg font-medium tabular-nums">{remito.totalBultos}</span>
+            <span className="text-xs text-secondary">En este remito</span>
+          </div>
+
+          <div className="p-3 rounded bg-surface-muted stack gap-1">
+            <span className="text-xs text-muted">Verificados conformes</span>
+            <span className="text-lg font-medium tabular-nums text-success">
+              {remito.bultosVerificados}
+            </span>
+            <span className="text-xs text-secondary">Precinto intacto</span>
+          </div>
+
+          <div className="p-3 rounded bg-surface-muted stack gap-1">
+            <span className="text-xs text-muted">Rechazados por merma</span>
+            <span className="text-lg font-medium tabular-nums text-danger">
+              {remito.bultosRechazados}
+            </span>
+            <span className="text-xs text-secondary">Precinto violado</span>
+          </div>
+
+          <div className="p-3 rounded bg-surface-muted stack gap-1">
+            <span className="text-xs text-muted">Pendientes de control</span>
+            <span className="text-lg font-medium tabular-nums text-primary">
+              {remito.bultosPendientes}
+            </span>
+            <span className="text-xs text-secondary">En tránsito o arribados</span>
+          </div>
         </div>
       </div>
 
-      {/* Lista detallada de bultos del remito */}
-      <div className="stack gap-2 pt-2 border-t">
+      {/* Bloqueadores de despacho (FR-030) */}
+      {remito.documentoEstado === "EMITIDO" && (
+        <div className="card p-4 stack gap-2">
+          <h3 className="text-sm font-medium">Control previo a la salida</h3>
+          {bloqueadoresDespacho.length > 0 ? (
+            <div className="p-3 rounded bg-danger-subtle text-danger text-sm stack gap-1">
+              <strong className="block">Despacho bloqueado:</strong>
+              {bloqueadoresDespacho.map((b, idx) => (
+                <span key={idx}>· {b}</span>
+              ))}
+            </div>
+          ) : (
+            <div className="p-3 rounded bg-success-subtle text-success text-sm">
+              ✓ Sin bloqueadores: todos los bultos poseen precintos de seguridad asignados y el remito está listo para despachar.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tabla completa de bultos */}
+      <div className="card p-4 stack gap-3">
         <div className="row justify-between align-center">
-          <h2 className="text-md">Detalle individual de bultos precintados</h2>
+          <h2 className="text-md font-medium">Detalle individual de bultos del remito</h2>
           <span className="text-xs text-secondary">
-            {remito.bultosResumen?.length || 0} bulto(s) listado(s)
+            {remito.bultosResumen?.length || 0} bulto(s) amparado(s)
           </span>
         </div>
 
@@ -254,16 +320,24 @@ export function RemitoDetallePage() {
           columns={bultoColumns}
           data={remito.bultosResumen || []}
           rowKey="id"
-          emptyTitle="Sin bultos asignados al remito"
+          emptyTitle="Sin bultos en este remito"
         />
       </div>
 
-      {/* Modal de confirmación explícita de despacho */}
+      {/* Linea temporal inmutable de trazabilidad (T050 / FR-029) */}
+      <RemitoTimeline
+        remito={remito}
+        origenNombre={origenNombre}
+        destinoNombre={destinoNombre}
+        responsableNombre={responsableNombre}
+      />
+
+      {/* Modal de confirmacion explícita de despacho */}
       <Modal
         open={despachoModal.open}
         onClose={despachoModal.onClose}
         title="Confirmar despacho de remito"
-        subtitle={`Documento: ${remito.numero} · Despacho desde Centro de Distribución`}
+        subtitle={`Documento: ${remito.numero} · Despacho desde ${origenNombre}`}
         footer={
           <div className="row justify-between w-full">
             <Button variant="ghost" onClick={despachoModal.onClose} disabled={despachando}>
@@ -273,7 +347,8 @@ export function RemitoDetallePage() {
               variant="primary"
               onClick={handleConfirmarDespacho}
               loading={despachando}
-              loadingLabel="Despachando..."
+              loadingLabel="Despachando remito..."
+              disabled={!esDespachable}
             >
               Confirmar salida a tránsito
             </Button>
@@ -290,21 +365,17 @@ export function RemitoDetallePage() {
           <div className="grid-2 gap-3">
             <div className="p-3 rounded bg-surface-muted stack gap-1">
               <span className="text-xs text-muted">Origen</span>
-              <span className="text-sm font-medium">
-                {ubicMap.get(remito.origenId) || `CD #${remito.origenId}`}
-              </span>
+              <span className="text-sm font-medium">{origenNombre}</span>
             </div>
             <div className="p-3 rounded bg-surface-muted stack gap-1">
               <span className="text-xs text-muted">Destino</span>
-              <span className="text-sm font-medium">
-                {ubicMap.get(remito.destinoId) || `Local #${remito.destinoId}`}
-              </span>
+              <span className="text-sm font-medium">{destinoNombre}</span>
             </div>
           </div>
 
           <div className="stack gap-2">
-            <span className="text-xs text-muted">
-              Bultos a despachar ({remito.totalBultos} bultos)
+            <span className="text-xs text-muted font-medium">
+              BULTOS A DESPACHAR ({remito.totalBultos} BULTOS)
             </span>
             <div className="stack gap-1 max-h-40 overflow-y-auto">
               {(remito.bultosResumen || []).map((b) => (
@@ -320,9 +391,9 @@ export function RemitoDetallePage() {
 
           <div className="erp-callout">
             <span className="text-sm text-secondary">
-              Impacto operativo: Al confirmar el despacho, los bultos cambiarán a estado
-              'En tránsito' y la mercadería pasará a registrarse como cantidad en tránsito
-              hacia el local receptor. La orden de reposición pasará a estado DESPACHADA.
+              Consecuencia operativa: Al confirmar el despacho, los bultos cambiarán a
+              estado En tránsito y la mercadería pasará a registrarse como cantidad en tránsito
+              hacia el local receptor. No acredita stock en el local hasta la recepción y control de precintos.
             </span>
           </div>
         </div>

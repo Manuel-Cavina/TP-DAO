@@ -40,6 +40,7 @@ class Recepcion_Service:
         """Registra la llegada de mercaderia en la sucursal y pasa los bultos a RECIBIDO."""
         remito = self._obtener_remito(remito_numero)
         remito.recibir()
+        self._remito_repository.actualizar(remito)
         for b in remito.bultos:
             self._bulto_repository.actualizar(b, remito.numero)
         return remito

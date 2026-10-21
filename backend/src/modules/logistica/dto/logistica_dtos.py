@@ -30,6 +30,16 @@ class Precinto_DTO(BaseModel):
     esta_intacto: bool = True
 
 
+class Aprobacion_Bulto_DTO(BaseModel):
+    """DTO representativo de una aprobación inmutable de bulto (US4 / T042)."""
+
+    id: int | None = None
+    bulto_id: int
+    actor: str | None = None
+    fecha_hora: str | None = None
+    observacion: str = ""
+
+
 class Bulto_DTO(BaseModel):
     """DTO completo de bulto."""
 
@@ -39,6 +49,8 @@ class Bulto_DTO(BaseModel):
     precinto: Precinto_DTO | None = None
     detalles: list[Detalle_Bulto_DTO] = []
     historial: list[Historial_Bulto_DTO] = []
+    aprobado: bool = False
+    aprobacion: Aprobacion_Bulto_DTO | None = None
 
 
 class Detalle_Orden_Reposicion_DTO(BaseModel):
@@ -69,6 +81,7 @@ class Remito_DTO(BaseModel):
     fecha_emision: str
     estado: str
     bultos: list[Bulto_DTO] = []
+    orden_id: int | None = None
 
 
 class Necesidad_Reposicion_DTO(BaseModel):
@@ -114,6 +127,30 @@ class Precintar_Bulto_Request_DTO(BaseModel):
     codigo_precinto: str = Field(min_length=1, max_length=50)
 
 
+class Item_Precintar_Bulto_DTO(BaseModel):
+    bulto_id: Id_Positivo
+    codigo_precinto: str = Field(min_length=1, max_length=50)
+
+
+class Precintar_Lote_Request_DTO(BaseModel):
+    items: list[Item_Precintar_Bulto_DTO] = Field(min_length=1)
+
+
+class Aprobar_Bulto_Request_DTO(BaseModel):
+    actor: str | None = None
+    observacion: str | None = None
+
+
+class Bloqueo_Bulto_DTO(BaseModel):
+    id: int
+    motivo: str
+
+
+class Aprobar_Elegibles_Response_DTO(BaseModel):
+    approved: list[int]
+    blocked: list[Bloqueo_Bulto_DTO]
+
+
 class Registrar_Precinto_Request_DTO(BaseModel):
     codigo: str = Field(min_length=1, max_length=50)
 
@@ -121,6 +158,7 @@ class Registrar_Precinto_Request_DTO(BaseModel):
 class Generar_Remito_Request_DTO(BaseModel):
     numero: str = Field(min_length=1, max_length=50)
     bultos_ids: list[Id_Positivo] = Field(min_length=1)
+    validar_aprobacion: bool = False
 
 
 class Verificar_Bulto_Request_DTO(BaseModel):

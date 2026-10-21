@@ -10,15 +10,19 @@ from modules.logistica.application import (
     Trazabilidad_Service,
 )
 from modules.logistica.dto import (
+    Aprobar_Bulto_Request_DTO,
+    Aprobar_Elegibles_Response_DTO,
     Bulto_DTO,
     Cierre_Remito_Response_DTO,
     Consolidar_Orden_Request_DTO,
     Crear_Bulto_Request_DTO,
     Crear_Orden_Manual_Request_DTO,
     Generar_Remito_Request_DTO,
+    Item_Precintar_Bulto_DTO,
     Necesidad_Reposicion_DTO,
     Orden_Reposicion_DTO,
     Precintar_Bulto_Request_DTO,
+    Precintar_Lote_Request_DTO,
     Precinto_DTO,
     Registrar_Necesidad_Request_DTO,
     Registrar_Precinto_Request_DTO,
@@ -208,7 +212,7 @@ def listar_bultos_por_orden(
 
 
 # -------------------------------------------------------------------------
-# Empaquetado y Bultos (P4)
+# Empaquetado, Precintado y Aprobación (P4 / US4)
 # -------------------------------------------------------------------------
 
 
@@ -247,7 +251,7 @@ def crear_bulto(
 @router.post(
     "/bultos/{bulto_id}/precintar",
     response_model=Bulto_DTO,
-    summary="Precintar bulto (State: PREPARADO -> PRECINTADO)",
+    summary="Precintar bulto individual (State: PREPARADO -> PRECINTADO)",
 )
 def precintar_bulto(
     bulto_id: Id_Path,
@@ -259,6 +263,66 @@ def precintar_bulto(
         codigo_precinto=req.codigo_precinto,
     )
     return Bulto_Mapper.a_dto(bulto)
+
+
+@router.post(
+    "/ordenes/{orden_id}/bultos/precintar",
+    response_model=list[Bulto_DTO],
+    summary="Precintar lote de bultos revisado (US4 / T044)",
+)
+def precintar_bultos_lote(
+    orden_id: Id_Path,
+    payload: list[Item_Precintar_Bulto_DTO] | Precintar_Lote_Request_DTO,
+    service: Empaquetado_Service = Depends(get_empaquetado_service),
+) -> list[Bulto_DTO]:
+    items_raw = payload.items if isinstance(payload, Precintar_Lote_Request_DTO) else payload
+    items = [{"bulto_id": it.bulto_id, "codigo_precinto": it.codigo_precinto} for it in items_raw]
+    bultos = service.precintar_bultos_lote(orden_id=orden_id, items=items)
+    return [Bulto_Mapper.a_dto(b) for b in bultos]
+
+
+@router.post(
+    "/bultos/{bulto_id}/aprobar",
+    response_model=Bulto_DTO,
+    summary="Aprobar bulto precintado individualmente para remito (US4 / T042, T043)",
+)
+def aprobar_bulto(
+    bulto_id: Id_Path,
+    request: Request,
+    req: Aprobar_Bulto_Request_DTO | None = None,
+    service: Empaquetado_Service = Depends(get_empaquetado_service),
+) -> Bulto_DTO:
+    actor_req = getattr(request.state, "usuario", None)
+    actor_login = actor_req.login if actor_req else (req.actor if req else None)
+    observacion = req.observacion if (req and req.observacion) else ""
+    bulto = service.aprobar_bulto(
+        bulto_id=bulto_id,
+        actor=actor_login,
+        observacion=observacion,
+    )
+    return Bulto_Mapper.a_dto(bulto)
+
+
+@router.post(
+    "/ordenes/{orden_id}/bultos/aprobar-elegibles",
+    response_model=Aprobar_Elegibles_Response_DTO,
+    summary="Evaluar y aprobar bultos elegibles de una orden (US4 / T043)",
+)
+def aprobar_bultos_elegibles(
+    orden_id: Id_Path,
+    request: Request,
+    req: Aprobar_Bulto_Request_DTO | None = None,
+    service: Empaquetado_Service = Depends(get_empaquetado_service),
+) -> Aprobar_Elegibles_Response_DTO:
+    actor_req = getattr(request.state, "usuario", None)
+    actor_login = actor_req.login if actor_req else (req.actor if req else None)
+    observacion = req.observacion if (req and req.observacion) else ""
+    resultado = service.aprobar_bultos_elegibles(
+        orden_id=orden_id,
+        actor=actor_login,
+        observacion=observacion,
+    )
+    return Aprobar_Elegibles_Response_DTO(**resultado)
 
 
 @router.get(
@@ -275,7 +339,7 @@ def obtener_bulto(
 
 
 # -------------------------------------------------------------------------
-# Remitos y Despacho (P4 y P5)
+# Remitos y Despacho (P4 y P5 / US4)
 # -------------------------------------------------------------------------
 
 
@@ -283,17 +347,20 @@ def obtener_bulto(
     "/remitos",
     response_model=Remito_DTO,
     status_code=status.HTTP_201_CREATED,
-    summary="Generar un nuevo remito con bultos precintados",
+    summary="Generar remito (US4 / T047)",
 )
 def generar_remito(
     orden_id: int = Query(..., gt=0, le=2**63 - 1, description="ID de la orden de reposicion"),
     req: Generar_Remito_Request_DTO = ...,
+    validar_aprobacion: bool = Query(False, description="Validar que todos los bultos esten aprobados"),
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> Remito_DTO:
+    es_estricto = req.validar_aprobacion or validar_aprobacion
     remito = service.generar_remito(
         numero=req.numero,
         orden_id=orden_id,
         bultos_ids=req.bultos_ids,
+        validar_aprobacion=es_estricto,
     )
     return Remito_Mapper.a_dto(remito)
 
