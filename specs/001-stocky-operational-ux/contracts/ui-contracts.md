@@ -2,7 +2,7 @@
 
 This file defines the target release contract. The official Sales/Cash endpoints from `main` are integrated now; the missing authentication, idempotency and external-payment controls are tracked explicitly in T083-T089 and block production approval.
 
-All mutations require an authenticated session, authoritative role/scope validation, typed backend validation, and atomic persistence. Errors use the existing application error envelope and field-level details where applicable.
+The MVP requires an authenticated session and authoritative role validation: `ADMIN` for Sales/Cash and Reports, and `ADMIN` or `OPERADOR` for Logistics. CSRF protection and Operator location scope remain deferred to Phase 11; typed backend validation and atomic persistence remain mandatory. Errors use the existing application error envelope and field-level details where applicable.
 
 ## Authentication and authorization
 

@@ -13,8 +13,14 @@ from modules.reportes.dto import (
     Ventas_Medio_Pago_DTO,
 )
 from modules.reportes.mappers import Reportes_Mapper
+from modules.seguridad.api import requerir_rol
+from modules.seguridad.domain import ROL_ADMIN
 
-router = APIRouter(prefix="/api/reportes", tags=["Reportes"])
+router = APIRouter(
+    prefix="/api/reportes",
+    tags=["Reportes"],
+    dependencies=[Depends(requerir_rol(ROL_ADMIN))],
+)
 
 # Annotated crea un Query por parámetro: reutilizar un mismo Query(...) en parámetros
 # distintos hace que FastAPI los confunda (se queda con el nombre del primero).

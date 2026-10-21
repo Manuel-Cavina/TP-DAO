@@ -6,8 +6,14 @@ from modules.ventas_caja.application import Caja_Service
 from modules.ventas_caja.dto import MAX_ID, Saldo_Caja_DTO
 from modules.ventas_caja.infrastructure import Stock_Venta_Adapter
 from modules.ventas_caja.mappers import Saldo_Caja_Mapper
+from modules.seguridad.api import requerir_rol
+from modules.seguridad.domain import ROL_ADMIN
 
-router = APIRouter(prefix="/api/caja", tags=["Caja del Local"])
+router = APIRouter(
+    prefix="/api/caja",
+    tags=["Caja del Local"],
+    dependencies=[Depends(requerir_rol(ROL_ADMIN))],
+)
 
 
 def get_caja_service() -> Caja_Service:

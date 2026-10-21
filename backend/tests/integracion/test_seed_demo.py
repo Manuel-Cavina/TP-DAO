@@ -33,6 +33,11 @@ class TestSeedDemo(unittest.TestCase):
         self.assertFalse(cargar_datos_demo(self.url), "La segunda corrida no debe cargar nada")
 
         client = TestClient(Application_Factory.crear_aplicacion(self.url))
+        login = client.post(
+            "/api/seguridad/login",
+            json={"login": "admin@stocky.local", "password": "stocky-demo"},
+        )
+        self.assertEqual(login.status_code, 200, login.text)
         periodo = {"desde": (date.today() - timedelta(days=100)).isoformat(), "hasta": date.today().isoformat()}
 
         self.assertEqual(len(client.get("/api/ubicaciones", params={"tipo": "LOCAL"}).json()), 3)

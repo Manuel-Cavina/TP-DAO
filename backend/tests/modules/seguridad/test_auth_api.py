@@ -253,6 +253,35 @@ class Test_Auth_API(unittest.TestCase):
         resp_admin_hereda = self.client.get("/api/seguridad/operador-only")
         self.assertEqual(resp_admin_hereda.status_code, 200)
 
+    def test_ventas_caja_y_reportes_requieren_admin(self) -> None:
+        rutas_protegidas = (
+            "/api/ventas",
+            "/api/caja/1?desde=2026-01-01&hasta=2026-01-01",
+            "/api/reportes/existencias",
+        )
+        for ruta in rutas_protegidas:
+            with self.subTest(sesion="ausente", ruta=ruta):
+                self.assertEqual(self.client.get(ruta).status_code, 401)
+
+        self.client.post(
+            "/api/seguridad/login",
+            json={"login": "operador@test.local", "password": "operador123"},
+        )
+        for ruta in rutas_protegidas:
+            with self.subTest(rol="OPERADOR", ruta=ruta):
+                self.assertEqual(self.client.get(ruta).status_code, 403)
+        self.assertEqual(self.client.get("/api/logistica/ordenes").status_code, 200)
+
+        self.client.post("/api/seguridad/logout")
+        self.client.post(
+            "/api/seguridad/login",
+            json={"login": "admin@test.local", "password": "admin123"},
+        )
+        for ruta, estado in zip(rutas_protegidas, (200, 404, 200), strict=True):
+            with self.subTest(rol="ADMIN", ruta=ruta):
+                self.assertEqual(self.client.get(ruta).status_code, estado)
+        self.assertEqual(self.client.get("/api/logistica/ordenes").status_code, 200)
+
     def test_sembrar_identidades_defecto_es_idempotente(self) -> None:
         def _sembrar(_session: Session) -> dict[str, int]:
             service = Auth_Service()

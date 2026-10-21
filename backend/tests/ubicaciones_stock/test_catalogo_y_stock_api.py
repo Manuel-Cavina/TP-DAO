@@ -12,6 +12,8 @@ from fastapi.testclient import TestClient
 
 from bootstrap.application_factory import Application_Factory
 from config.database.database_engine_singleton import Database_Engine_Singleton
+from config.database.request_session_context import Request_Session_Context
+from modules.seguridad.application import Auth_Service
 
 
 class TestCatalogoYStockAPI(unittest.TestCase):
@@ -20,6 +22,7 @@ class TestCatalogoYStockAPI(unittest.TestCase):
         self._temp_dir = tempfile.TemporaryDirectory()
         self.db_path = Path(self._temp_dir.name) / "catalogo_stock.sqlite3"
         self.client = TestClient(Application_Factory.crear_aplicacion(database_url=f"sqlite:///{self.db_path.as_posix()}"))
+        self._autenticar_admin_demo()
 
         self.cd = self._post("/api/ubicaciones/centros-distribucion", {"nombre": "CD", "direccion": "Ruta 9"})
         self.local = self._post("/api/ubicaciones/locales", {"nombre": "Centro", "direccion": "San Martín 1"})
@@ -45,6 +48,22 @@ class TestCatalogoYStockAPI(unittest.TestCase):
         res = self.client.post(url, json=body)
         self.assertEqual(res.status_code, estado, res.text)
         return res.json()
+
+    def _autenticar_admin_demo(self) -> None:
+        sesion = Database_Engine_Singleton.obtener_session_factory().crear_sesion()
+        token = Request_Session_Context.establecer_sesion(sesion)
+        try:
+            Auth_Service().sembrar_identidades_defecto()
+            sesion.commit()
+        finally:
+            Request_Session_Context.restablecer(token)
+            sesion.close()
+
+        respuesta = self.client.post(
+            "/api/seguridad/login",
+            json={"login": "admin@stocky.local", "password": "stocky-demo"},
+        )
+        self.assertEqual(respuesta.status_code, 200, respuesta.text)
 
     def test_codigos_http(self) -> None:
         p = self.producto["id"]

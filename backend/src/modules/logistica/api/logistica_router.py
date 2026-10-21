@@ -27,6 +27,8 @@ from modules.logistica.dto import (
     Verificar_Bulto_Request_DTO,
 )
 from modules.logistica.infrastructure import Stock_Logistica_Adapter
+from modules.seguridad.api import requerir_rol
+from modules.seguridad.domain import ROL_OPERADOR
 from modules.logistica.mappers import (
     Bulto_Mapper,
     Orden_Reposicion_Mapper,
@@ -34,7 +36,11 @@ from modules.logistica.mappers import (
     Remito_Mapper,
 )
 
-router = APIRouter(prefix="/api/logistica", tags=["Logística y Trazabilidad de Bultos"])
+router = APIRouter(
+    prefix="/api/logistica",
+    tags=["Logística y Trazabilidad de Bultos"],
+    dependencies=[Depends(requerir_rol(ROL_OPERADOR))],
+)
 
 Id_Path = Annotated[int, Path(gt=0, le=2**63 - 1)]
 
