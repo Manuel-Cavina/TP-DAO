@@ -26,6 +26,7 @@ from modules.logistica.domain.exceptions import (
     Remito_No_Encontrado_Exception,
     Transicion_Estado_Invalida_Exception,
 )
+from modules.logistica.domain.evento_trazabilidad import Evento_Trazabilidad
 from modules.logistica.domain.historial_bulto import Historial_Bulto
 from modules.logistica.domain.orden_reposicion import Orden_Reposicion
 from modules.logistica.domain.precinto import Precinto
@@ -43,6 +44,7 @@ __all__ = [
     "Estado_Verificado",
     "Estado_Rechazado",
     "crear_estado_bulto_desde_string",
+    "Evento_Trazabilidad",
     "Historial_Bulto",
     "Orden_Reposicion",
     "Precinto",

@@ -18,6 +18,7 @@ from modules.logistica.dto.logistica_dtos import (
     Registrar_Precinto_Request_DTO,
     Remito_DTO,
     Trazabilidad_Bulto_Response_DTO,
+    Trazabilidad_Orden_Response_DTO,
     Verificar_Bulto_Request_DTO,
 )
 
@@ -39,5 +40,6 @@ __all__ = [
     "Registrar_Precinto_Request_DTO",
     "Remito_DTO",
     "Trazabilidad_Bulto_Response_DTO",
+    "Trazabilidad_Orden_Response_DTO",
     "Verificar_Bulto_Request_DTO",
 ]

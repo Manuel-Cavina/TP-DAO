@@ -8,6 +8,7 @@ from modules.logistica.infrastructure.models import (
     Bulto_Model,
     Detalle_Bulto_Model,
     Detalle_Orden_Reposicion_Model,
+    Evento_Trazabilidad_Model,
     Historial_Bulto_Model,
     Necesidad_Reposicion_Model,
     Orden_Reposicion_Model,
@@ -23,6 +24,7 @@ from modules.logistica.infrastructure.orden_reposicion_repository import (
 from modules.logistica.infrastructure.precinto_repository import Precinto_Repository
 from modules.logistica.infrastructure.remito_repository import Remito_Repository
 from modules.logistica.infrastructure.stock_logistica_adapter import Stock_Logistica_Adapter
+from modules.logistica.infrastructure.trazabilidad_repository import Trazabilidad_Repository
 
 __all__ = [
     "Bulto_Repository",
@@ -32,9 +34,11 @@ __all__ = [
     "Precinto_Repository",
     "Remito_Repository",
     "Stock_Logistica_Adapter",
+    "Trazabilidad_Repository",
     "Bulto_Model",
     "Detalle_Bulto_Model",
     "Detalle_Orden_Reposicion_Model",
+    "Evento_Trazabilidad_Model",
     "Historial_Bulto_Model",
     "Necesidad_Reposicion_Model",
     "Orden_Reposicion_Model",

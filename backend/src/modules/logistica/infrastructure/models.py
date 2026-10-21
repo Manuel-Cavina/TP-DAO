@@ -139,3 +139,22 @@ class Necesidad_Reposicion_Model(Base):
     estado = Column(String(20), nullable=False, default="PENDIENTE")
     orden_id = Column(Integer, ForeignKey("ordenes_reposicion.id"), nullable=True)
     fecha_registro = Column(DateTime, nullable=False, default=datetime.now)
+
+
+class Evento_Trazabilidad_Model(Base):
+    """Modelo ORM para la tabla eventos_trazabilidad (auditoria inmutable transversal)."""
+
+    __tablename__ = "eventos_trazabilidad"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tipo_entidad = Column(String(50), nullable=False, index=True)
+    entidad_id = Column(Integer, nullable=False, index=True)
+    accion = Column(String(50), nullable=False)
+    estado_anterior = Column(String(50), nullable=True)
+    estado_nuevo = Column(String(50), nullable=False)
+    actor = Column(String(100), nullable=True)
+    origen_id = Column(Integer, nullable=True)
+    destino_id = Column(Integer, nullable=True)
+    registros_asociados = Column(String(500), nullable=True)
+    motivo_o_evidencia = Column(String(500), nullable=True)
+    fecha_hora = Column(DateTime, nullable=False, default=datetime.now)

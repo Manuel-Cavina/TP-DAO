@@ -94,12 +94,16 @@ class Registrar_Necesidad_Request_DTO(BaseModel):
 class Consolidar_Orden_Request_DTO(BaseModel):
     local_destino_id: Id_Positivo
     origen_id: Id_Positivo
+    necesidad_ids: list[Id_Positivo] | None = None
+    validar_stock: bool = False
 
 
 class Crear_Orden_Manual_Request_DTO(BaseModel):
     origen_id: Id_Positivo
     destino_id: Id_Positivo
     items: list[Detalle_Bulto_DTO] = Field(min_length=1)
+    necesidad_ids: list[Id_Positivo] | None = None
+    validar_stock: bool = False
 
 
 class Crear_Bulto_Request_DTO(BaseModel):
@@ -140,3 +144,26 @@ class Trazabilidad_Bulto_Response_DTO(BaseModel):
     codigo_precinto: str | None = None
     total_items: int
     eventos: list[dict[str, Any]]
+
+
+class Evento_Trazabilidad_DTO(BaseModel):
+    id: int | None = None
+    tipo_entidad: str
+    entidad_id: int
+    accion: str
+    estado_anterior: str | None = None
+    estado_nuevo: str
+    actor: str | None = None
+    origen_id: int | None = None
+    destino_id: int | None = None
+    registros_asociados: str | None = None
+    motivo_o_evidencia: str | None = None
+    fecha_hora: str | None = None
+
+
+class Trazabilidad_Orden_Response_DTO(BaseModel):
+    orden_id: int
+    origen_id: int
+    destino_id: int
+    estado_actual: str
+    eventos: list[Evento_Trazabilidad_DTO]

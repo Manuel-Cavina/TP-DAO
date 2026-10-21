@@ -33,6 +33,15 @@
 - [x] AlertasPage provides explicit resolution buttons ("Marcar leída", "Reponer", "Ingresar stock") and preserves filter state across navigation (FR-026).
 - [x] StockPage and IngresoCdModal enforce 15-second live freshness, validate CD selection strictly for provider ingress, preview operational impact, and refresh state upon mutation (FR-020, FR-028, SC-014).
 
+## User Story 3: Create a replenishment order (T035 - T041)
+
+- [x] Needs list searchable and filterable by destination, product, urgency and age with selected-count review summary (T035, FR-007, FR-008, SC-003).
+- [x] Multi-selection consolidation action preselects needs and opens 3-step creation wizard (T035, T036).
+- [x] Full-page 3-step order wizard: destination and need selection with single-destination invariant, active CD origin validation, line-item preview, stock consequence and atomic confirmation (T036, FR-006, FR-008, FR-020, SC-003).
+- [x] Complete order detail with current state, 15s live freshness (useLiveResource), route, responsible user, requested vs packaged progress per line, bi-directional package/remittance links, active blockers, stock impact and immutable traceability timeline (T038, FR-025, FR-026, FR-028, FR-030).
+- [x] Single visible primary action enforced per context across LogisticaPage, CrearOrdenPage and OrdenDetallePage (FR-043, SC-022).
+- [x] Standard replenishment order creation verified to complete in under eight minutes with clear guided steps without external instruction (T041, SC-003).
+
 ## Automated evidence
 
 - [x] Modular structure check: passed.

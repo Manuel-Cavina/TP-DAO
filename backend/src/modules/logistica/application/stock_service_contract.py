@@ -25,6 +25,11 @@ class Stock_Service_Contract(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def validar_stock_disponible(self, producto_id: int, cd_id: int, cantidad: int) -> None:
+        """Verifica que el Centro de Distribución tenga stock suficiente para abastecer la orden."""
+        raise NotImplementedError
+
+    @abstractmethod
     def reservar_para_despacho(self, producto_id: int, cd_id: int, cantidad: int) -> None:
         """Descuenta stock disponible del Centro de Distribucion al preparar un bulto."""
         raise NotImplementedError

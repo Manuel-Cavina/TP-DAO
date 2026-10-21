@@ -7,6 +7,7 @@ Logística no toca las tablas de stock ni de catálogo: delega en la API públic
 from modules.catalogo.application import Catalogo_Consulta_Service
 from modules.logistica.application.stock_service_contract import Stock_Service_Contract
 from modules.ubicaciones_stock.application import Stock_Service, Ubicacion_Service
+from modules.ubicaciones_stock.domain.exceptions.stock_exceptions import Stock_Insuficiente_Exception
 
 
 class Stock_Logistica_Adapter(Stock_Service_Contract):
@@ -30,6 +31,13 @@ class Stock_Logistica_Adapter(Stock_Service_Contract):
 
     def validar_producto(self, producto_id: int) -> None:
         self._catalogo.obtener_producto_activo(producto_id)
+
+    def validar_stock_disponible(self, producto_id: int, cd_id: int, cantidad: int) -> None:
+        disponible = self._stock.consultar_disponible(producto_id, cd_id)
+        if cantidad > disponible:
+            raise Stock_Insuficiente_Exception(
+                f"Stock insuficiente en Centro de Distribución {cd_id} para el producto {producto_id}: solicitado {cantidad}, disponible {disponible}."
+            )
 
     def reservar_para_despacho(self, producto_id: int, cd_id: int, cantidad: int) -> None:
         self._stock.reservar_para_despacho(producto_id, cd_id, cantidad)

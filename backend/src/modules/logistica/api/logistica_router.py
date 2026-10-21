@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi import APIRouter, Depends, Path, Query, Request, status
 
 from modules.logistica.application import (
     Despacho_Service,
@@ -24,6 +24,7 @@ from modules.logistica.dto import (
     Registrar_Precinto_Request_DTO,
     Remito_DTO,
     Trazabilidad_Bulto_Response_DTO,
+    Trazabilidad_Orden_Response_DTO,
     Verificar_Bulto_Request_DTO,
 )
 from modules.logistica.infrastructure import Stock_Logistica_Adapter
@@ -128,11 +129,17 @@ def listar_necesidades(
 )
 def consolidar_orden(
     req: Consolidar_Orden_Request_DTO,
+    request: Request,
     service: Reposicion_Service = Depends(get_reposicion_service),
 ) -> Orden_Reposicion_DTO:
+    actor = getattr(request.state, "usuario", None)
+    actor_login = actor.login if actor else None
     orden = service.consolidar_necesidades_en_orden(
         local_destino_id=req.local_destino_id,
         origen_id=req.origen_id,
+        necesidad_ids=req.necesidad_ids,
+        validar_stock=req.validar_stock,
+        actor=actor_login,
     )
     return Orden_Reposicion_Mapper.a_dto(orden)
 
@@ -145,12 +152,18 @@ def consolidar_orden(
 )
 def crear_orden_manual(
     req: Crear_Orden_Manual_Request_DTO,
+    request: Request,
     service: Reposicion_Service = Depends(get_reposicion_service),
 ) -> Orden_Reposicion_DTO:
+    actor = getattr(request.state, "usuario", None)
+    actor_login = actor.login if actor else None
     orden = service.crear_orden_manual(
         origen_id=req.origen_id,
         destino_id=req.destino_id,
         items=[it.model_dump() for it in req.items],
+        necesidad_ids=req.necesidad_ids,
+        validar_stock=req.validar_stock,
+        actor=actor_login,
     )
     return Orden_Reposicion_Mapper.a_dto(orden)
 
@@ -373,7 +386,7 @@ def cerrar_remito(
 
 
 # -------------------------------------------------------------------------
-# Trazabilidad Inmutable (Regla V2)
+# Trazabilidad Inmutable (Regla V2 / US3)
 # -------------------------------------------------------------------------
 
 
@@ -388,3 +401,16 @@ def consultar_trazabilidad(
 ) -> Trazabilidad_Bulto_Response_DTO:
     resumen = service.consultar_resumen_trazabilidad(bulto_id)
     return Trazabilidad_Bulto_Response_DTO(**resumen)
+
+
+@router.get(
+    "/ordenes/{orden_id}/trazabilidad",
+    response_model=Trazabilidad_Orden_Response_DTO,
+    summary="Consultar trazabilidad inmutable y linea de tiempo de una orden (US3)",
+)
+def consultar_trazabilidad_orden(
+    orden_id: Id_Path,
+    service: Trazabilidad_Service = Depends(get_trazabilidad_service),
+) -> Trazabilidad_Orden_Response_DTO:
+    resumen = service.consultar_resumen_orden(orden_id)
+    return Trazabilidad_Orden_Response_DTO(**resumen)

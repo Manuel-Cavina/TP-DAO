@@ -81,3 +81,39 @@ class Necesidad_Reposicion_Repository:
                 modelo.estado = "CONSOLIDADA"
                 modelo.orden_id = orden_id
         session.flush()
+
+    def obtener_por_ids(self, ids: list[int]) -> list[dict[str, Any]]:
+        """Recupera necesidades por su lista de IDs."""
+        if not ids:
+            return []
+        session = self._get_session()
+        stmt = select(Necesidad_Reposicion_Model).where(Necesidad_Reposicion_Model.id.in_(ids))
+        modelos = session.scalars(stmt).all()
+        return [
+            {
+                "id": m.id,
+                "producto_id": m.producto_id,
+                "local_id": m.local_id,
+                "cantidad": m.cantidad,
+                "estado": m.estado,
+                "orden_id": m.orden_id,
+                "fecha_registro": m.fecha_registro.isoformat() if m.fecha_registro else None,
+            }
+            for m in modelos
+        ]
+
+    def obtener_por_id(self, necesidad_id: int) -> dict[str, Any] | None:
+        """Recupera una necesidad individual por su ID."""
+        session = self._get_session()
+        m = session.get(Necesidad_Reposicion_Model, necesidad_id)
+        if m is None:
+            return None
+        return {
+            "id": m.id,
+            "producto_id": m.producto_id,
+            "local_id": m.local_id,
+            "cantidad": m.cantidad,
+            "estado": m.estado,
+            "orden_id": m.orden_id,
+            "fecha_registro": m.fecha_registro.isoformat() if m.fecha_registro else None,
+        }

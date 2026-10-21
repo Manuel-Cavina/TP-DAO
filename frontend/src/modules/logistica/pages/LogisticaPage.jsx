@@ -14,8 +14,10 @@ import { useRemitos } from "../hooks/useRemitos";
 import { useOrdenes } from "../hooks/useOrdenes";
 import { useNecesidades } from "../hooks/useNecesidades";
 import { useUbicaciones } from "../../ubicaciones_stock/hooks/useUbicaciones";
+import { useProductos } from "../../catalogo/hooks/useProductos";
 import { ConsolidarModal } from "../components/ConsolidarModal";
 import { TrazabilidadDrawer } from "../components/TrazabilidadDrawer";
+import { NecesidadesTab } from "../components/NecesidadesTab";
 
 export function LogisticaPage({ initialTab = "remitos" }) {
   const navigate = useNavigate();
@@ -29,6 +31,7 @@ export function LogisticaPage({ initialTab = "remitos" }) {
   }, [initialTab]);
 
   const [search, setSearch] = useState("");
+  const [selectedNecKeys, setSelectedNecKeys] = useState([]);
 
   const consolidarModal = useDisclosure(false);
   const trazabilidadDrawer = useDisclosure(false);
@@ -36,11 +39,18 @@ export function LogisticaPage({ initialTab = "remitos" }) {
   const [selectedTrazab, setSelectedTrazab] = useState({ id: null, estado: null, precinto: null });
 
   const { ubicaciones } = useUbicaciones();
+  const { productos } = useProductos({ activos: true });
   const { remitos, loading: loadingRem, error: errorRem, reload: reloadRem, despachar, pendingAction } = useRemitos();
   const { ordenes, loading: loadingOrd, error: errorOrd, reload: reloadOrd } = useOrdenes();
   const { necesidades, loading: loadingNec, error: errorNec, reload: reloadNec, consolidar, consolidarPending } = useNecesidades();
 
   const ubicMap = useMemo(() => new Map(ubicaciones.map((u) => [u.id, u.nombre])), [ubicaciones]);
+  const productoMap = useMemo(() => new Map(productos.map((p) => [p.id, p])), [productos]);
+
+  const locales = useMemo(
+    () => ubicaciones.filter((u) => u.tipo === "LOCAL" && u.activo),
+    [ubicaciones]
+  );
 
   const remitosRows = useMemo(() => {
     return remitos.map((r) => ({
@@ -191,26 +201,8 @@ export function LogisticaPage({ initialTab = "remitos" }) {
     },
   ];
 
-  const necColumns = [
-    { key: "id", header: "ID Necesidad", mono: true },
-    { key: "productoId", header: "ID Producto", mono: true },
-    {
-      key: "localId",
-      header: "Local destino",
-      render: (v) => ubicMap.get(v) || `#${v}`,
-    },
-    {
-      key: "cantidad",
-      header: "Cantidad sugerida",
-      align: "right",
-      render: (v) => <span className="tabular-nums font-medium">{v} u.</span>,
-    },
-    {
-      key: "estado",
-      header: "Estado",
-      render: (v) => <StatusBadge status={v} />,
-    },
-  ];
+  // FR-043: Una unica accion primaria visible por contexto de tarea
+  const hasSelectedNeeds = activeTab === "necesidades" && selectedNecKeys.length > 0;
 
   return (
     <div className="stack gap-5">
@@ -239,7 +231,7 @@ export function LogisticaPage({ initialTab = "remitos" }) {
             Recepción en destino
           </Button>
           <Button
-            variant="primary"
+            variant={hasSelectedNeeds ? "secondary" : "primary"}
             iconLeft="plus"
             onClick={() => navigate("/logistica/ordenes/nueva")}
           >
@@ -290,15 +282,6 @@ export function LogisticaPage({ initialTab = "remitos" }) {
             searchPlaceholder="Buscar por número o destino..."
           />
         )}
-        {activeTab === "necesidades" && necesidades.length > 0 && (
-          <Button
-            variant="primary"
-            iconLeft="plus"
-            onClick={() => navigate("/logistica/ordenes/nueva")}
-          >
-            Generar orden desde necesidades
-          </Button>
-        )}
       </div>
 
       {activeTab === "remitos" && (
@@ -328,14 +311,17 @@ export function LogisticaPage({ initialTab = "remitos" }) {
       )}
 
       {activeTab === "necesidades" && (
-        <SortableDataTable
-          columns={necColumns}
-          data={necesidades}
-          rowKey="id"
+        <NecesidadesTab
+          necesidades={necesidades}
           loading={loadingNec}
           error={errorNec}
           onRetry={reloadNec}
-          emptyTitle="No hay necesidades pendientes de reposición"
+          locales={locales}
+          ubicMap={ubicMap}
+          productoMap={productoMap}
+          navigate={navigate}
+          selectedKeys={selectedNecKeys}
+          onSelectionChange={setSelectedNecKeys}
         />
       )}
 

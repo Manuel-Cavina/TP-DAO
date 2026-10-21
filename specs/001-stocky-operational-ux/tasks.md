@@ -72,13 +72,13 @@
 
 **Independent test**: select needs for one Local, choose an active CD with sufficient stock, review products/route/consequence, create the order, and open its complete detail/history.
 
-- [ ] T035 [P] [US3] Make the needs list searchable/filterable by destination, product, urgency, and age with selected-count review in `frontend/src/modules/logistica/pages/LogisticaPage.jsx`
-- [ ] T036 [US3] Complete the full-page order wizard for needs/items, active origin CD, single destination, review, validation, and final confirmation in `frontend/src/modules/logistica/pages/CrearOrdenPage.jsx`
-- [ ] T037 [US3] Reject mixed destinations, invalid origin type, unavailable stock, duplicate products, and partial/ambiguous consolidation atomically in `backend/src/modules/logistica/application/reposicion_service.py` and `backend/src/modules/logistica/api/logistica_router.py`
-- [ ] T038 [US3] Add order detail sections for state/freshness, route, responsible user, lines, package/remittance links, blockers, stock impact, timeline, and one next action in `frontend/src/modules/logistica/pages/OrdenDetallePage.jsx`
-- [ ] T039 [P] [US3] Persist and return actor/location/related-record evidence for need consolidation and order creation in `backend/src/modules/logistica/domain/evento_trazabilidad.py`, `backend/src/modules/logistica/infrastructure/trazabilidad_repository.py`, and `backend/src/modules/logistica/application/trazabilidad_service.py`
-- [ ] T040 [P] [US3] Verify need-to-order rules, traceability evidence, and transaction rollback in `backend/tests/logistica/test_reposicion_workflow.py`
-- [ ] T041 [US3] Verify standard order creation completes in under eight minutes without external instruction in `specs/001-stocky-operational-ux/checklists/implementation.md`
+- [x] T035 [P] [US3] Make the needs list searchable/filterable by destination, product, urgency, and age with selected-count review in `frontend/src/modules/logistica/pages/LogisticaPage.jsx`
+- [x] T036 [US3] Complete the full-page order wizard for needs/items, active origin CD, single destination, review, validation, and final confirmation in `frontend/src/modules/logistica/pages/CrearOrdenPage.jsx`
+- [x] T037 [US3] Reject mixed destinations, invalid origin type, unavailable stock, duplicate products, and partial/ambiguous consolidation atomically in `backend/src/modules/logistica/application/reposicion_service.py` and `backend/src/modules/logistica/api/logistica_router.py`
+- [x] T038 [US3] Add order detail sections for state/freshness, route, responsible user, lines, package/remittance links, blockers, stock impact, timeline, and one next action in `frontend/src/modules/logistica/pages/OrdenDetallePage.jsx`
+- [x] T039 [P] [US3] Persist and return actor/location/related-record evidence for need consolidation and order creation in `backend/src/modules/logistica/domain/evento_trazabilidad.py`, `backend/src/modules/logistica/infrastructure/trazabilidad_repository.py`, and `backend/src/modules/logistica/application/trazabilidad_service.py`
+- [x] T040 [P] [US3] Verify need-to-order rules, traceability evidence, and transaction rollback in `backend/tests/logistica/test_reposicion_workflow.py`
+- [x] T041 [US3] Verify standard order creation completes in under eight minutes without external instruction in `specs/001-stocky-operational-ux/checklists/implementation.md`
 
 ## Phase 6: User Story 4 - Seal, approve, remit, and dispatch packages (P1)
 
