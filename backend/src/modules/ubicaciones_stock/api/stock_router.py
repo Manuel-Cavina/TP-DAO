@@ -14,7 +14,9 @@ from modules.ubicaciones_stock.mappers import Stock_Mapper
 router = APIRouter(prefix="/api/stock", tags=["Stock e Inventario"])
 
 Id_Path = Annotated[int, Path(gt=0, le=2**63 - 1)]
-Id_Query = Query(None, gt=0, le=2**63 - 1)
+# Annotated crea un Query por parámetro: reutilizar un mismo Query(...) en dos parámetros
+# hace que FastAPI los confunda (se queda con el nombre del primero).
+Id_Opcional = Annotated[int | None, Query(gt=0, le=2**63 - 1)]
 
 
 def get_stock_service() -> Stock_Service:
@@ -27,8 +29,8 @@ def get_alerta_service() -> Alerta_Stock_Service:
 
 @router.get("", response_model=list[Stock_DTO], summary="Existencias por ubicación y/o producto")
 def listar_stock(
-    ubicacion_id: int | None = Id_Query,
-    producto_id: int | None = Id_Query,
+    ubicacion_id: Id_Opcional = None,
+    producto_id: Id_Opcional = None,
     solo_bajo_minimo: bool = Query(False, description="Solo stock en o bajo el nivel mínimo"),
     service: Stock_Service = Depends(get_stock_service),
 ) -> list[Stock_DTO]:
@@ -51,7 +53,7 @@ def ingresar_mercaderia(
 @router.get("/alertas", response_model=list[Alerta_Stock_DTO], summary="Alertas de stock bajo (Observer)")
 def listar_alertas(
     leida: bool | None = Query(None),
-    ubicacion_id: int | None = Id_Query,
+    ubicacion_id: Id_Opcional = None,
     service: Alerta_Stock_Service = Depends(get_alerta_service),
 ) -> list[Alerta_Stock_DTO]:
     return [Stock_Mapper.alerta_a_dto(a) for a in service.listar(leida, ubicacion_id)]

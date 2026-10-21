@@ -78,6 +78,17 @@ class TestCatalogoYStockAPI(unittest.TestCase):
         stock = self.client.get(f"/api/stock/{self.producto['id']}/{nuevo_local['id']}").json()
         self.assertEqual((stock["cantidad_disponible"], stock["en_o_bajo_minimo"]), (0, True))
 
+    def test_filtra_stock_por_producto_y_por_ubicacion(self) -> None:
+        """Regresión: producto_id se ignoraba porque compartía el mismo Query(...) que ubicacion_id."""
+        otro = self._post("/api/catalogo/productos", {**self.producto_body, "codigo": "GAS"})
+
+        por_producto = self.client.get("/api/stock", params={"producto_id": otro["id"]}).json()
+        por_ambos = self.client.get("/api/stock", params={"producto_id": otro["id"], "ubicacion_id": self.cd["id"]}).json()
+
+        self.assertEqual({s["producto_id"] for s in por_producto}, {otro["id"]})
+        self.assertEqual(len(por_producto), 2)
+        self.assertEqual([(s["producto_id"], s["ubicacion_id"]) for s in por_ambos], [(otro["id"], self.cd["id"])])
+
     def test_subir_el_minimo_dispara_alerta_y_se_marca_leida(self) -> None:
         p, cd = self.producto["id"], self.cd["id"]
         self._post("/api/stock/ingresos", {"producto_id": p, "cd_id": cd, "cantidad": 8})
@@ -93,7 +104,8 @@ class TestCatalogoYStockAPI(unittest.TestCase):
 
     def test_baja_logica_de_producto_impide_venderlo(self) -> None:
         res = self.client.delete(f"/api/catalogo/productos/{self.producto['id']}")
-        self.assertEqual((res.status_code, res.json()["activo"]), (200, False))
+        self.assertEqual((res.status_code, res.content), (204, b""))
+        self.assertFalse(self.client.get(f"/api/catalogo/productos/{self.producto['id']}").json()["activo"])
 
         venta = self.client.post(
             "/api/ventas",
