@@ -368,11 +368,11 @@ export function ModalFichaStock({ open, onClose, productoId, data, loading }) {
                                 <span className="text-xs text-muted">Stock adecuado</span>
                               ) : cdDisponible >= item.sugerido ? (
                                 <span className="text-xs text-success font-medium">
-                                  ✓ Stock en CD disponible
+                                  Stock en CD disponible
                                 </span>
                               ) : (
                                 <span className="text-xs text-danger font-medium">
-                                  ⚠ CD insuficiente para reposición completa
+                                  CD insuficiente para reposición completa
                                 </span>
                               )}
                             </td>

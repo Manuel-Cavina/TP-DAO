@@ -2,6 +2,7 @@
 
 from modules.logistica.domain.aprobacion_bulto import Aprobacion_Bulto
 from modules.logistica.domain.bulto import Bulto
+from modules.logistica.domain.control_precinto import Control_Precinto
 from modules.logistica.domain.detalle_bulto import Detalle_Bulto
 from modules.logistica.domain.detalle_orden_reposicion import Detalle_Orden_Reposicion
 from modules.logistica.domain.estado_bulto import (
@@ -19,6 +20,7 @@ from modules.logistica.domain.exceptions import (
     Bulto_No_Encontrado_Exception,
     Bulto_Vacio_Exception,
     Bulto_Ya_Aprobado_Exception,
+    Motivo_Rechazo_Requerido_Exception,
     Orden_Invalida_Exception,
     Orden_No_Encontrada_Exception,
     Precinto_Duplicado_Exception,
@@ -37,6 +39,7 @@ from modules.logistica.domain.remito import Remito
 __all__ = [
     "Aprobacion_Bulto",
     "Bulto",
+    "Control_Precinto",
     "Detalle_Bulto",
     "Detalle_Orden_Reposicion",
     "Estado_Bulto",
@@ -56,6 +59,7 @@ __all__ = [
     "Precinto_Invalido_Exception",
     "Bulto_Vacio_Exception",
     "Bulto_Ya_Aprobado_Exception",
+    "Motivo_Rechazo_Requerido_Exception",
     "Remito_Incompleto_Exception",
     "Orden_Invalida_Exception",
     "Bulto_Invalido_Exception",

@@ -30,7 +30,7 @@ export function AppRoutes() {
       {/* Rutas administrativas protegidas para ADMIN */}
       <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
         <Route element={<AppLayout />}>
-          <Route index element={<Navigate to="/stock/stock" replace />} />
+          <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboardPage />} />
           <Route path="catalogo/*" element={<CatalogoRoutes />} />
           <Route path="stock/*" element={<StockRoutes />} />
@@ -38,7 +38,7 @@ export function AppRoutes() {
           <Route path="logistica/*" element={<LogisticaRoutes />} />
           <Route path="ventas/*" element={<VentasCajaRoutes />} />
           <Route path="reportes/*" element={<ReportesRoutes />} />
-          <Route path="*" element={<Navigate to="/stock/stock" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Route>
     </Routes>

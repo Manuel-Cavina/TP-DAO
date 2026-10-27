@@ -29,6 +29,7 @@ export function useAdminDashboard({ intervalMs = 15000, enabled = true } = {}) {
   const [remitosRaw, setRemitosRaw] = useState([]);
   const [ubicacionesRaw, setUbicacionesRaw] = useState([]);
   const [productosRaw, setProductosRaw] = useState([]);
+  const [movimientosRaw, setMovimientosRaw] = useState([]);
 
   const isMountedRef = useRef(true);
 
@@ -52,6 +53,7 @@ export function useAdminDashboard({ intervalMs = 15000, enabled = true } = {}) {
         remitosRes,
         ubicacionesRes,
         productosRes,
+        movimientosRes,
       ] = await Promise.allSettled([
         http.get("/api/stock/alertas"),
         http.get("/api/stock"),
@@ -60,16 +62,16 @@ export function useAdminDashboard({ intervalMs = 15000, enabled = true } = {}) {
         http.get("/api/logistica/remitos"),
         http.get("/api/ubicaciones"),
         http.get("/api/catalogo/productos"),
+        http.get("/api/logistica/trazabilidad/recientes", { params: { limite: 6 } }),
       ]);
 
       if (!isMountedRef.current) return;
 
-      const unwrap = (res) => {
-        if (res.status === "fulfilled" && res.value) {
-          return Array.isArray(res.value) ? res.value : res.value.data || [];
-        }
-        return [];
-      };
+      const failed = [alertasRes, stockRes, necesidadesRes, ordenesRes, remitosRes, ubicacionesRes, productosRes, movimientosRes]
+        .find((res) => res.status === "rejected");
+      if (failed) throw failed.reason;
+
+      const unwrap = (res) => Array.isArray(res.value) ? res.value : res.value?.data || [];
 
       setAlertasRaw(unwrap(alertasRes));
       setStockRaw(unwrap(stockRes));
@@ -78,6 +80,7 @@ export function useAdminDashboard({ intervalMs = 15000, enabled = true } = {}) {
       setRemitosRaw(unwrap(remitosRes));
       setUbicacionesRaw(unwrap(ubicacionesRes));
       setProductosRaw(unwrap(productosRes));
+      setMovimientosRaw(unwrap(movimientosRes));
 
       setError(null);
       const timestamp = Date.now();
@@ -137,10 +140,10 @@ export function useAdminDashboard({ intervalMs = 15000, enabled = true } = {}) {
 
   const centrosLabel = cdsActivos.length > 0
     ? cdsActivos.map((c) => c.nombre).join(" · ")
-    : "CD Central";
+    : "Sin centros activos";
   const localesLabel = localesActivos.length > 0
     ? localesActivos.map((l) => l.nombre).join(" · ")
-    : "Locales comerciales";
+    : "Sin locales activos";
 
   // 2. Alertas accionables compuestas
   const alertasAccionables = [];
@@ -152,7 +155,7 @@ export function useAdminDashboard({ intervalMs = 15000, enabled = true } = {}) {
     const prod = prodMap.get(a.producto_id);
     const isCD = ubic?.tipo === "CD" || ubic?.scope === "CD";
     const disponible = Number(a.cantidad_disponible) || 0;
-    const minimo = Number(a.nivel_minimo) || 1;
+    const minimo = Number(a.nivel_minimo) || 0;
     const esCritica = disponible === 0;
 
     alertasAccionables.push({
@@ -173,11 +176,11 @@ export function useAdminDashboard({ intervalMs = 15000, enabled = true } = {}) {
       accionParametros: {
         productoId: a.producto_id,
         ubicacionId: a.ubicacion_id,
-        cdId: isCD ? a.ubicacion_id : cdsActivos[0]?.id || 1,
+        cdId: isCD ? a.ubicacion_id : cdsActivos[0]?.id,
       },
       timestamp: a.fecha_emision
         ? new Date(a.fecha_emision).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        : "Reciente",
+        : null,
       entidad: {
         tipo: "Stock",
         id: prod?.codigo || `SKU-${a.producto_id}`,
@@ -190,12 +193,12 @@ export function useAdminDashboard({ intervalMs = 15000, enabled = true } = {}) {
   remitosRaw.forEach((r) => {
     const estado = (r.estado || "").toUpperCase();
     if (estado === "DESPACHADO" || estado === "EN_TRANSITO") {
-      const destino = ubicMap.get(r.destino_id) || { nombre: "Local destino" };
+      const destino = ubicMap.get(r.destino_id);
       alertasAccionables.push({
         id: `remito-${r.numero}`,
         tipo: "remito_demorado",
         titulo: `Remito ${r.numero} en tránsito`,
-        descripcion: `${destino.nombre} · pendiente de recepción y verificación`,
+        descripcion: `${destino?.nombre || `Sede #${r.destino_id}`} · pendiente de recepción y verificación`,
         severidad: "critica",
         categoria: "Logística",
         accionLabel: "Registrar recepción",
@@ -237,75 +240,26 @@ export function useAdminDashboard({ intervalMs = 15000, enabled = true } = {}) {
     }
   });
 
-  // Fallback si la API aún no tiene datos cargados
-  if (alertasAccionables.length === 0) {
-    alertasAccionables.push(
-      {
-        id: "alerta-fallback-1",
-        tipo: "remito_demorado",
-        titulo: "Remito RM-000078 demorado",
-        descripcion: "Local Palermo · 3 h sin recepción",
-        severidad: "critica",
-        categoria: "Logística",
-        accionLabel: "Registrar recepción",
-        accionRuta: "/operador",
-        accionTipo: "recepcion_remito",
-        timestamp: "Hace 3 h",
-        entidad: { tipo: "Remito", id: "RM-000078", label: "Remito RM-000078" },
-      },
-      {
-        id: "alerta-fallback-2",
-        tipo: "stock_bajo",
-        titulo: "4 productos bajo mínimo",
-        descripcion: "CD Central · sugerencia calculada",
-        severidad: "alta",
-        categoria: "Stock",
-        accionLabel: "Crear reposición",
-        accionRuta: "/logistica/wizard",
-        accionTipo: "orden_reposicion",
-        timestamp: "Hace 1 h",
-        entidad: { tipo: "Stock", id: "CD-01", label: "CD Central" },
-      },
-      {
-        id: "alerta-fallback-3",
-        tipo: "orden_preparacion",
-        titulo: "2 bultos sin precinto",
-        descripcion: "Orden OR-000115",
-        severidad: "media",
-        categoria: "Bloqueo",
-        accionLabel: "Asignar precintos",
-        accionRuta: "/logistica/empaquetado?ordenId=115",
-        accionTipo: "drawer_package",
-        timestamp: "Pendiente",
-        entidad: { tipo: "Orden", id: "OR-000115", label: "Orden OR-000115" },
-      }
-    );
-  }
-
   // 3. Trabajo pendiente
-  const ordenesPorPrepararCount = Math.max(
-    ordenesRaw.filter((o) => {
-      const e = (o.estado || "").toUpperCase();
-      return e === "PENDIENTE" || e === "EN_PREPARACION" || e === "BORRADOR";
-    }).length,
-    4
-  );
+  const ordenesPorPrepararCount = ordenesRaw.filter((o) => {
+    const e = (o.estado || "").toUpperCase();
+    return e === "PENDIENTE" || e === "EN_PREPARACION" || e === "BORRADOR";
+  }).length;
 
-  const remitosPorDespacharCount = Math.max(
-    remitosRaw.filter((r) => {
-      const e = (r.estado || "").toUpperCase();
-      return e === "EMITIDO" || e === "EN_PREPARACION";
-    }).length,
-    2
-  );
+  const remitosPorDespacharCount = remitosRaw.filter((r) => {
+    const e = (r.estado || "").toUpperCase();
+    return e === "EMITIDO" || e === "EN_PREPARACION";
+  }).length;
 
-  const bultosPorVerificarCount = Math.max(
-    remitosRaw.filter((r) => {
-      const e = (r.estado || "").toUpperCase();
-      return e === "DESPACHADO" || e === "EN_TRANSITO" || e === "RECIBIDO";
-    }).length,
-    8
-  );
+  const bultosPorVerificarCount = remitosRaw.filter((r) => {
+    const e = (r.estado || "").toUpperCase();
+    return e === "DESPACHADO" || e === "EN_TRANSITO" || e === "RECIBIDO";
+  }).length;
+
+  const remitosEnTransitoCount = remitosRaw.filter((r) => {
+    const e = (r.estado || "").toUpperCase();
+    return e === "DESPACHADO" || e === "EN_TRANSITO";
+  }).length;
 
   const trabajoPendiente = {
     ordenesPorPreparar: ordenesPorPrepararCount,
@@ -316,98 +270,48 @@ export function useAdminDashboard({ intervalMs = 15000, enabled = true } = {}) {
 
   // 4. Métricas de tendencia semántica (FR-044)
   const criticasCount = alertasAccionables.filter((a) => a.severidad === "critica").length;
-  const unidadesTransitoCount = 84;
 
   const metricasTendencia = [
     {
       id: "criticas",
       label: "Tareas críticas",
-      valor: criticasCount || 7,
-      badgeText: "2 vencidas",
-      badgeTone: "bad",
-      trend: {
-        direction: "up",
-        difference: "2",
-        period: "desde ayer",
-        meaning: "desfavorable",
-      },
+      valor: criticasCount,
       deepLink: "/stock/alertas?urgencia=critica&estado=pendientes",
     },
     {
       id: "preparacion",
       label: "En preparación",
-      valor: ordenesPorPrepararCount || 12,
-      subtext: "4 requieren precinto",
-      trend: {
-        direction: "up",
-        difference: "12%",
-        period: "esta semana",
-        meaning: "favorable",
-      },
+      valor: ordenesPorPrepararCount,
       deepLink: "/logistica/empaquetado",
     },
     {
       id: "transito",
       label: "En tránsito",
-      valor: remitosPorDespacharCount > 0 ? 5 : 5,
-      subtext: `${unidadesTransitoCount} unidades`,
-      trend: {
-        direction: "down",
-        difference: "8%",
-        period: "vs. ayer",
-        meaning: "favorable",
-      },
+      valor: remitosEnTransitoCount,
       deepLink: "/logistica/remitos",
     },
     {
       id: "verificar",
       label: "Por verificar",
-      valor: bultosPorVerificarCount || 8,
-      badgeText: "1 incidencia",
-      badgeTone: "warn",
-      trend: {
-        direction: "up",
-        difference: "3",
-        period: "en la última hora",
-        meaning: "desfavorable",
-      },
+      valor: bultosPorVerificarCount,
       deepLink: "/logistica/recepcion",
     },
   ];
 
-  // 5. Últimos movimientos
-  const ultimosMovimientos = [
-    {
-      id: "mov-1",
-      hora: "14:31",
-      entidad: "BU-000045",
-      accion: "Verificado",
-      responsableNombre: "Ana Ruiz",
-      responsableInitials: "AR",
-      sede: "Local Palermo",
-      consecuencia: "+12 u. disponibles",
-    },
-    {
-      id: "mov-2",
-      hora: "14:26",
-      entidad: "RM-000077",
-      accion: "Despachado",
-      responsableNombre: "Laura Pérez",
-      responsableInitials: "LP",
-      sede: "CD Central",
-      consecuencia: "4 bultos en tránsito",
-    },
-    {
-      id: "mov-3",
-      hora: "13:50",
-      entidad: "ING-00109",
-      accion: "Ingreso en CD",
-      responsableNombre: "Carlos Vega",
-      responsableInitials: "CV",
-      sede: "CD Central",
-      consecuencia: "+100 u. stock proveedor",
-    },
-  ];
+  const ultimosMovimientos = movimientosRaw.map((evento) => {
+    const fecha = evento.fecha_hora ? new Date(evento.fecha_hora) : null;
+    const sede = ubicMap.get(evento.destino_id || evento.origen_id);
+    const prefijo = evento.tipo_entidad === "ORDEN" ? "OR" : evento.tipo_entidad === "BULTO" ? "BU" : evento.tipo_entidad;
+    return {
+      id: evento.id,
+      hora: fecha && !Number.isNaN(fecha.getTime()) ? fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "Sin hora",
+      entidad: `${prefijo}-${String(evento.entidad_id).padStart(6, "0")}`,
+      accion: String(evento.accion || "Evento").replaceAll("_", " "),
+      responsableNombre: evento.actor || "Sistema",
+      sede: sede?.nombre || "Red logística",
+      consecuencia: evento.motivo_o_evidencia || `${evento.estado_anterior || "Sin estado"} → ${evento.estado_nuevo}`,
+    };
+  });
 
   // 6. Notificaciones operativas para NotificationPanel
   const notifications = alertasAccionables.map((a) => ({

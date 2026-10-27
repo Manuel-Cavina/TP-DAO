@@ -2,11 +2,9 @@
 
 Uso, desde backend/src:  python -m bootstrap.seed_demo
 
-Crea 1 CD, 3 locales, 3 categorías, 3 proveedores y 10 productos; ingresa stock al CD;
-abastece cada local con un remito completo (uno con un bulto de precinto roto); registra
-ventas en tres meses distintos con los tres medios de pago y una devolución. Las ventas
-disparan el Observer de stock bajo, así que también quedan alertas y necesidades.
-Es idempotente: si ya existe un Centro de Distribución, no hace nada.
+Crea el catálogo de demo, stock, alertas y una cola de órdenes/remitos en todas las etapas
+del tablero Kanban. Recorre los casos de uso reales, sin insertar estados por SQL.
+Es idempotente: identifica su propia cola por los remitos REM-DEMO-*.
 """
 
 from dataclasses import dataclass, field
@@ -17,10 +15,11 @@ from bootstrap.application_factory import Application_Factory
 from config.database.database_engine_singleton import Database_Engine_Singleton
 from config.database.request_session_context import Request_Session_Context
 from modules.catalogo.application import Categoria_Service, Producto_Service, Proveedor_Service
+from modules.catalogo.infrastructure.producto_repository import Producto_Repository
 from modules.logistica.application import Despacho_Service, Empaquetado_Service, Recepcion_Service, Reposicion_Service
 from modules.logistica.infrastructure import Stock_Logistica_Adapter
 from modules.seguridad.application import Auth_Service
-from modules.ubicaciones_stock.application import Stock_Service, Ubicacion_Service
+from modules.ubicaciones_stock.application import Alerta_Stock_Service, Stock_Service, Ubicacion_Service
 from modules.ventas_caja.application import Devolucion_Service, Venta_Service
 from modules.ventas_caja.domain import Estrategia_Pago, Pago_Efectivo, Pago_Tarjeta, Pago_Transferencia
 from modules.ventas_caja.infrastructure import Catalogo_Venta_Adapter, Stock_Venta_Adapter
@@ -63,11 +62,17 @@ def cargar_datos_demo(database_url: str | None = None) -> bool:
     token = Request_Session_Context.establecer_sesion(sesion)
     try:
         Auth_Service().sembrar_identidades_defecto()
-        if Ubicacion_Service().listar(tipo="CD"):
-            return False
-        base = _cargar_catalogo_y_ubicaciones()
-        _abastecer_locales(base)
-        _registrar_ventas(base)
+        if _demo_operativo_ya_cargado():
+            if not _crear_alerta_demo_si_falta():
+                return False
+            sesion.commit()
+            return True
+        base = _obtener_base_demo()
+        if base is None:
+            base = _cargar_catalogo_y_ubicaciones()
+            _abastecer_locales(base)
+            _registrar_ventas(base)
+        _cargar_cola_operativa(base)
         # Fuera de HTTP no hay middleware: el script delimita su propia transacción.
         sesion.commit()
         return True
@@ -105,6 +110,38 @@ def _cargar_catalogo_y_ubicaciones() -> Datos_Base:
     for producto_id in productos.values():
         stock.ingresar_mercaderia_cd(producto_id, cd.id, 200)
     return Datos_Base(cd.id, locales, productos)
+
+
+def _obtener_base_demo() -> Datos_Base | None:
+    ubicaciones = Ubicacion_Service()
+    centros = ubicaciones.listar(tipo="CD", solo_activas=True)
+    locales = ubicaciones.listar(tipo="LOCAL", solo_activas=True)
+    productos = {producto.codigo: producto.id for producto in Producto_Repository().listar(solo_activos=True)}
+    if not centros or len(locales) < 3 or not set(codigo for codigo, *_ in PRODUCTOS) <= set(productos):
+        return None
+    return Datos_Base(centros[0].id, [local.id for local in locales[:3]], productos)
+
+
+def _demo_operativo_ya_cargado() -> bool:
+    from modules.logistica.infrastructure.remito_repository import Remito_Repository
+
+    return Remito_Repository().existe("REM-DEMO-EMITIDO")
+
+
+def _crear_alerta_demo_si_falta() -> bool:
+    if Alerta_Stock_Service().listar(leida=False):
+        return False
+    ubicaciones = Ubicacion_Service().listar(tipo="LOCAL", solo_activas=True)
+    productos = Producto_Repository().listar(solo_activos=True)
+    stock = Stock_Service()
+    for local in ubicaciones:
+        for producto in productos:
+            existencia = stock.consultar_stock(producto.id, local.id)
+            cantidad = existencia.cantidad_disponible - existencia.nivel_minimo_existencia
+            if cantidad > 0:
+                stock.descontar_por_venta(producto.id, local.id, cantidad)
+                return True
+    return False
 
 
 UNIDADES_POR_PRODUCTO = 30
@@ -160,6 +197,72 @@ def _bulto_precintado(
     servicios.empaquetado.registrar_precinto(precinto)
     servicios.empaquetado.precintar_bulto(bulto.id, precinto)
     return bulto.id, precinto
+
+
+def _cargar_cola_operativa(base: Datos_Base) -> None:
+    """Deja tarjetas reales en cada columna de órdenes y remitos."""
+    servicios = Servicios_Logistica()
+    _crear_orden(servicios, base, base.locales[0], [("BEB-AGUA", 12), ("ALM-YERBA", 8)])
+
+    orden_preparada = _crear_orden(servicios, base, base.locales[1], [("BEB-GAS", 15), ("ALM-ARROZ", 12)])
+    servicios.empaquetado.crear_bulto(orden_preparada.id, [{"producto_id": base.productos["BEB-GAS"], "cantidad": 10}])
+
+    orden_empaquetando = _crear_orden(servicios, base, base.locales[2], [("BEB-JUGO", 18), ("LIM-LAVA", 10)])
+    bulto = servicios.empaquetado.crear_bulto(orden_empaquetando.id, [{"producto_id": base.productos["BEB-JUGO"], "cantidad": 8}])
+    _precintar(servicios, bulto.id, "PREC-DEMO-EMP")
+
+    orden_remito = _crear_orden(servicios, base, base.locales[0], [("LIM-DETER", 9), ("LIM-ESPON", 6)])
+    _bulto_completo_precintado(servicios, base, orden_remito.id, [("LIM-DETER", 9), ("LIM-ESPON", 6)], "PREC-DEMO-REM")
+
+    _crear_remito_en_etapa(servicios, base, "REM-DEMO-EMITIDO", base.locales[0], "EMITIDO")
+    _crear_remito_en_etapa(servicios, base, "REM-DEMO-TRANSITO", base.locales[1], "DESPACHADO")
+    _crear_remito_en_etapa(servicios, base, "REM-DEMO-RECIBIDO", base.locales[2], "RECIBIDO")
+    _crear_remito_en_etapa(servicios, base, "REM-DEMO-VERIFICACION", base.locales[0], "EN_CONTROL")
+
+
+def _crear_orden(
+    servicios: Servicios_Logistica, base: Datos_Base, destino_id: int, items: list[tuple[str, int]]
+):
+    return servicios.reposicion.crear_orden_manual(
+        base.cd_id,
+        destino_id,
+        [{"producto_id": base.productos[codigo], "cantidad": cantidad} for codigo, cantidad in items],
+    )
+
+
+def _precintar(servicios: Servicios_Logistica, bulto_id: int, codigo: str) -> None:
+    servicios.empaquetado.registrar_precinto(codigo)
+    servicios.empaquetado.precintar_bulto(bulto_id, codigo)
+
+
+def _bulto_completo_precintado(
+    servicios: Servicios_Logistica, base: Datos_Base, orden_id: int, items: list[tuple[str, int]], precinto: str
+) -> tuple[int, str]:
+    bulto = servicios.empaquetado.crear_bulto(
+        orden_id,
+        [{"producto_id": base.productos[codigo], "cantidad": cantidad} for codigo, cantidad in items],
+    )
+    _precintar(servicios, bulto.id, precinto)
+    return bulto.id, precinto
+
+
+def _crear_remito_en_etapa(
+    servicios: Servicios_Logistica, base: Datos_Base, numero: str, destino_id: int, etapa: str
+) -> None:
+    items = [("BEB-AGUA", 6), ("ALM-FIDEO", 4)]
+    orden = _crear_orden(servicios, base, destino_id, items)
+    primer_bulto = _bulto_completo_precintado(servicios, base, orden.id, [("BEB-AGUA", 6)], f"PREC-{numero}-1")
+    segundo_bulto = _bulto_completo_precintado(servicios, base, orden.id, [("ALM-FIDEO", 4)], f"PREC-{numero}-2")
+    servicios.empaquetado.generar_remito(numero, orden.id, [primer_bulto[0], segundo_bulto[0]])
+    if etapa == "EMITIDO":
+        return
+    servicios.despacho.despachar_remito(numero)
+    if etapa == "DESPACHADO":
+        return
+    servicios.recepcion.recibir_remito(numero)
+    if etapa == "RECIBIDO":
+        return
+    servicios.recepcion.verificar_bulto(primer_bulto[0], primer_bulto[1], esta_intacto=True)
 
 
 def _registrar_ventas(base: Datos_Base) -> None:

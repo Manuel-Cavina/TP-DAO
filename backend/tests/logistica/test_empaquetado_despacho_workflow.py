@@ -476,11 +476,12 @@ class TestEmpaquetadoDespachoHttpApi(unittest.TestCase):
         # 7. Generar remito completo único
         remito = self._post(
             "/remitos",
-            {"numero": "REM-HTTP-1", "bultos_ids": [b1["id"], b2["id"]]},
+            {"bultos_ids": [b1["id"], b2["id"]]},
             params={"orden_id": orden_id, "validar_aprobacion": True},
             expected=201,
         )
         self.assertEqual(remito["estado"], "EMITIDO")
+        self.assertRegex(remito["numero"], r"^RM-\d{6}$")
 
         # 8. Intentar segundo remito para la misma orden -> 409
         remito_dup = self.client.post(
@@ -491,7 +492,7 @@ class TestEmpaquetadoDespachoHttpApi(unittest.TestCase):
         self.assertEqual(remito_dup.status_code, 409)
 
         # 9. Despachar remito completo
-        despachado = self._post("/remitos/REM-HTTP-1/despachar", expected=200)
+        despachado = self._post(f"/remitos/{remito['numero']}/despachar", expected=200)
         self.assertEqual(despachado["estado"], "DESPACHADO")
 
 

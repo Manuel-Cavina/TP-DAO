@@ -37,12 +37,12 @@ function getThemeTokens(node) {
       textMuted: "#8c8c85",
       border: "#e6e6e2",
       borderSubtle: "#f0f0ed",
-      accent: "#2563eb",
+      accent: "#262623",
       success: "#15803d",
       warning: "#b45309",
       danger: "#b91c1c",
       info: "#0284c7",
-      scopeCd: "#6d28d9",
+      scopeCd: "#0369a1",
       scopeLocal: "#0f766e",
     };
   }
@@ -54,12 +54,12 @@ function getThemeTokens(node) {
     textMuted: get("--text-muted", "#8c8c85"),
     border: get("--border", "#e6e6e2"),
     borderSubtle: get("--border-subtle", "#f0f0ed"),
-    accent: get("--accent", "#2563eb"),
+    accent: get("--accent", "#262623"),
     success: get("--success", "#15803d"),
     warning: get("--warning", "#b45309"),
     danger: get("--danger", "#b91c1c"),
     info: get("--info", "#0284c7"),
-    scopeCd: get("--scope-cd", "#6d28d9"),
+    scopeCd: get("--scope-cd", "#0369a1"),
     scopeLocal: get("--scope-local", "#0f766e"),
   };
 }
@@ -89,9 +89,6 @@ function mapColorToSemanticToken(color, tokens) {
     case "#38bdf8":
     case "#0369a1":
       return tokens.info;
-    case "#6d28d9":
-    case "#a78bfa":
-      return tokens.scopeCd;
     case "#0f766e":
     case "#2dd4bf":
       return tokens.scopeLocal;
@@ -209,7 +206,7 @@ export function PlotlyRenderer({
     if (typeof ResizeObserver !== "undefined") {
       resizeObserver = new ResizeObserver(() => {
         try {
-          if (window.Plotly && domNode) {
+          if (window.Plotly && domNode?.isConnected && domNode.offsetParent) {
             window.Plotly.Plots.resize(domNode);
           }
         } catch {

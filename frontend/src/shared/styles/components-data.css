@@ -68,7 +68,6 @@
   border-radius: var(--radius-panel);
   border: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: var(--shadow-resting);
   overflow: hidden;
 }
 
@@ -86,7 +85,7 @@
 /* Arc strict rule: Sentence case headers, weight 500, never uppercase */
 .erp-table th {
   padding: 10px 14px;
-  background: var(--surface-muted);
+  background: transparent;
   border-bottom: 1px solid var(--border);
   color: var(--text-secondary);
   font-size: var(--text-xs);
@@ -157,7 +156,8 @@
   justify-content: center;
   cursor: pointer;
   color: var(--control-glyph);
-  transition: all var(--duration-instant) var(--ease-standard);
+  transition: background-color var(--duration-instant) var(--ease-standard),
+              border-color var(--duration-instant) var(--ease-standard);
 }
 
 .erp-table__checkbox[aria-checked="true"],
@@ -193,7 +193,6 @@
   border-radius: var(--radius-panel);
   border: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: var(--shadow-resting);
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -230,6 +229,11 @@
   border: 1px solid var(--border);
   background: var(--surface);
   font-size: var(--text-sm);
+}
+
+@media (max-width: 560px) {
+  .erp-alert { flex-wrap: wrap; }
+  .erp-alert > .row:last-child { width: 100%; justify-content: flex-end; }
 }
 
 .erp-alert--warning {

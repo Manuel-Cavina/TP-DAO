@@ -68,7 +68,7 @@ class Ubicacion(ABC):
 
 
 class Centro_Distribucion(Ubicacion):
-    """Centro de Distribución: único punto de ingreso de mercadería de proveedores."""
+    """Centro de Distribución para ingresos de proveedores y despachos a locales."""
 
     @property
     def tipo(self) -> str:
@@ -76,7 +76,7 @@ class Centro_Distribucion(Ubicacion):
 
     def desactivar(self) -> None:
         raise Ubicacion_Invalida_Exception(
-            "El Centro de Distribución no se puede dar de baja: es el único punto de ingreso y despacho."
+            "El Centro de Distribución no se puede dar de baja desde este flujo."
         )
 
 

@@ -47,3 +47,7 @@ class Precinto_Duplicado_Exception(BusinessError):
 
 class Bulto_Ya_Aprobado_Exception(BusinessError):
     """El bulto ya cuenta con evidencia inmutable de aprobación registrada."""
+
+
+class Motivo_Rechazo_Requerido_Exception(BusinessError):
+    """Es obligatorio registrar un motivo para precintos violados o rechazados."""

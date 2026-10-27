@@ -1,343 +1,82 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useToast } from "../../../shared/feedback/ToastContext";
+import React, { useCallback, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Alert, Button, Modal, StatusBadge, TextInput, TextareaField, useLiveResource } from "../../../shared";
+import { useProductos } from "../../catalogo";
+import { logisticaService } from "../services";
+
+const code = (id) => `BLT-${String(id).padStart(6, "0")}`;
+const dateTime = (value) => value ? new Date(value).toLocaleString("es-AR") : "Sin fecha registrada";
 
 export function BultoDetallePage() {
-  const { id = "BU-000045" } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const [modal, setModal] = useState("");
+  const [lectura, setLectura] = useState("");
+  const [motivo, setMotivo] = useState("");
+  const [mutating, setMutating] = useState(false);
+  const [mutationError, setMutationError] = useState("");
+  const { productos } = useProductos();
+  const productById = useMemo(() => new Map(productos.map((producto) => [String(producto.id), producto])), [productos]);
+  const load = useCallback(async () => {
+    const [bulto, trazabilidad, remitosResponse] = await Promise.all([
+      logisticaService.obtenerBulto(id),
+      logisticaService.consultarTrazabilidad(id),
+      logisticaService.listarRemitos(),
+    ]);
+    const remitos = Array.isArray(remitosResponse) ? remitosResponse : remitosResponse?.data || [];
+    return { bulto, trazabilidad, remito: remitos.find((remito) => (remito.bultos || remito.bultos_resumen || []).some((item) => String(item.id) === String(id))) };
+  }, [id]);
+  const { data, error, isLoading, refresh } = useLiveResource(load, { intervalMs: 15000 });
+  const bulto = data?.bulto;
+  const precinto = bulto?.precinto?.codigo || bulto?.codigo_precinto || data?.trazabilidad?.codigo_precinto;
+  const canVerify = bulto?.estado === "RECIBIDO";
+  const eventos = data?.trazabilidad?.eventos || data?.trazabilidad?.historial || bulto?.historial || [];
 
-  const bultoCodigo = id || "BU-000045";
-  const [estadoBadge, setEstadoBadge] = useState({ text: "Recibido", tone: "info" });
-  const [modalType, setModalType] = useState(null); // 'verify' | 'reject' | null
-  const [rejectReason, setRejectReason] = useState("");
-  const [drawerVerifyAll, setDrawerVerifyAll] = useState(false);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        setModalType(null);
-        setDrawerVerifyAll(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  const handleVerifyConfirm = () => {
-    setEstadoBadge({ text: "Verificado", tone: "ok" });
-    setModalType(null);
-    toast("Acción registrada y añadida a la trazabilidad.");
+  const openVerification = (type) => {
+    setMutationError("");
+    setLectura(precinto || "");
+    setMotivo("");
+    setModal(type);
+  };
+  const confirmVerification = async () => {
+    if (modal === "incidencia" && !motivo.trim()) {
+      setMutationError("Indicá el motivo de la incidencia para continuar.");
+      return;
+    }
+    setMutating(true);
+    setMutationError("");
+    try {
+      await logisticaService.verificarBulto(bulto.id, { codigoPrecintoRecibido: lectura, estaIntacto: modal === "intacto", motivoRechazo: motivo.trim() });
+      setModal("");
+      await refresh();
+    } catch (requestError) {
+      setMutationError(requestError?.message || "No se pudo registrar la verificación.");
+    } finally {
+      setMutating(false);
+    }
   };
 
-  const handleRejectConfirm = () => {
-    setEstadoBadge({ text: "Rechazado", tone: "bad" });
-    setModalType(null);
-    setRejectReason("");
-    toast("Acción registrada y añadida a la trazabilidad.");
-  };
+  if (isLoading && !data) return <div className="erp-section-card" aria-live="polite">Cargando bulto y trazabilidad…</div>;
+  if (error && !data) return <Alert tone="danger" title="No se pudo cargar el bulto" description={error.message} action={<Button variant="secondary" size="sm" onClick={refresh}>Reintentar</Button>} />;
+  if (!bulto) return <Alert tone="warning" title="Bulto no encontrado" description="El backend no devolvió un bulto para este identificador." />;
 
-  const handleDrawerConfirm = () => {
-    setDrawerVerifyAll(false);
-    toast("3 resultados de precinto registrados con evidencia individual.");
-  };
-
-  return (
-    <section className="screen" id="bulto">
-      <div className="workspace">
-        <main>
-          <div className="page-head">
-            <div>
-              <p className="micro">Bultos / {bultoCodigo}</p>
-              <div className="row row-start">
-                <h1>Bulto {bultoCodigo}</h1>
-                <span className={`badge ${estadoBadge.tone}`}>{estadoBadge.text}</span>
-              </div>
-              <p className="muted">Precinto PC-883102 · RM-000078 · OR-000112</p>
-            </div>
-            <span className="micro">Actualizado hace 5 s</span>
-          </div>
-
-          <div className="grid two">
-            <div className="grid">
-              <article className="card">
-                <h2>Contenido e impacto</h2>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Producto</th>
-                      <th className="num">Cantidad</th>
-                      <th>Situación</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>SKU-104 · Yerba 1 kg</td>
-                      <td className="num">8</td>
-                      <td>En tránsito recibido</td>
-                    </tr>
-                    <tr>
-                      <td>SKU-229 · Café 500 g</td>
-                      <td className="num">4</td>
-                      <td>En tránsito recibido</td>
-                    </tr>
-                  </tbody>
-                </table>
-                <div className="validation-note mt-3">
-                  Intacto: 12 unidades quedan listas para acreditar al cerrar el remito. Violado: se registrarán como merma al cierre.
-                </div>
-              </article>
-
-              <article className="card">
-                <h2>Trazabilidad</h2>
-                <ul className="timeline">
-                  <li>
-                    <strong>Recibido</strong>
-                    <br />
-                    <span className="micro">Ana Ruiz · Local Palermo · 14:32</span>
-                  </li>
-                  <li>
-                    <strong>En tránsito</strong>
-                    <br />
-                    <span className="micro">Laura Pérez · CD Central · RM-000078</span>
-                  </li>
-                  <li>
-                    <strong>Precintado</strong>
-                    <br />
-                    <span className="micro">Martín Gómez · PC-883102</span>
-                  </li>
-                </ul>
-              </article>
-            </div>
-
-            <aside className="card action-panel">
-              <h2>Verificar precinto</h2>
-              <p>
-                Compare físicamente el código con <strong>PC-883102</strong>.
-              </p>
-              <button
-                type="button"
-                className="button primary"
-                data-confirm="verify"
-                onClick={() => setModalType("verify")}
-              >
-                Precinto intacto
-              </button>
-              <button
-                type="button"
-                className="button danger action-panel-btn-gap"
-                data-confirm="reject"
-                onClick={() => setModalType("reject")}
-              >
-                Registrar incidencia
-              </button>
-              <button
-                type="button"
-                className="button action-panel-btn-gap"
-                onClick={() => setDrawerVerifyAll(true)}
-              >
-                Controlar todos los bultos del remito
-              </button>
-              <button
-                type="button"
-                className="button ghost action-panel-btn-gap"
-                data-go="trace"
-                onClick={() => navigate("/logistica/trazabilidad")}
-              >
-                Ver trazabilidad completa
-              </button>
-            </aside>
-          </div>
-        </main>
+  return <div className="stack gap-5">
+    {error && <Alert tone="warning" title="Datos posiblemente desactualizados" description={error.message} action={<Button variant="secondary" size="sm" onClick={refresh}>Reintentar</Button>} />}
+    <div className="erp-flow-header">
+      <div><div className="erp-breadcrumb"><span>Bultos</span><span>·</span><span>{code(bulto.id)}</span></div><div className="row gap-2 align-center"><h1 className="text-xl">Bulto {code(bulto.id)}</h1><StatusBadge status={bulto.estado} /></div><p className="text-sm text-secondary">{precinto ? `Precinto ${precinto}` : "Sin precinto asignado"}{data.remito ? ` · ${data.remito.numero}` : ""}{bulto.orden_id ? ` · Orden OR-${String(bulto.orden_id).padStart(6, "0")}` : ""}</p></div>
+      <Button variant="secondary" onClick={() => navigate(`/logistica/trazabilidad?q=${encodeURIComponent(precinto || code(bulto.id))}`)}>Ver trazabilidad</Button>
+    </div>
+    <div className="grid two">
+      <div className="stack gap-4">
+        <article className="erp-section-card"><h2 className="erp-card-title">Contenido e impacto</h2><div className="erp-table-scroll"><table className="erp-table"><thead><tr><th>Producto</th><th className="text-right">Cantidad</th><th>Situación</th></tr></thead><tbody>{(bulto.detalles || []).map((detalle) => { const producto = productById.get(String(detalle.producto_id)); return <tr key={detalle.id || detalle.producto_id}><td>{producto ? `${producto.codigo} · ${producto.nombre}` : `Producto #${detalle.producto_id}`}</td><td className="text-right">{detalle.cantidad}</td><td>{bulto.estado}</td></tr>; })}</tbody></table></div><p className="erp-callout mt-3">El impacto de stock se determina al cerrar el remito según el resultado de verificación registrado.</p></article>
+        <article className="erp-section-card"><h2 className="erp-card-title">Trazabilidad</h2>{eventos.length ? <ul className="timeline">{eventos.map((evento, index) => <li key={evento.id || `${evento.fecha_hora}-${index}`}><strong>{evento.accion || evento.estado_nuevo || "Evento registrado"}</strong><br /><span className="micro">{dateTime(evento.fecha_hora)} · {evento.actor || "Sin responsable registrado"}{evento.motivo_o_evidencia ? ` · ${evento.motivo_o_evidencia}` : ""}</span></li>)}</ul> : <p className="text-sm text-secondary">El backend aún no informó eventos para este bulto.</p>}</article>
       </div>
-
-      {modalType && (
-        <div
-          className="overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modalTitle"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setModalType(null);
-          }}
-        >
-          <section className="modal-wrap">
-            <div className="drawer-head">
-              <div>
-                <h2 id="modalTitle">
-                  {modalType === "verify" ? "Verificar precinto intacto" : "Registrar incidencia"}
-                </h2>
-                <p className="muted" id="modalSubtitle">
-                  {modalType === "verify"
-                    ? `${bultoCodigo} · Recibido \u2192 Verificado`
-                    : `${bultoCodigo} · Recibido \u2192 Rechazado`}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="icon-button overlay-close"
-                aria-label="Cerrar"
-                onClick={() => setModalType(null)}
-              >
-                &times;
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="validation-note">
-                {modalType === "verify"
-                  ? "Quedarán 12 unidades listas para acreditar en Local Palermo al cerrar el remito y se registrará evidencia del código PC-883102."
-                  : "Debe indicar el motivo. Las 12 unidades se registrarán como merma al cerrar el remito y nunca ingresarán a disponible."}
-              </div>
-              {modalType === "reject" && (
-                <div className="field modal-reject-field">
-                  <label htmlFor="modalRejectReason">Motivo obligatorio</label>
-                  <textarea
-                    id="modalRejectReason"
-                    rows={3}
-                    maxLength={250}
-                    placeholder="Describa el daño o diferencia observada"
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                  />
-                  <span className="field-help">Texto plano, máximo 250 caracteres.</span>
-                </div>
-              )}
-              <ul className="list">
-                <li>
-                  <span>Datos actualizados</span>
-                  <strong>hace 4 s</strong>
-                </li>
-                <li>
-                  <span>Evidencia</span>
-                  <strong>Usuario · sede · fecha · documento</strong>
-                </li>
-              </ul>
-            </div>
-            <div className="modal-foot">
-              <button
-                type="button"
-                className="button overlay-close"
-                onClick={() => setModalType(null)}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="button primary"
-                onClick={modalType === "verify" ? handleVerifyConfirm : handleRejectConfirm}
-              >
-                Confirmar y registrar
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {drawerVerifyAll && (
-        <div
-          className="overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="verifyAllTitle"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setDrawerVerifyAll(false);
-          }}
-        >
-          <aside className="drawer">
-            <div className="drawer-head">
-              <div>
-                <h2 id="verifyAllTitle">Controlar todos los precintos</h2>
-                <p className="muted" id="verifyAllSubtitle">RM-000078 · Local Palermo</p>
-              </div>
-              <button
-                type="button"
-                className="icon-button overlay-close"
-                aria-label="Cerrar"
-                onClick={() => setDrawerVerifyAll(false)}
-              >
-                &times;
-              </button>
-            </div>
-            <div className="drawer-body">
-              <div className="stepper">
-                <div className="step done">Remito recibido</div>
-                <div className="step current">Escanear</div>
-                <div className="step">Resultados</div>
-                <div className="step">Confirmar</div>
-              </div>
-              <p>
-                Control por lote de RM-000078. Cada precinto debe escanearse o ingresarse y conserva su propio resultado.
-              </p>
-              <table className="verify-table">
-                <thead>
-                  <tr>
-                    <th className="verify-col-package">Bulto</th>
-                    <th className="verify-col-expected">Precinto esperado</th>
-                    <th className="verify-col-read">Lectura</th>
-                    <th className="verify-col-result">Resultado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>BU-000045</td>
-                    <td>PC-883102</td>
-                    <td><input className="input" defaultValue="PC-883102" /></td>
-                    <td>
-                      <select className="select" defaultValue="Íntegro">
-                        <option value="Íntegro">Íntegro</option>
-                        <option value="Violado">Violado</option>
-                      </select>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>BU-000046</td>
-                    <td>PC-883103</td>
-                    <td><input className="input" defaultValue="PC-883103" /></td>
-                    <td>
-                      <select className="select" defaultValue="Íntegro">
-                        <option value="Íntegro">Íntegro</option>
-                        <option value="Violado">Violado</option>
-                      </select>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>BU-000047</td>
-                    <td>PC-883104</td>
-                    <td><input className="input" defaultValue="PC-883104" /></td>
-                    <td>
-                      <select className="select" defaultValue="Íntegro">
-                        <option value="Íntegro">Íntegro</option>
-                        <option value="Violado">Violado</option>
-                      </select>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <div className="validation-note drawer-validation-note">
-                &ldquo;Confirmar 3 resultados&rdquo; no significa aprobar a ciegas: valida cada lectura, exige motivo si se elige Violado y genera tres eventos de trazabilidad.
-              </div>
-            </div>
-            <div className="drawer-foot">
-              <button
-                type="button"
-                className="button overlay-close"
-                onClick={() => setDrawerVerifyAll(false)}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="button primary"
-                onClick={handleDrawerConfirm}
-              >
-                Confirmar 3 resultados
-              </button>
-            </div>
-          </aside>
-        </div>
-      )}
-    </section>
-  );
+      <aside className="erp-section-card stack gap-3"><h2 className="erp-card-title">Verificar precinto</h2><p className="text-sm text-secondary">{precinto ? <>Compará físicamente el código con <strong>{precinto}</strong>.</> : "Este bulto no tiene un precinto disponible para verificar."}</p>{canVerify ? <><Button variant="primary" onClick={() => openVerification("intacto")}>Precinto intacto</Button><Button variant="danger" onClick={() => openVerification("incidencia")}>Registrar incidencia</Button></> : <p className="erp-callout">El bulto está en estado {bulto.estado}; no admite una nueva verificación.</p>}{data.remito && <Button variant="secondary" onClick={() => navigate(`/logistica/recepcion?remito=${encodeURIComponent(data.remito.numero)}`)}>Controlar bultos del remito</Button>}</aside>
+    </div>
+    <Modal open={Boolean(modal)} onClose={() => !mutating && setModal("")} title={modal === "intacto" ? "Confirmar precinto intacto" : "Registrar incidencia"} subtitle={`${code(bulto.id)} · ${bulto.estado}`} isBusy={mutating} footer={<div className="row justify-between w-full"><Button variant="ghost" onClick={() => setModal("")} disabled={mutating}>Cancelar</Button><Button variant={modal === "intacto" ? "primary" : "danger"} loading={mutating} loadingLabel="Registrando…" onClick={confirmVerification}>Confirmar y registrar</Button></div>}>
+      <div className="stack gap-3"><TextInput id="lectura-precinto" label="Código leído" value={lectura} onChange={(event) => setLectura(event.target.value)} required />{modal === "incidencia" && <TextareaField id="motivo-incidencia" label="Motivo de la incidencia" value={motivo} onChange={(event) => setMotivo(event.target.value)} required maxLength={250} showCount />}{mutationError && <Alert tone="danger" title="No se pudo confirmar" description={mutationError} />}</div>
+    </Modal>
+  </div>;
 }
 
 export default BultoDetallePage;

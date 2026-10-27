@@ -90,7 +90,7 @@ export function SearchableSelect({
   // Asegurar visibilidad de la opción seleccionada por teclado
   useEffect(() => {
     if (isOpen && highlightedIndex >= 0 && listboxRef.current) {
-      const activeEl = listboxRef.current.querySelector(`#${inputId}-opt-${highlightedIndex}`);
+      const activeEl = listboxRef.current.children[highlightedIndex];
       if (activeEl && typeof activeEl.scrollIntoView === "function") {
         activeEl.scrollIntoView({ block: "nearest" });
       }

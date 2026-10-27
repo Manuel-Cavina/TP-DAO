@@ -19,6 +19,7 @@ export function NotificationPanel({
   onMarkRead,
   onMarkAllRead,
   className = "",
+  embedded = false,
 }) {
   const [filter, setFilter] = useState("all");
 
@@ -45,9 +46,9 @@ export function NotificationPanel({
   return (
     <div
       className={`notification-panel ${className}`.trim()}
-      role="dialog"
-      aria-modal="false"
-      aria-label="Panel de notificaciones"
+      role={embedded ? undefined : "dialog"}
+      aria-modal={embedded ? undefined : "false"}
+      aria-label={embedded ? undefined : "Panel de notificaciones"}
     >
       <div className="row justify-between align-center pb-2 border-b">
         <div className="row align-center gap-2">
@@ -70,7 +71,7 @@ export function NotificationPanel({
               Marcar leídas
             </button>
           )}
-          {onClose && (
+          {!embedded && onClose && (
             <button
               type="button"
               className="icon-button"

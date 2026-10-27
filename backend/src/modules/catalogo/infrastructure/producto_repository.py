@@ -1,3 +1,5 @@
+import re
+
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -5,7 +7,7 @@ from sqlalchemy.orm import Session
 from config.database.request_session_context import Request_Session_Context
 from modules.catalogo.domain import Producto
 from modules.catalogo.domain.exceptions import Entidad_Duplicada_Exception
-from modules.catalogo.infrastructure.models import Producto_Model
+from modules.catalogo.infrastructure.models import Numerador_Producto_Model, Producto_Model
 
 
 class Producto_Repository:
@@ -21,6 +23,23 @@ class Producto_Repository:
         self._flush(producto.codigo)
         producto.id = modelo.id
         return producto
+
+    def siguiente_codigo(self) -> str:
+        """Reserva el próximo SKU dentro de la transacción actual."""
+        session = self._get_session()
+        numerador = session.get(Numerador_Producto_Model, "SKU")
+        if numerador is None:
+            existentes = session.scalars(select(Producto_Model.codigo)).all()
+            ultimo = max(
+                (int(coincidencia.group(1)) for codigo in existentes if (coincidencia := re.fullmatch(r"SKU-(\d+)", codigo))),
+                default=0,
+            )
+            numerador = Numerador_Producto_Model(clave="SKU", ultimo_numero=ultimo)
+            session.add(numerador)
+            session.flush()
+        numerador.ultimo_numero += 1
+        session.flush()
+        return f"SKU-{numerador.ultimo_numero:06d}"
 
     def actualizar(self, producto: Producto) -> None:
         modelo = self._get_session().get(Producto_Model, producto.id)

@@ -41,13 +41,13 @@ function checkUS1Requirements() {
   if (appShellText.includes('"CD-01"') || appShellText.includes("'CD-01'")) {
     problems.push("AppShell.jsx: DEFAULT_LOCATIONS mantiene ID alfanumérico en lugar de numérico");
   }
-  const exclusiveNavigation = [
-    "const [expandedGroup, setExpandedGroup]",
-    "setExpandedGroup(getActiveGroupId(currentPath, activeModule));",
-    "const isExpanded = expandedGroup === group.id;",
-    "setExpandedGroup((current) => (current === groupId ? null : groupId));",
+  const persistentNavigation = [
+    "const [expandedGroups, setExpandedGroups]",
+    "new Set([...current, activeGroup])",
+    "const isExpanded = expandedGroups.has(group.id);",
+    "const next = new Set(current);",
   ];
-  if (!exclusiveNavigation.every((requirement) => appShellText.includes(requirement))) {
+  if (!persistentNavigation.every((requirement) => appShellText.includes(requirement))) {
     problems.push("AppShell.jsx: la navegación no conserva un único grupo expandido");
   }
 

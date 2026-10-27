@@ -118,7 +118,7 @@
 | FR-033 (Canonical state machines) | T039, T042, T049, T056, T061 | Verified in data-model.md |
 | FR-034 (Deterministic R1/R2 exports) | T068-T072, T074-T075 | Verified in ReportesService |
 | FR-035 (R1 stock health and R2 seal loss rates) | T068-T075 | Verified in ReporteStock and ReporteMermas |
-| FR-036 (Server-enforced role permissions) | T005-T013, T055, T062, T083-T084 | In progress (Phase 2 backend auth) |
+| FR-036 (Server-enforced role permissions) | T005-T013, T055, T062, T083-T084 | Verified in test_auth_api.py and test_recepcion_trazabilidad_workflow.py |
 | FR-037 (Active operational scope displayed) | T005, T013, T054-T055, T063, T083-T084 | Verified in AppShell context strip |
 | FR-038 (Dual validation: frontend UX + authoritative backend) | T018, T020-T025, T077 | Verified in form controls and API |
 | FR-039 (Searchable paginated selectors for >7 options) | T015, T021, T064 | Verified in SearchableSelect |

@@ -1,6 +1,6 @@
 import React from "react";
 
-const money = (value) => `$${Number(value || 0).toLocaleString("es-AR")}`;
+const money = (value) => value == null ? "No disponible" : `$${Number(value).toLocaleString("es-AR")}`;
 const dateTime = () => new Date().toLocaleString("es-AR");
 
 function Summary({ reportKey, summary = {} }) {

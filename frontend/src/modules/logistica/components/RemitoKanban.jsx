@@ -66,6 +66,7 @@ export function RemitoKanban({
           id: `rem-${r.numero}`,
           remito: r,
           numero: r.numero,
+          ordenId: r.bultosResumen?.[0]?.ordenId || null,
           code: r.numero,
           stage,
           badgeText,
@@ -82,6 +83,10 @@ export function RemitoKanban({
         };
       });
   }, [remitos, ubicMap, filtroDestino]);
+
+  const openOrder = (card, tab = "despacho") => {
+    navigate(card.ordenId ? `/logistica/ordenes/${card.ordenId}?tab=${tab}` : `/logistica/remitos/${encodeURIComponent(card.numero)}`);
+  };
 
   const handleDragStart = (e, card) => {
     setDraggedCard(card);
@@ -144,7 +149,7 @@ export function RemitoKanban({
                   <div className="row gap-2 align-center">
                     <strong
                       className="font-mono text-sm cursor-pointer"
-                      onClick={() => navigate(`/logistica/remitos/${encodeURIComponent(c.numero)}`)}
+                      onClick={() => openOrder(c)}
                     >
                       {c.numero}
                     </strong>
@@ -166,7 +171,7 @@ export function RemitoKanban({
                       <Button
                         size="sm"
                         variant="secondary"
-                        onClick={() => navigate(`/logistica/remitos/${encodeURIComponent(c.numero)}`)}
+                        onClick={() => openOrder(c)}
                       >
                         Despachar
                       </Button>
@@ -175,7 +180,7 @@ export function RemitoKanban({
                       <Button
                         size="sm"
                         variant="secondary"
-                        onClick={() => navigate(`/logistica/recepcion?remito=${encodeURIComponent(c.numero)}`)}
+                        onClick={() => openOrder(c, "recepcion")}
                       >
                         Recepción
                       </Button>
@@ -183,7 +188,7 @@ export function RemitoKanban({
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => navigate(`/logistica/remitos/${encodeURIComponent(c.numero)}`)}
+                      onClick={() => openOrder(c)}
                     >
                       Ver remito
                     </Button>
@@ -238,7 +243,7 @@ export function RemitoKanban({
                       <div className="task-title">
                         <strong
                           className="cursor-pointer"
-                          onClick={() => navigate(`/logistica/remitos/${encodeURIComponent(c.numero)}`)}
+                          onClick={() => openOrder(c)}
                         >
                           {c.numero}
                         </strong>
@@ -263,9 +268,9 @@ export function RemitoKanban({
                         variant="secondary"
                         onClick={() => {
                           if (c.stage === 0) {
-                            navigate(`/logistica/remitos/${encodeURIComponent(c.numero)}`);
+                            openOrder(c);
                           } else {
-                            navigate(`/logistica/recepcion?remito=${encodeURIComponent(c.numero)}`);
+                            openOrder(c, "recepcion");
                           }
                         }}
                       >

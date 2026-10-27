@@ -25,7 +25,7 @@ export function ConsolidarModal({
   const isRemitoMode = Boolean(orden);
 
   // Estado para modo remito
-  const [numeroRemito, setNumeroRemito] = useState("");
+  const [numeroRemito, setNumeroRemito] = useState("AUTO");
   const [remitoError, setRemitoError] = useState("");
 
   // Estado para modo consolidar orden
@@ -87,11 +87,11 @@ export function ConsolidarModal({
     const bultosIds = bultos.map((b) => b.id);
     const res = await onSubmit({
       ordenId: orden.id,
-      numero: numeroRemito.trim(),
+      numero: undefined,
       bultosIds,
     });
     if (res?.ok) {
-      setNumeroRemito("");
+      setNumeroRemito("AUTO");
       onClose();
     }
   };
@@ -124,7 +124,7 @@ export function ConsolidarModal({
               onClick={handleSubmitRemito}
               loading={pending}
               loadingLabel="Emitiendo remito..."
-              disabled={!ordenCompleta || !numeroRemito.trim()}
+              disabled={!ordenCompleta}
             >
               Confirmar remito único
             </Button>
@@ -176,11 +176,11 @@ export function ConsolidarModal({
           >
             <TextInput
               mono
-              value={numeroRemito}
-              onChange={(e) => setNumeroRemito(e.target.value)}
+              value="Se asignará automáticamente"
+              onChange={() => {}}
               placeholder="p. ej. REM-2026-0042"
-              required
-              disabled={pending}
+              readOnly
+              disabled
             />
           </FormField>
 

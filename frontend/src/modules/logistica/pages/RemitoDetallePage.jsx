@@ -301,7 +301,7 @@ export function RemitoDetallePage() {
             </div>
           ) : (
             <div className="p-3 rounded bg-success-subtle text-success text-sm">
-              ✓ Sin bloqueadores: todos los bultos poseen precintos de seguridad asignados y el remito está listo para despachar.
+              Sin bloqueadores: todos los bultos poseen precintos de seguridad asignados y el remito está listo para despachar.
             </div>
           )}
         </div>

@@ -1,28 +1,23 @@
 import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   SortableDataTable,
   FilterToolbar,
   Button,
-  Badge,
-  StockSplitBar,
   MetricCard,
-  Alert,
-  Icon,
+  Select,
 } from "../../../shared";
-import { useDisclosure } from "../../../shared/hooks";
 import { useUbicaciones } from "../hooks/useUbicaciones";
 import { useStockMatriz } from "../hooks/useStockMatriz";
 import { useProveedores } from "../../catalogo/hooks/useProveedores";
 import { useProductos } from "../../catalogo/hooks/useProductos";
-import { IngresoCdModal } from "../components/IngresoCdModal";
 
 /**
  * Vista dedicada de ingreso y recepción de mercadería a CD (/stock/ingresos).
  */
 export function IngresosPage() {
-  const ingresoModal = useDisclosure(false);
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [lastMovementSummary, setLastMovementSummary] = useState(null);
 
   const { ubicaciones, loading: loadingUbic } = useUbicaciones({ activas: true });
   const { proveedores } = useProveedores({ activos: true });
@@ -99,23 +94,7 @@ export function IngresosPage() {
       align: "right",
       render: (v) => <span className="tabular-nums text-secondary">{v} u.</span>,
     },
-    {
-      key: "balance",
-      header: "Balance en nodo",
-      render: (_, r) => (
-        <StockSplitBar
-          disponible={r.disponible}
-          enTransito={r.enTransito}
-          nivelMinimo={r.nivelMinimo}
-        />
-      ),
-    },
   ];
-
-  const handleIngresoSuccess = (impact) => {
-    setLastMovementSummary(impact);
-    reloadStock();
-  };
 
   return (
     <div className="stack gap-5">
@@ -131,18 +110,12 @@ export function IngresosPage() {
         <Button
           variant="primary"
           iconLeft="plus"
-          onClick={ingresoModal.onOpen}
+          onClick={() => navigate("/logistica/ordenes/nueva")}
           disabled={centrosActivos.length === 0}
         >
-          Registrar nuevo ingreso
+          Crear orden formal
         </Button>
       </div>
-
-      <Alert
-        tone="info"
-        title="Regla operativa de abastecimiento"
-        description="Las compras y recepciones a proveedores externos ingresan exclusivamente a un Centro de Distribución (CD activo). Tras la confirmación del comprobante, el stock se incrementa inmediatamente para su posterior distribución y remisión a sucursales."
-      />
 
       <div className="grid-4 gap-3">
         <MetricCard
@@ -169,63 +142,16 @@ export function IngresosPage() {
         />
       </div>
 
-      {lastMovementSummary && (
-        <div className="erp-table-card p-4 stack gap-3 bg-muted border-accent">
-          <div className="row justify-between align-center">
-            <div className="row align-center gap-2 text-success">
-              <Icon name="shield-check" size={18} />
-              <span className="font-medium text-sm">
-                Último movimiento de stock registrado en esta sesión
-              </span>
-            </div>
-            <span className="text-xs text-muted">
-              Registrado a las {lastMovementSummary.fecha}
-            </span>
-          </div>
-
-          <div className="grid-3 gap-3 text-sm">
-            <div>
-              <span className="text-xs text-muted block">Centro impactado:</span>
-              <span className="font-medium">{lastMovementSummary.cdNombre}</span>
-            </div>
-            <div>
-              <span className="text-xs text-muted block">Proveedor de origen:</span>
-              <span className="font-medium">{lastMovementSummary.proveedorNombre}</span>
-            </div>
-            <div>
-              <span className="text-xs text-muted block">Artículo ingresado:</span>
-              <span className="font-medium">
-                {lastMovementSummary.productoCodigo} · {lastMovementSummary.productoNombre}
-              </span>
-            </div>
-          </div>
-
-          <div className="row justify-between align-center border-t pt-2 text-sm">
-            <span className="text-muted">
-              Comprobante: <strong className="font-mono">{lastMovementSummary.comprobante}</strong>
-            </span>
-            <div className="row gap-3 tabular-nums">
-              <span>Saldo previo: <strong>{lastMovementSummary.saldoAnterior} u.</strong></span>
-              <span className="text-success font-medium">Ingresado: <strong>+{lastMovementSummary.cantidadIngresada} u.</strong></span>
-              <span>Nuevo saldo: <strong className="text-success">{lastMovementSummary.nuevoSaldo} u.</strong></span>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="row justify-between align-center wrap gap-3">
         <div className="row align-center gap-2">
           <span className="text-sm text-secondary font-medium">CD receptor:</span>
-          {centrosActivos.map((cd) => (
-            <Button
-              key={cd.id}
-              variant={String(cd.id) === String(activeCdId) ? "primary" : "secondary"}
-              size="sm"
-              onClick={() => setSelectedCdId(String(cd.id))}
-            >
-              {cd.nombre}
-            </Button>
-          ))}
+          <Select
+            ariaLabel="Centro de distribución receptor"
+            options={centrosActivos.map((cd) => ({ value: String(cd.id), label: cd.nombre }))}
+            value={String(activeCdId || "")}
+            onChange={setSelectedCdId}
+            placeholder="Seleccionar CD"
+          />
         </div>
 
         <FilterToolbar
@@ -243,20 +169,14 @@ export function IngresosPage() {
         error={errorStock}
         onRetry={reloadStock}
         emptyTitle="Sin existencias en este Centro de Distribución"
-        emptyDescription="Haz clic en 'Registrar nuevo ingreso' para incorporar mercadería de proveedor a este centro."
+        emptyDescription="Creá una orden formal y completá su recepción para registrar existencias en este centro."
         emptyAction={
-          <Button variant="primary" iconLeft="plus" onClick={ingresoModal.onOpen}>
-            Registrar ingreso ahora
+          <Button variant="primary" iconLeft="plus" onClick={() => navigate("/logistica/ordenes/nueva")}>
+            Crear orden formal
           </Button>
         }
       />
 
-      <IngresoCdModal
-        open={ingresoModal.open}
-        onClose={ingresoModal.onClose}
-        defaultCdId={activeCdId}
-        onSuccess={handleIngresoSuccess}
-      />
     </div>
   );
 }

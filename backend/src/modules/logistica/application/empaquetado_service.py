@@ -281,7 +281,7 @@ class Empaquetado_Service:
 
     def generar_remito(
         self,
-        numero: str,
+        numero: str | None,
         orden_id: int,
         bultos_ids: list[int] | None = None,
         validar_aprobacion: bool = False,
@@ -297,8 +297,9 @@ class Empaquetado_Service:
         Si validar_aprobacion es False (modo compatibilidad):
         - Bultos deben pertenecer a la orden, estar precintados y no estar en otro remito.
         """
-        if self._remito_repository.existe(numero):
-            raise Remito_Duplicado_Exception(f"Ya existe un remito con numero '{numero.strip()}'.")
+        numero_resuelto = numero.strip() if isinstance(numero, str) and numero.strip() else self._remito_repository.siguiente_numero()
+        if self._remito_repository.existe(numero_resuelto):
+            raise Remito_Duplicado_Exception(f"Ya existe un remito con numero '{numero_resuelto}'.")
 
         orden = self._obtener_orden(orden_id)
 
@@ -340,7 +341,7 @@ class Empaquetado_Service:
                     )
 
             remito = Remito(
-                numero=numero,
+                numero=numero_resuelto,
                 origen_id=orden.origen_id,
                 destino_id=orden.destino_id,
                 bultos=bultos_orden,
@@ -355,7 +356,7 @@ class Empaquetado_Service:
 
             bultos = [self._bulto_para_remito(bid, orden_id) for bid in bultos_ids]
             remito = Remito(
-                numero=numero,
+                numero=numero_resuelto,
                 origen_id=orden.origen_id,
                 destino_id=orden.destino_id,
                 bultos=bultos,

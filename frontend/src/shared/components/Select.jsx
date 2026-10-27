@@ -21,10 +21,13 @@ export function Select({
   className = "",
 }) {
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const wrapRef = useRef(null);
+  const optionRefs = useRef([]);
 
-  const selectedOption =
-    options.find((opt) => opt.value === value) || options[0] || null;
+  // A visual value must always match the controlled value. Falling back to the
+  // first option made required fields look selected before the user chose one.
+  const selectedOption = options.find((opt) => opt.value === value) || null;
 
   useEffect(() => {
     function handleOutsideClick(event) {
@@ -36,18 +39,37 @@ export function Select({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const selectedIndex = options.findIndex((opt) => opt.value === value);
+    const nextIndex = selectedIndex >= 0 ? selectedIndex : 0;
+    setActiveIndex(nextIndex);
+    requestAnimationFrame(() => optionRefs.current[nextIndex]?.focus());
+  }, [open, options, value]);
+
+  const selectOption = (opt) => {
+    onChange?.(opt.value, opt);
+    setOpen(false);
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === "Escape") {
       setOpen(false);
     } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
-      if (!open) {
-        setOpen(true);
-      }
+      if (!options.length) return;
+      const direction = e.key === "ArrowDown" ? 1 : -1;
+      const nextIndex = Math.max(0, Math.min(options.length - 1, (activeIndex < 0 ? 0 : activeIndex) + direction));
+      setActiveIndex(nextIndex);
+      setOpen(true);
+      requestAnimationFrame(() => optionRefs.current[nextIndex]?.focus());
+    } else if (e.key === "Enter" && open && activeIndex >= 0) {
+      e.preventDefault();
+      selectOption(options[activeIndex]);
     }
   };
 
-  const triggerLabel = label || ariaLabel || (selectedOption ? selectedOption.label : placeholder);
+  const triggerLabel = label || ariaLabel || selectedOption?.label || placeholder;
 
   return (
     <div
@@ -84,7 +106,7 @@ export function Select({
           aria-label={triggerLabel}
         >
           {options.map((opt) => {
-            const isSelected = opt.value === (selectedOption && selectedOption.value);
+            const isSelected = opt.value === value;
             return (
               <button
                 key={opt.value}
@@ -92,10 +114,8 @@ export function Select({
                 role="option"
                 aria-selected={isSelected}
                 className={`erp-select-option ${isSelected ? "is-selected" : ""}`.trim()}
-                onClick={() => {
-                  if (onChange) onChange(opt.value, opt);
-                  setOpen(false);
-                }}
+                ref={(element) => { optionRefs.current[options.indexOf(opt)] = element; }}
+                onClick={() => selectOption(opt)}
               >
                 <span className="erp-select-option__content">
                   {opt.icon && <Icon name={opt.icon} size={14} />}

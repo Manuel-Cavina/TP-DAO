@@ -37,12 +37,7 @@ function mapUbicacionToOption(u) {
 
 export function SedeProvider({ children }) {
   const [sedes, setSedes] = useState(DEFAULT_LOCATIONS);
-  const [sedeId, setSedeIdState] = useState(() => {
-    const stored = readStored();
-    return stored && DEFAULT_LOCATIONS.some((s) => s.value === stored)
-      ? stored
-      : DEFAULT_LOCATIONS[0].value;
-  });
+  const [sedeId, setSedeIdState] = useState(() => readStored());
 
   const reloadSedes = useCallback(async () => {
     try {
@@ -64,7 +59,8 @@ export function SedeProvider({ children }) {
         });
       }
     } catch {
-      // Fallback seguro a DEFAULT_LOCATIONS ya inicializado
+      setSedes([]);
+      setSedeIdState(null);
     }
   }, []);
 

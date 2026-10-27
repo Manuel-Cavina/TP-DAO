@@ -36,7 +36,7 @@ class Actualizar_Producto_Request_DTO(BaseModel):
 
 
 class Crear_Producto_Request_DTO(Actualizar_Producto_Request_DTO):
-    codigo: str = Field(min_length=1, max_length=50)
+    codigo: str | None = Field(None, min_length=1, max_length=50)
     nivel_minimo_existencia: int = Field(gt=0, le=1_000_000)
 
 

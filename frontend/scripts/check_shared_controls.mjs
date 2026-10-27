@@ -20,6 +20,7 @@ assert.match(searchSelectSrc, /ArrowUp/, "SearchableSelect debe soportar ArrowUp
 assert.match(searchSelectSrc, /Enter/, "SearchableSelect debe soportar Enter");
 assert.match(searchSelectSrc, /Escape/, "SearchableSelect debe soportar Escape");
 assert.match(searchSelectSrc, /\.slice\(0,\s*20\)/, "SearchableSelect debe limitar los resultados a 20");
+assert.match(searchSelectSrc, /children\[highlightedIndex\]/, "SearchableSelect debe enfocar la opción sin construir selectores CSS desde useId");
 
 // 2. Verificación de CSS de SearchableSelect clear button
 const wireframeCss = readFileSync(new URL("../src/shared/styles/wireframe-tokens.css", import.meta.url), "utf8");

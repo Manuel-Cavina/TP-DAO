@@ -97,7 +97,6 @@
 .erp-segmented__item.is-active {
   background: var(--surface);
   color: var(--foreground);
-  box-shadow: var(--shadow-resting);
 }
 
 .erp-segmented__count {
@@ -156,7 +155,7 @@
   height: var(--control-height-sm);
   width: 240px;
   padding: 0 10px 0 32px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--border);
   background: var(--surface-muted);
   color: var(--foreground);
@@ -206,6 +205,55 @@
 .erp-filter-chip__remove:hover {
   background: var(--border);
   color: var(--foreground);
+}
+
+.erp-segmented--full {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+}
+
+.erp-segmented--full .erp-segmented__item {
+  justify-content: center;
+  min-width: 0;
+}
+
+/* Inventario mantiene sede, estado y búsqueda en una única barra de trabajo. */
+.stock-filter-row {
+  display: grid;
+  grid-template-columns: auto minmax(190px, 0.42fr) minmax(280px, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.stock-filter-row > .erp-filter-toolbar {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.stock-filter-row .erp-filter-toolbar__left,
+.stock-filter-row .erp-search-box,
+.stock-filter-row .erp-search-box__input {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .stock-filter-row { grid-template-columns: 1fr 1fr; }
+  .stock-filter-row > .erp-filter-toolbar { grid-column: 1 / -1; }
+}
+
+@media (max-width: 560px) {
+  .stock-filter-row { grid-template-columns: 1fr; }
+  .stock-filter-row > .erp-filter-toolbar { grid-column: auto; }
+  .stock-filter-row .erp-segmented { width: 100%; }
+  .stock-filter-row .erp-segmented__item { flex: 1; }
 }
 
 /* ==========================================================================

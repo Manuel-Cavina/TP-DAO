@@ -13,7 +13,7 @@ const itemColumns = [
   },
   {
     key: "cantidadEmpaquetada",
-    header: "Empaquetada",
+    header: "En bultos",
     align: "right",
     sortable: true,
     render: (v) => <span className="tabular-nums">{v} u.</span>,
@@ -47,7 +47,7 @@ export function OrdenRenglonesCard({ detalles = [], totalSolicitadas = 0, totalE
         <div>
           <h2 className="text-md font-medium">Renglones solicitados y progreso de empaque</h2>
           <span className="text-xs text-secondary">
-            Progreso global: {totalEmpaquetadas} de {totalSolicitadas} unidades empaquetadas
+            {totalEmpaquetadas} de {totalSolicitadas} unidades ya están en bultos · {Math.max(0, totalSolicitadas - totalEmpaquetadas)} pendientes
           </span>
         </div>
         <span className="tabular-nums text-xs text-secondary">

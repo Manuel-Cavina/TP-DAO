@@ -38,12 +38,16 @@ export function CrearOrdenPage() {
     }
     return new Set();
   }, [location.state, searchParams]);
+  const preselectedItems = useMemo(
+    () => Array.isArray(location.state?.preselectedItems) ? location.state.preselectedItems : [],
+    [location.state]
+  );
 
   const [currentStep, setCurrentStep] = useState(0);
   const [destinoId, setDestinoId] = useState(preselectedDestinoId);
   const [origenId, setOrigenId] = useState("");
   const [selectedNecIds, setSelectedNecIds] = useState(preselectedNecIds);
-  const [manualItems, setManualItems] = useState([]);
+  const [manualItems, setManualItems] = useState(preselectedItems);
   const [newProdId, setNewProdId] = useState("");
   const [newCantidad, setNewCantidad] = useState("");
   const [productoSearch, setProductoSearch] = useState("");
@@ -96,6 +100,14 @@ export function CrearOrdenPage() {
       setSelectedNecIds(new Set(preselectedNecIds));
     }
   }, [preselectedNecIds]);
+
+  useEffect(() => {
+    if (preselectedItems.length > 0) setManualItems(preselectedItems);
+  }, [preselectedItems]);
+
+  useEffect(() => {
+    if (!newProdId && productOptions.length > 0) setNewProdId(productOptions[0].value);
+  }, [newProdId, productOptions]);
 
   const handleToggleNec = (id) => {
     setSelectedNecIds((prev) => {

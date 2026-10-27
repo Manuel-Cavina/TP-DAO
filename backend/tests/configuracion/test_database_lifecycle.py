@@ -171,6 +171,52 @@ class DatabaseLifecycleTests(unittest.TestCase):
         self.assertEqual(listado.status_code, 200)
         self.assertEqual(listado.json()[0]["nombre"], "Lácteos")
 
+    def test_application_factory_migra_remitos_heredados_sin_perder_su_orden(self) -> None:
+        with self.engine.begin() as conexion:
+            conexion.execute(
+                text(
+                    """
+                    CREATE TABLE remitos (
+                        numero VARCHAR(50) PRIMARY KEY,
+                        origen_id INTEGER NOT NULL,
+                        destino_id INTEGER NOT NULL,
+                        fecha_emision DATETIME NOT NULL,
+                        estado VARCHAR(20) NOT NULL
+                    )
+                    """
+                )
+            )
+            conexion.execute(
+                text(
+                    """
+                    CREATE TABLE bultos (
+                        id INTEGER PRIMARY KEY,
+                        orden_id INTEGER NOT NULL,
+                        remito_numero VARCHAR(50)
+                    )
+                    """
+                )
+            )
+            conexion.execute(
+                text("INSERT INTO remitos VALUES ('REM-LEGADO', 1, 2, CURRENT_TIMESTAMP, 'EMITIDO')")
+            )
+            conexion.execute(text("INSERT INTO bultos VALUES (1, 42, 'REM-LEGADO')"))
+
+        Application_Factory.crear_aplicacion(self.url)
+        with self.engine.connect() as conexion:
+            columnas = {fila[1] for fila in conexion.execute(text("PRAGMA table_info(remitos)"))}
+            orden_id = conexion.execute(
+                text("SELECT orden_id FROM remitos WHERE numero = 'REM-LEGADO'")
+            ).scalar_one()
+            indices = {fila[1] for fila in conexion.execute(text("PRAGMA index_list(remitos)"))}
+
+        self.assertIn("orden_id", columnas)
+        self.assertEqual(orden_id, 42)
+        self.assertIn("ix_remitos_orden_id", indices)
+
+        # La segunda inicialización no vuelve a alterar el esquema ni borra datos.
+        Application_Factory.crear_aplicacion(self.url)
+
     def test_middleware_revierte_escritura_ante_excepcion_y_cierra_sesion(self) -> None:
         factory = Tracking_Session_Factory(self.engine)
         app = FastAPI()

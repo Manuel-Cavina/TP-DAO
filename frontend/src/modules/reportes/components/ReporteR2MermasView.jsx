@@ -57,11 +57,11 @@ export function ReporteR2MermasView({
             loadingR2 ? (
               <Skeleton width={110} height={28} />
             ) : (
-              `$${(r2Resumen?.total_valor_venta_merma ?? 0).toLocaleString("es-AR")}`
+              r2Resumen?.total_valor_venta_merma == null ? "No disponible" : `$${r2Resumen.total_valor_venta_merma.toLocaleString("es-AR")}`
             )
           }
-          subtext="Ingreso frustrado en locales"
-          badgeText="Venta Frustrada"
+          subtext="No informado por el endpoint de mermas"
+          badgeText="Sin dato API"
           badgeTone="warning"
         />
 
@@ -71,11 +71,11 @@ export function ReporteR2MermasView({
             loadingR2 ? (
               <Skeleton width={70} height={28} />
             ) : (
-              `${r2Resumen?.tasa_rechazo_porcentaje ?? 0}%`
+              r2Resumen?.tasa_rechazo_porcentaje == null ? "No disponible" : `${r2Resumen.tasa_rechazo_porcentaje}%`
             )
           }
-          subtext={`Local más afectado: ${r2Resumen?.local_mas_afectado || "N/A"}`}
-          badgeText="Auditoría P6"
+          subtext="El endpoint no calcula una tasa ni ranking"
+          badgeText="Sin dato API"
           badgeTone="neutral"
         />
       </div>
@@ -91,7 +91,7 @@ export function ReporteR2MermasView({
             </div>
             <div className="stocky-formal-dictamen-body">
               {tieneMermas
-                ? `Se constató la violación de precintos de seguridad en ${bultosVioladosCount} bulto(s) al momento de la recepción en locales. En cumplimiento estricto de la Regla V1, la mercadería afectada no fue acreditada en el inventario comercializable. Mayor concentración de pérdidas en ${r2Resumen?.local_mas_afectado || "Local comercial"}. Acción inmediata: peritar trazabilidad de precintos y remitir reporte a transportista.`
+                ? `Se registraron ${bultosVioladosCount} bulto(s) con incidencia en la recepción. El detalle de merma y su trazabilidad se consulta por cada bulto; el endpoint no informa ranking de locales ni valor de venta.`
                 : "No se identificaron bultos rechazados ni roturas de precinto en el período y sedes evaluadas. Todos los despachos recibidos preservaron sus sellos inmutables."}
             </div>
           </div>
@@ -202,7 +202,7 @@ export function ReporteR2MermasView({
                       ${bulto.total_perdida_costo?.toLocaleString("es-AR")}
                     </td>
                     <td className="text-right tabular-nums text-secondary">
-                      ${bulto.total_perdida_venta?.toLocaleString("es-AR")}
+                      {bulto.total_perdida_venta == null ? "No disponible" : `$${bulto.total_perdida_venta.toLocaleString("es-AR")}`}
                     </td>
                     <td className="text-right no-print" onClick={(e) => e.stopPropagation()}>
                       <Button

@@ -1,10 +1,10 @@
-import React, { useMemo, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useMemo, useCallback, useState } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Button,
   StatusBadge,
-  SortableDataTable,
   Alert,
+  SegmentedControl,
   useLiveResource,
   LiveIndicator,
 } from "../../../shared";
@@ -15,10 +15,15 @@ import { logisticaService } from "../services";
 import { mapOrdenToUI, mapBultoToUI, mapRemitoToUI } from "../mappers/logisticaMappers";
 import { OrdenTimeline } from "../components/OrdenTimeline";
 import { OrdenRenglonesCard } from "../components/OrdenRenglonesCard";
+import { EmpaquetadoPage } from "./EmpaquetadoPage";
+import { RecepcionPage } from "./RecepcionPage";
 
 export function OrdenDetallePage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [despachando, setDespachando] = useState(false);
+  const [accionError, setAccionError] = useState("");
   const { user } = useAuth();
   const { ubicaciones } = useUbicaciones();
   const { productos } = useProductos({ activos: true });
@@ -77,6 +82,8 @@ export function OrdenDetallePage() {
   const orden = data?.orden;
   const bultos = data?.bultos || [];
   const remito = data?.remito || null;
+  const activeTab = searchParams.get("tab") || "resumen";
+  const setActiveTab = (tab) => setSearchParams(tab === "resumen" ? {} : { tab });
 
   const origenNombre = orden ? ubicMap.get(orden.origenId) || `CD #${orden.origenId}` : "";
   const destinoNombre = orden ? ubicMap.get(orden.destinoId) || `Local #${orden.destinoId}` : "";
@@ -164,60 +171,6 @@ export function OrdenDetallePage() {
     return list;
   }, [orden, bultos, remito, totalSolicitadas, totalEmpaquetadas]);
 
-  const bultoColumns = [
-    {
-      key: "id",
-      header: "ID Bulto",
-      mono: true,
-      sortable: true,
-      render: (v) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/logistica/bultos/${v}`)}
-        >
-          #{v}
-        </Button>
-      ),
-    },
-    {
-      key: "codigoPrecinto",
-      header: "Precinto asignado",
-      mono: true,
-      render: (v) => v || <span className="text-muted">Sin precinto</span>,
-    },
-    {
-      key: "estado",
-      header: "Estado",
-      render: (v) => <StatusBadge status={v} />,
-    },
-    {
-      key: "itemsCount",
-      header: "Contenido",
-      align: "right",
-      render: (_, row) => {
-        const totalU = row.detalles?.reduce((s, d) => s + d.cantidad, 0) || 0;
-        return <span className="tabular-nums">{totalU} unidades</span>;
-      },
-    },
-    {
-      key: "acciones",
-      header: "Acción",
-      align: "right",
-      sortable: false,
-      render: (_, row) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          iconRight="arrow-right"
-          onClick={() => navigate(`/logistica/bultos/${row.id}`)}
-        >
-          Ver bulto
-        </Button>
-      ),
-    },
-  ];
-
   if (isLoading && !orden) {
     return (
       <div className="p-8 text-center text-secondary">
@@ -242,6 +195,46 @@ export function OrdenDetallePage() {
 
   const isPendienteOrPreparando =
     orden.estado === "PENDIENTE" || orden.estado === "EN_PREPARACION";
+
+  const guidanceByTab = {
+    resumen: orden.estado === "CERRADA"
+      ? { tone: "success", title: "Orden cerrada: no queda trabajo operativo", description: "Empaque, remito y recepción finalizaron. Consultá el historial para la evidencia completa.", targetTab: "historial", targetLabel: "Ver historial" }
+      : { tone: "info", title: "Estado actual de la orden", description: `${totalEmpaquetadas} de ${totalSolicitadas} unidades empaquetadas · ${bultos.length} bulto(s) registrado(s).`, targetTab: isPendienteOrPreparando ? "empaque" : "recepcion", targetLabel: isPendienteOrPreparando ? "Continuar empaque" : "Gestionar recepción" },
+    empaque: remito
+      ? { tone: "success", title: "Empaque y precintos completados", description: `${bultos.length} bulto(s) forman parte de ${remito.numero}. La evidencia de armado y precintos sigue disponible en esta orden.`, targetTab: remito.estado === "EMITIDO" ? "despacho" : "recepcion", targetLabel: remito.estado === "EMITIDO" ? "Despachar remito" : "Continuar recepción" }
+      : { tone: totalEmpaquetadas < totalSolicitadas ? "warning" : "info", title: totalEmpaquetadas < totalSolicitadas ? "Empaque en curso" : "Bultos listos para remito", description: totalEmpaquetadas < totalSolicitadas ? `Faltan ${totalSolicitadas - totalEmpaquetadas} unidad(es) por asignar a un bulto.` : "Todos los bultos están empaquetados y precintados; el siguiente paso es emitir el remito.", targetTab: totalEmpaquetadas < totalSolicitadas ? null : "despacho", targetLabel: "Ir a remito y despacho" },
+    despacho: !estaCompletamenteEmpaquetada || !bultosTodosPrecintados
+      ? { tone: "warning", title: "Despacho bloqueado por empaque pendiente", description: `Hay ${totalSolicitadas - totalEmpaquetadas} unidad(es) sin empaquetar o bultos sin precinto.`, targetTab: "empaque", targetLabel: "Resolver empaque" }
+      : !remito
+        ? { tone: "info", title: "Lista para emitir el remito", description: `${bultos.length} bulto(s) completos y precintados esperan el documento formal de traslado.`, targetTab: "empaque", targetLabel: "Emitir remito" }
+        : remito.estado === "EMITIDO"
+          ? { tone: "info", title: `Remito ${remito.numero} emitido`, description: "El documento y los bultos ya están listos; el próximo paso es despachar el traslado.", targetTab: null, targetLabel: null }
+          : { tone: "success", title: `Despacho registrado: ${remito.numero}`, description: `El remito está ${remito.estado.toLowerCase()}. La recepción se trabaja dentro de esta misma orden.`, targetTab: "recepcion", targetLabel: "Ir a recepción" },
+    recepcion: !remito || remito.estado === "EMITIDO"
+      ? { tone: "info", title: "Recepción aún no habilitada", description: "Primero debe emitirse y despacharse el remito; después se registra el arribo y se revisan los precintos.", targetTab: "despacho", targetLabel: "Ir a remito y despacho" }
+      : remito.estado === "CERRADO"
+        ? { tone: "success", title: "Recepción cerrada: no queda trabajo pendiente", description: `${remito.bultosVerificados} bulto(s) verificados y ${remito.bultosRechazados} rechazado(s) quedaron registrados con su impacto de stock.`, targetTab: "historial", targetLabel: "Ver historial" }
+        : remito.estado === "RECIBIDO"
+          ? { tone: "warning", title: "Arribo registrado: falta verificar precintos", description: `${remito.bultosPendientes} bulto(s) requieren control físico antes del cierre.`, targetTab: null, targetLabel: null }
+          : { tone: "info", title: "Remito en tránsito", description: "El siguiente paso es registrar el arribo en destino para habilitar el control de precintos.", targetTab: null, targetLabel: null },
+    historial: { tone: "info", title: "Trazabilidad completa de la orden", description: "La línea de vida conserva orden, bultos, precintos, remito y cierre. No altera el estado operativo.", targetTab: null, targetLabel: null },
+  };
+  const currentGuidance = guidanceByTab[activeTab] || guidanceByTab.resumen;
+
+  const handleDespachar = async () => {
+    if (!remito) return;
+    setDespachando(true);
+    setAccionError("");
+    try {
+      await logisticaService.despacharRemito(remito.numero);
+      await refresh();
+      setActiveTab("recepcion");
+    } catch (error) {
+      setAccionError(error.message || "No se pudo despachar el remito.");
+    } finally {
+      setDespachando(false);
+    }
+  };
 
   return (
     <div className="stack gap-5">
@@ -272,7 +265,7 @@ export function OrdenDetallePage() {
             <Button
               variant="primary"
               iconRight="arrow-right"
-              onClick={() => navigate(`/logistica/empaquetado?ordenId=${orden.id}`)}
+              onClick={() => setActiveTab("empaque")}
             >
               Comenzar empaquetado
             </Button>
@@ -282,7 +275,7 @@ export function OrdenDetallePage() {
             <Button
               variant="primary"
               iconRight="arrow-right"
-              onClick={() => navigate("/logistica/remitos")}
+              onClick={() => setActiveTab("despacho")}
             >
               Generar remito de despacho
             </Button>
@@ -292,9 +285,7 @@ export function OrdenDetallePage() {
             <Button
               variant="primary"
               iconRight="arrow-right"
-              onClick={() =>
-                navigate(`/logistica/recepcion${remito ? `?remito=${encodeURIComponent(remito.numero)}` : ""}`)
-              }
+              onClick={() => setActiveTab("recepcion")}
             >
               Gestionar recepción en destino
             </Button>
@@ -311,17 +302,34 @@ export function OrdenDetallePage() {
         </div>
       </div>
 
-      {/* Bloqueadores vigentes */}
-      {bloqueadores.map((b) => (
-        <Alert
-          key={b.id}
-          tone={b.tone}
-          title={b.titulo}
-          description={b.desc}
-        />
+      <SegmentedControl
+        value={activeTab}
+        onChange={setActiveTab}
+        options={[
+          { value: "resumen", label: "Resumen" },
+          { value: "empaque", label: "Empaque y precintos", count: bultos.length },
+          { value: "despacho", label: "Remito y despacho" },
+          { value: "recepcion", label: "Recepción" },
+          { value: "historial", label: "Historial" },
+        ]}
+      />
+
+      {accionError && <Alert tone="danger" title="No se pudo completar la acción" description={accionError} />}
+
+      <Alert
+        tone={currentGuidance.tone}
+        title={currentGuidance.title}
+        description={currentGuidance.description}
+        action={<div className="row gap-1">{currentGuidance.targetTab && <Button variant={currentGuidance.tone === "success" ? "secondary" : "primary"} size="sm" onClick={() => setActiveTab(currentGuidance.targetTab)}>{currentGuidance.targetLabel}</Button>}{activeTab !== "historial" && <Button variant="ghost" size="sm" onClick={() => setActiveTab("historial")}>Trazabilidad</Button>}</div>}
+      />
+
+      {/* El resumen concentra lo pendiente; cada pestaña queda enfocada en su acción. */}
+      {activeTab === "resumen" && bloqueadores.map((b) => (
+        <Alert key={b.id} tone={b.tone} title={b.titulo} description={b.desc} />
       ))}
 
       {/* Información de Ruta, Responsable y Fecha */}
+      {activeTab === "resumen" && <>
       <div className="grid-3 gap-3">
         <div className="card p-4 stack gap-1">
           <span className="text-xs text-muted">Origen (Centro de distribución)</span>
@@ -350,8 +358,16 @@ export function OrdenDetallePage() {
         totalSolicitadas={totalSolicitadas}
         totalEmpaquetadas={totalEmpaquetadas}
       />
+      </>}
 
       {/* Enlaces bidireccionales: Remito asociado y Bultos */}
+      {activeTab === "despacho" && <>
+      {!estaCompletamenteEmpaquetada || !bultosTodosPrecintados ? (
+        <div className="card p-4 stack gap-3">
+          <div><h3 className="text-md font-medium">Despacho todavía no disponible</h3><p className="text-sm text-secondary">Completá el empaque y asigná un precinto a cada bulto antes de emitir el remito.</p></div>
+          <div><Button variant="primary" onClick={() => setActiveTab("empaque")}>Completar empaque y precintos</Button></div>
+        </div>
+      ) : <>
       <div className="grid-2 gap-3">
         {/* Remito único asociado */}
         <div className="card p-4 stack gap-3">
@@ -372,12 +388,12 @@ export function OrdenDetallePage() {
                   <div className="text-sm">{remito.fechaEmision ? new Date(remito.fechaEmision).toLocaleDateString("es-AR") : "-"}</div>
                 </div>
                 <Button
-                  variant="secondary"
+                  variant={remito.estado === "EMITIDO" ? "primary" : "secondary"}
                   size="sm"
-                  iconRight="arrow-right"
-                  onClick={() => navigate(`/logistica/remitos/${encodeURIComponent(remito.numero)}`)}
+                  loading={despachando}
+                  onClick={remito.estado === "EMITIDO" ? handleDespachar : () => setActiveTab("recepcion")}
                 >
-                  Ver remito
+                  {remito.estado === "EMITIDO" ? "Despachar remito" : "Gestionar recepción"}
                 </Button>
               </div>
             </div>
@@ -405,36 +421,21 @@ export function OrdenDetallePage() {
         </div>
       </div>
 
-      {/* Bultos armados para esta orden con enlaces */}
-      <div className="card p-4 stack gap-3">
-        <div className="row justify-between align-center wrap gap-2">
-          <div>
-            <h3 className="text-md font-medium">Bultos armados para esta orden ({bultos.length})</h3>
-            <span className="text-xs text-secondary">
-              Cada bulto debe contener precinto de seguridad antes de su remisión y despacho.
-            </span>
-          </div>
-          {isPendienteOrPreparando && (
-            <Button
-              variant="secondary"
-              size="sm"
-              iconLeft="package"
-              onClick={() => navigate(`/logistica/empaquetado?ordenId=${orden.id}`)}
-            >
-              Armar o precintar bultos
-            </Button>
-          )}
-        </div>
+      {!remito && <div className="card p-4 row justify-between align-center wrap gap-3"><span className="text-sm text-secondary">Los bultos están listos. Emití el remito formal desde Empaque y precintos.</span><Button variant="primary" onClick={() => setActiveTab("empaque")}>Emitir remito</Button></div>}
 
-        <SortableDataTable
-          columns={bultoColumns}
-          data={bultos}
-          rowKey="id"
-          emptyTitle="Sin bultos armados aún"
-          emptyDescription="Comience el proceso de empaquetado para armar los bultos con la mercadería de la orden."
-        />
-      </div>
+      </>}
+      </>}
 
+      {activeTab === "empaque" && <>
+      {isPendienteOrPreparando ? <EmpaquetadoPage ordenId={orden.id} embedded onChange={(result) => { refresh(); if (result?.remitoNumero) setActiveTab("despacho"); }} /> : <div className="card p-4 stack gap-3"><div><h3 className="text-md font-medium">Empaque cerrado para esta orden</h3><p className="text-sm text-secondary">La orden ya avanzó a despacho. Consultá los bultos y el documento en Remito y despacho.</p></div><div><Button variant="secondary" onClick={() => setActiveTab("despacho")}>Ver remito y despacho</Button></div></div>}
+
+      </>}
+
+      {activeTab === "recepcion" && (
+        remito?.estado === "DESPACHADO" || remito?.estado === "EN_TRANSITO" || remito?.estado === "RECIBIDO" || remito?.estado === "CERRADO" ? <RecepcionPage remitoNumero={remito.numero} embedded onChange={refresh} /> : <div className="card p-4 stack gap-3"><div><h3 className="text-md font-medium">Recepción todavía no disponible</h3><p className="text-sm text-secondary">Primero emití y despachá el remito; recién entonces se puede registrar el arribo y controlar los precintos.</p></div><div><Button variant="primary" onClick={() => setActiveTab("despacho")}>Ir a remito y despacho</Button></div></div>
+      )}
+
+      {activeTab === "historial" && <>
       {/* Línea temporal inmutable */}
       <div className="card p-4">
         <OrdenTimeline
@@ -446,6 +447,7 @@ export function OrdenDetallePage() {
           responsableNombre={responsableNombre}
         />
       </div>
+      </>}
     </div>
   );
 }

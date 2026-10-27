@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Modal } from "../../../shared/components/Motion";
+import { Drawer } from "../../../shared/components/Motion";
 import { Button } from "../../../shared/components/Button";
 import { FormField, TextInput, NumberInput } from "../../../shared/components/FormControls";
 import { Select } from "../../../shared/components/Select";
@@ -265,7 +265,7 @@ export function ActualizacionMasivaModal({
   };
 
   return (
-    <Modal
+    <Drawer
       open={open}
       onClose={onClose}
       title="Actualización masiva de productos"
@@ -442,7 +442,7 @@ export function ActualizacionMasivaModal({
           </table>
         </div>
       </div>
-    </Modal>
+    </Drawer>
   );
 }
 

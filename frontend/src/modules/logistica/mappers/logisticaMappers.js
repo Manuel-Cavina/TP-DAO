@@ -37,7 +37,7 @@ export function mapBultoToUI(dto) {
     id: dto.id,
     ordenId: dto.orden_id,
     remitoNumero: dto.remito_numero,
-    codigoPrecinto: dto.codigo_precinto,
+    codigoPrecinto: dto.codigo_precinto || dto.precinto?.codigo || null,
     estado: dto.estado,
     aprobado: Boolean(dto.aprobado || dto.aprobacion || dto.es_aprobado),
     aprobacion: dto.aprobacion || null,
@@ -53,17 +53,18 @@ export function mapBultoResumenToUI(dto) {
   if (!dto) return null;
   return {
     id: dto.id,
+    ordenId: dto.orden_id,
     codigo: dto.codigo || `BLT-${String(dto.id).padStart(4, "0")}`,
-    codigoPrecinto: dto.codigo_precinto || null,
+    codigoPrecinto: dto.codigo_precinto || dto.precinto?.codigo || null,
     estado: dto.estado,
     aprobado: Boolean(dto.aprobado || dto.aprobacion || dto.es_aprobado),
-    cantidadItems: Number(dto.cantidad_items) || 0,
+    cantidadItems: Number(dto.cantidad_items) || (dto.detalles || []).reduce((total, detalle) => total + (Number(detalle.cantidad) || 0), 0),
   };
 }
 
 export function mapRemitoToUI(dto) {
   if (!dto) return null;
-  const bultosResumen = (dto.bultos_resumen || []).map(mapBultoResumenToUI);
+  const bultosResumen = (dto.bultos_resumen || dto.bultos || []).map(mapBultoResumenToUI);
   const totalBultos = Number(dto.total_bultos) || bultosResumen.length;
   const bultosVerificados =
     Number(dto.bultos_verificados) ||

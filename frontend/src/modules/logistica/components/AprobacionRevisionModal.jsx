@@ -113,7 +113,7 @@ export function AprobacionRevisionModal({
                 return (
                   <div
                     key={b.id}
-                    className="row justify-between align-center p-3 rounded bg-surface-muted border-l-4 border-success text-sm"
+                    className="row justify-between align-center p-3 rounded bg-surface-muted border border-border-subtle text-sm"
                   >
                     <div className="stack gap-1">
                       <div className="row gap-2 align-center">

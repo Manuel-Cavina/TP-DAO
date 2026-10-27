@@ -28,7 +28,7 @@ export function ProductDrawerBody() {
           <div className="search-select-results">
             <button type="button" className="option">
               <span><strong>Almacén</strong><br /><span className="micro">CAT-001 · 128 productos</span></span>
-              <span>✓</span>
+              <span className="micro">Seleccionada</span>
             </button>
             <button type="button" className="option">
               <span><strong>Almacén saludable</strong><br /><span className="micro">CAT-014 · 34 productos</span></span>

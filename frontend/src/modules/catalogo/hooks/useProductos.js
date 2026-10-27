@@ -17,9 +17,9 @@ export function useProductos({ activos = true, categoriaId } = {}) {
     { successMessage: "Producto creado exitosamente", onSuccess: reload }
   );
 
-  const actualizarPrecioMutation = useMutation(
-    ({ codigo, precio }) => productosService.actualizarPrecio(codigo, precio),
-    { successMessage: "Precio actualizado correctamente", onSuccess: reload }
+  const actualizarMutation = useMutation(
+    ({ id, dto }) => productosService.actualizar(id, dto),
+    { successMessage: "Producto actualizado", onSuccess: reload }
   );
 
   const actualizarMasivoMutation = useMutation(
@@ -41,8 +41,8 @@ export function useProductos({ activos = true, categoriaId } = {}) {
     crear: crearMutation.mutate,
     crearPending: crearMutation.pending,
     crearFieldErrors: crearMutation.fieldErrors,
-    actualizarPrecio: actualizarPrecioMutation.mutate,
-    actualizarPrecioPending: actualizarPrecioMutation.pending,
+    actualizar: actualizarMutation.mutate,
+    actualizarPending: actualizarMutation.pending,
     actualizarMasivo: actualizarMasivoMutation.mutate,
     actualizarMasivoPending: actualizarMasivoMutation.pending,
     darDeBaja: bajaMutation.mutate,

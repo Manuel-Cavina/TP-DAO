@@ -74,7 +74,7 @@ export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading }) {
               </div>
               <p className="stocky-modal-subtitle">
                 Orden de Reposición: <strong>#{data?.orden_id || "N/A"}</strong> · Origen:{" "}
-                <strong>{data?.origen?.nombre || "CD Central"}</strong> ➔ Destino:{" "}
+                 <strong>{data?.origen?.nombre || "CD Central"}</strong> → Destino:{" "}
                 <strong>{data?.destino?.nombre || "Local Comercial"}</strong>
               </p>
             </div>
@@ -420,7 +420,7 @@ export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading }) {
                             <td>
                               <div className="row align-center gap-1 font-mono text-xs">
                                 <span>{h.estado_anterior}</span>
-                                <span>➔</span>
+                                 <span>→</span>
                                 <strong
                                   className={
                                     h.estado_nuevo === "RECHAZADO"

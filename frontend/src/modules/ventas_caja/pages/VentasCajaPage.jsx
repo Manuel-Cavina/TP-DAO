@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   SegmentedControl,
   SortableDataTable,
@@ -6,6 +7,7 @@ import {
   MetricCard,
   Badge,
   Alert,
+  Select,
 } from "../../../shared";
 import { useDisclosure } from "../../../shared/hooks";
 import { useSede } from "../../../app/providers/SedeProvider";
@@ -17,12 +19,32 @@ import { FacturaModal } from "../components/FacturaModal";
 import { DevolucionModal } from "../components/DevolucionModal";
 
 export function VentasCajaPage() {
-  const { sede, sedeId } = useSede();
-  const [activeTab, setActiveTab] = useState("pos");
+  const { sede, sedeId, sedes } = useSede();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState(
+    urlTab === "facturas" || urlTab === "devoluciones" ? urlTab : "pos"
+  );
+
+  useEffect(() => {
+    if (urlTab === "facturas" || urlTab === "devoluciones" || urlTab === "pos") {
+      setActiveTab(urlTab);
+    }
+  }, [urlTab]);
+
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    setSearchParams(newTab === "pos" ? {} : { tab: newTab });
+  };
   const [lastInvoice, setLastInvoice] = useState(null);
   const [facturaParaDevolver, setFacturaParaDevolver] = useState(null);
   const devModal = useDisclosure(false);
-  const isCD = sede?.scope === "CD" || sede?.tipo === "CD";
+  const [localId, setLocalId] = useState("");
+  const localOptions = useMemo(() => sedes.filter((item) => item.tipo === "LOCAL").map((item) => ({ value: item.value, label: item.label })), [sedes]);
+  useEffect(() => {
+    if (!localId && sede?.tipo === "LOCAL") setLocalId(sedeId);
+  }, [localId, sede, sedeId]);
+  const localSeleccionado = sedes.find((item) => String(item.value) === String(localId));
 
   const {
     ventas,
@@ -40,7 +62,7 @@ export function VentasCajaPage() {
     devError,
     obtenerComprobante,
     comprobantePending,
-  } = useVentasCaja({ localId: sedeId, enabled: !isCD });
+  } = useVentasCaja({ localId, enabled: Boolean(localSeleccionado) });
   const {
     productos,
     loading: productosLoading,
@@ -51,7 +73,7 @@ export function VentasCajaPage() {
     loading: stockLoading,
     error: stockError,
     reload: reloadStock,
-  } = useStockMatriz({ ubicacionId: !isCD ? sedeId : undefined });
+  } = useStockMatriz({ ubicacionId: localId });
 
   const productById = useMemo(
     () => new Map(productos.map((product) => [Number(product.id), product])),
@@ -175,11 +197,11 @@ export function VentasCajaPage() {
           <div className="erp-breadcrumb">
             <span>Ventas y caja</span>
             <span>·</span>
-            <span>{sede?.label || "Sucursal"}</span>
+            <span>{localSeleccionado?.label || "Seleccioná un local"}</span>
           </div>
           <h1 className="text-xl">Punto de venta</h1>
         </div>
-        {!isCD && (
+        {localSeleccionado && (
           <Button
             variant="secondary"
             iconLeft="refresh"
@@ -191,12 +213,12 @@ export function VentasCajaPage() {
         )}
       </div>
 
-      {isCD ? (
-        <Alert
-          tone="warning"
-          title="Ventas no disponibles en el Centro de Distribución"
-          description="Selecciona un local comercial para cobrar ventas, consultar su caja o registrar devoluciones."
-        />
+      {!localSeleccionado ? (
+        <div className="erp-section-card stack gap-3">
+          <div><h2 className="erp-card-title">Local comercial de esta operación</h2><p className="text-sm text-secondary">La sede de lectura no cambia una venta. Elegí el local al que se imputarán caja, comprobantes y stock.</p></div>
+          <Select ariaLabel="Local comercial para esta venta" options={localOptions} value={localId} onChange={setLocalId} placeholder="Seleccionar local" />
+          {!localOptions.length && <Alert tone="warning" title="No hay locales comerciales disponibles" description="No se puede operar ventas hasta que el backend informe un local activo." />}
+        </div>
       ) : (
         <>
           {error && (
@@ -242,10 +264,10 @@ export function VentasCajaPage() {
 
           <SegmentedControl
             value={activeTab}
-            onChange={setActiveTab}
+            onChange={handleTabChange}
             options={[
               { value: "pos", label: "Terminal POS" },
-              { value: "facturas", label: "Comprobantes", count: visibleVentas.length },
+              { value: "facturas", label: "Comprobantes y caja", count: visibleVentas.length },
               { value: "devoluciones", label: "Devoluciones", count: devoluciones.length },
             ]}
           />
@@ -254,7 +276,7 @@ export function VentasCajaPage() {
             <PosTerminal
               productos={productos}
               stocks={stocks}
-              localId={sedeId}
+              localId={localId}
               onCheckout={handleCheckout}
               pending={ventaPending}
               loading={productosLoading || stockLoading}
@@ -294,7 +316,7 @@ export function VentasCajaPage() {
       <DevolucionModal
         open={devModal.open}
         onClose={closeDevolucion}
-        localId={sedeId}
+        localId={localId}
         facturas={visibleVentas}
         devoluciones={devoluciones}
         facturaInicial={facturaParaDevolver}

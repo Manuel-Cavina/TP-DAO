@@ -1,10 +1,8 @@
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from config.database.request_session_context import Request_Session_Context
 from modules.ubicaciones_stock.domain import Ubicacion, crear_ubicacion
-from modules.ubicaciones_stock.domain.exceptions import Centro_Distribucion_Duplicado_Exception
 from modules.ubicaciones_stock.infrastructure.models import Ubicacion_Model
 
 
@@ -19,10 +17,7 @@ class Ubicacion_Repository:
         self._copiar(ubicacion, modelo)
         session = self._get_session()
         session.add(modelo)
-        try:
-            session.flush()
-        except IntegrityError as error:
-            raise Centro_Distribucion_Duplicado_Exception("El sistema admite un único Centro de Distribución.") from error
+        session.flush()
         ubicacion.id = modelo.id
         return ubicacion
 

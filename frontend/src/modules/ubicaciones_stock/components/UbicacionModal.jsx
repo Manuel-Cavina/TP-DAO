@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Modal } from "../../../shared/components/Motion";
+import { Drawer, Modal } from "../../../shared/components/Motion";
 import { Button } from "../../../shared/components/Button";
 import { FormField, TextInput } from "../../../shared/components/FormControls";
 import { SegmentedControl } from "../../../shared/components/SegmentedControl";
@@ -18,6 +18,7 @@ export function UbicacionModal({
 }) {
   const isEdit = mode === "edit";
   const isDeactivate = mode === "deactivate";
+  const Overlay = isDeactivate ? Modal : Drawer;
 
   const [tipo, setTipo] = useState("LOCAL");
   const [form, setForm] = useState({ nombre: "", direccion: "", telefono: "" });
@@ -128,7 +129,7 @@ export function UbicacionModal({
   };
 
   return (
-    <Modal
+    <Overlay
       open={open}
       onClose={onClose}
       title={getTitle()}
@@ -141,7 +142,7 @@ export function UbicacionModal({
             <Alert
               tone="danger"
               title="Operación restringida por diseño del sistema"
-              description="El Centro de Distribución Central no puede ser dado de baja: constituye el único nodo de despacho mayorista y recepción de proveedores de toda la red."
+              description="La baja de un centro de distribución se administra fuera de este flujo para no afectar ingresos y despachos en curso."
             />
           ) : (
             <>
@@ -172,6 +173,7 @@ export function UbicacionModal({
           {!isEdit && (
             <FormField label="Tipo de sede">
               <SegmentedControl
+                className="erp-segmented--full"
                 value={tipo}
                 onChange={setTipo}
                 options={[
@@ -225,7 +227,7 @@ export function UbicacionModal({
           />
         </form>
       )}
-    </Modal>
+    </Overlay>
   );
 }
 

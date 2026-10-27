@@ -7,7 +7,7 @@ import { Skeleton } from "../../../shared/components/Feedback";
 import "../reportes.css";
 import "../reportes-details.css";
 
-const money = (val) => `$${Number(val || 0).toLocaleString("es-AR")}`;
+const money = (val) => val == null ? "No disponible" : `$${Number(val).toLocaleString("es-AR")}`;
 
 export function ReporteImprimiblePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -247,7 +247,7 @@ export function ReporteImprimiblePage() {
                 </div>
                 <div className="stocky-formal-kpi-card">
                   <div className="stocky-formal-kpi-label">Tasa de rechazo</div>
-                  <div className="stocky-formal-kpi-value">{r2Resumen?.tasa_rechazo_porcentaje || 0}%</div>
+                  <div className="stocky-formal-kpi-value">{r2Resumen?.tasa_rechazo_porcentaje == null ? "No disponible" : `${r2Resumen.tasa_rechazo_porcentaje}%`}</div>
                 </div>
               </div>
 
@@ -255,7 +255,7 @@ export function ReporteImprimiblePage() {
                 <div className="stocky-formal-dictamen-title">Dictamen pericial forense</div>
                 <div className="stocky-formal-dictamen-body">
                   {(r2Resumen?.total_bultos_rechazados || 0) > 0
-                    ? `Se certifica la aplicación estricta de la Regla V1 sobre ${r2Resumen?.total_bultos_rechazados} bulto(s) recibido(s) con anomalías o precintos violados. La mercadería damnificada fue excluida del stock comercializable y registrada como merma definitiva. Sucursal con mayor incidencia: ${r2Resumen?.local_mas_afectado || "Sin definir"}. Se recomienda auditar la cadena de custodia de la empresa de transporte.`
+                    ? `Se registraron ${r2Resumen?.total_bultos_rechazados} bulto(s) con merma. Este informe conserva únicamente los valores y relaciones que entrega el endpoint; no infiere ranking de sucursales, tasa de rechazo ni valor de venta.`
                     : "No se registraron incidentes de rotura de precinto ni mermas en los despachos analizados durante el intervalo temporal auditado. La cadena de custodia se mantuvo intacta."}
                 </div>
               </div>

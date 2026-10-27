@@ -1,6 +1,6 @@
 """Modelos ORM de ubicaciones, stock y alertas: fuente de verdad de esas tablas."""
 
-from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, text
+from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, text
 
 from config.database.base import Base
 
@@ -11,8 +11,6 @@ class Ubicacion_Model(Base):
     __tablename__ = "ubicaciones"
     __table_args__ = (
         CheckConstraint("tipo IN ('CD', 'LOCAL')", name="ck_ubicacion_tipo"),
-        # Un único Centro de Distribución, garantizado por la base aunque lleguen dos altas a la vez.
-        Index("uq_ubicacion_unico_cd", "tipo", unique=True, sqlite_where=text("tipo = 'CD'")),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)

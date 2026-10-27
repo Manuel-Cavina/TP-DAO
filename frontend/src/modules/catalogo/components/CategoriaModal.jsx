@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Modal } from "../../../shared/components/Motion";
+import { Drawer, Modal } from "../../../shared/components/Motion";
 import { Button } from "../../../shared/components/Button";
 import { TextInput } from "../../../shared/components/FormControls";
 import { Alert } from "../../../shared/components/Feedback";
@@ -16,6 +16,7 @@ export function CategoriaModal({
 }) {
   const isEdit = mode === "edit";
   const isDeactivate = mode === "deactivate";
+  const Overlay = isDeactivate ? Modal : Drawer;
 
   const [nombre, setNombre] = useState("");
 
@@ -104,7 +105,7 @@ export function CategoriaModal({
   };
 
   return (
-    <Modal
+    <Overlay
       open={open}
       onClose={onClose}
       title={getTitle()}
@@ -145,7 +146,7 @@ export function CategoriaModal({
           />
         </form>
       )}
-    </Modal>
+    </Overlay>
   );
 }
 

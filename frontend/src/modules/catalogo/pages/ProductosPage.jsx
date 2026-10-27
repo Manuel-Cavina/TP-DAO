@@ -14,7 +14,6 @@ import { useProductos } from "../hooks/useProductos";
 import { useCategorias } from "../hooks/useCategorias";
 import { useProveedores } from "../hooks/useProveedores";
 import { ProductoDrawer } from "../components/ProductoDrawer";
-import { PrecioModal } from "../components/PrecioModal";
 import { ActualizacionMasivaModal } from "../components/ActualizacionMasivaModal";
 
 export function ProductosPage() {
@@ -31,8 +30,8 @@ export function ProductosPage() {
     crear: crearProd,
     crearPending: pendingProd,
     crearFieldErrors: errorsProd,
-    actualizarPrecio,
-    actualizarPrecioPending,
+    actualizar,
+    actualizarPending,
     actualizarMasivo,
     actualizarMasivoPending,
     darDeBaja: darDeBajaProd,
@@ -52,7 +51,7 @@ export function ProductosPage() {
 
   const prodDrawer = useDisclosure(false);
   const bulkModal = useDisclosure(false);
-  const [selectedProdPrecio, setSelectedProdPrecio] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   const filteredProductos = useMemo(() => {
     let result = productos;
@@ -152,13 +151,13 @@ export function ProductosPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setSelectedProdPrecio(row)}
+            onClick={() => { setSelectedProduct(row); prodDrawer.onOpen(); }}
           >
-            Modificar precio
+            Editar
           </Button>
           {row.activo && (
             <ConfirmMorph
-              triggerLabel="Baja"
+              triggerLabel="Desactivar"
               confirmTitle="¿Dar de baja producto?"
               onConfirm={() => darDeBajaProd(row.id || row.codigo)}
             />
@@ -263,26 +262,13 @@ export function ProductosPage() {
 
       <ProductoDrawer
         open={prodDrawer.isOpen}
-        onClose={prodDrawer.onClose}
-        onSubmit={crearProd}
-        pending={pendingProd}
+        onClose={() => { setSelectedProduct(null); prodDrawer.onClose(); }}
+        onSubmit={(dto) => selectedProduct ? actualizar({ id: selectedProduct.id, dto }) : crearProd(dto)}
+        pending={selectedProduct ? actualizarPending : pendingProd}
         fieldErrors={errorsProd}
         categorias={categorias}
         proveedores={proveedores}
-      />
-
-      <PrecioModal
-        open={Boolean(selectedProdPrecio)}
-        onClose={() => setSelectedProdPrecio(null)}
-        producto={selectedProdPrecio}
-        onSubmit={({ codigo, precio }) =>
-          actualizarPrecio({
-            id: selectedProdPrecio?.id || codigo,
-            codigo,
-            precio,
-          })
-        }
-        pending={actualizarPrecioPending}
+        producto={selectedProduct}
       />
 
       <ActualizacionMasivaModal

@@ -102,7 +102,6 @@ export function ConfirmMorph({
   return (
     <Button
       variant="danger"
-      iconLeft="shield-off"
       onClick={() => setPhase("confirming")}
     >
       {triggerLabel}

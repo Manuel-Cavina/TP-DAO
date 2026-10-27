@@ -172,7 +172,7 @@ export function OrdenKanban({
                     <Button
                       size="sm"
                       variant="secondary"
-                      onClick={() => navigate(`/logistica/empaquetado?ordenId=${c.ordenId}`)}
+                      onClick={() => navigate(`/logistica/ordenes/${c.ordenId}?tab=empaque`)}
                     >
                       Empaquetado
                     </Button>
@@ -259,7 +259,7 @@ export function OrdenKanban({
                         variant="secondary"
                         onClick={() => {
                           if (c.stage <= 2) {
-                            navigate(`/logistica/empaquetado?ordenId=${c.ordenId}`);
+                            navigate(`/logistica/ordenes/${c.ordenId}?tab=empaque`);
                           } else {
                             navigate(`/logistica/ordenes/${c.ordenId}`);
                           }

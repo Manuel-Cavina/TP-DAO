@@ -52,7 +52,15 @@ class TestSeedDemo(unittest.TestCase):
 
         self.assertGreater(len(client.get("/api/reportes/existencias").json()["filas"]), 0)
         self.assertEqual(client.get("/api/reportes/mermas", params=periodo).json()["totales"]["bultos_rechazados"], 1)
-        self.assertEqual(client.get("/api/reportes/tiempos-transito", params=periodo).json()["totales"]["bultos_recibidos"], 9)
+        self.assertEqual(client.get("/api/reportes/tiempos-transito", params=periodo).json()["totales"]["bultos_recibidos"], 13)
+
+        ordenes = client.get("/api/logistica/ordenes").json()
+        self.assertTrue({"PENDIENTE", "EN_PREPARACION", "DESPACHADA", "CERRADA"} <= {orden["estado"] for orden in ordenes})
+        remitos = client.get("/api/logistica/remitos").json()
+        self.assertTrue({"EMITIDO", "DESPACHADO", "RECIBIDO", "CERRADO"} <= {remito["estado"] for remito in remitos})
+        eventos = client.get("/api/logistica/trazabilidad/recientes", params={"limite": 6})
+        self.assertEqual(eventos.status_code, 200, eventos.text)
+        self.assertGreater(len(eventos.json()), 0)
 
         # Las ventas dispararon el Observer: alerta y necesidad de reposición del local
         self.assertEqual(len(client.get("/api/stock/alertas").json()), 1)

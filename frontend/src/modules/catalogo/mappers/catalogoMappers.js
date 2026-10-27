@@ -23,15 +23,16 @@ export function mapProductoToUI(dto) {
 }
 
 export function mapProductoFormToDTO(form) {
-  return {
-    codigo: String(form.codigo || "").trim().toUpperCase(),
+  const dto = {
     nombre: String(form.nombre || "").trim(),
     precio_venta: Number(form.precioVenta) || 0,
     costo_unitario: Number(form.costoUnitario) || 0,
     categoria_id: Number(form.categoriaId),
     proveedor_id: Number(form.proveedorId),
-    nivel_minimo: Number(form.nivelMinimo) || 1,
+    nivel_minimo_existencia: Number(form.nivelMinimo) || 1,
   };
+  if (form.codigo) dto.codigo = String(form.codigo).trim().toUpperCase();
+  return dto;
 }
 
 export function mapProveedorToUI(dto) {

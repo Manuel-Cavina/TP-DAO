@@ -1,9 +1,6 @@
 from modules.catalogo.application import Catalogo_Consulta_Service
 from modules.ubicaciones_stock.domain import NIVEL_MINIMO_INICIAL, Centro_Distribucion, Local, Stock, Ubicacion
-from modules.ubicaciones_stock.domain.exceptions import (
-    Centro_Distribucion_Duplicado_Exception,
-    Entidad_No_Encontrada_Exception,
-)
+from modules.ubicaciones_stock.domain.exceptions import Entidad_No_Encontrada_Exception
 from modules.ubicaciones_stock.infrastructure.stock_repository import Stock_Repository
 from modules.ubicaciones_stock.infrastructure.ubicacion_repository import Ubicacion_Repository
 
@@ -28,8 +25,6 @@ class Ubicacion_Service:
         return self._crear(Local(nombre, direccion, telefono))
 
     def crear_centro_distribucion(self, nombre: str, direccion: str, telefono: str | None = None) -> Ubicacion:
-        if self._repository.listar(tipo="CD"):
-            raise Centro_Distribucion_Duplicado_Exception("El sistema admite un único Centro de Distribución.")
         return self._crear(Centro_Distribucion(nombre, direccion, telefono))
 
     def actualizar(self, ubicacion_id: int, nombre: str, direccion: str, telefono: str | None = None) -> Ubicacion:

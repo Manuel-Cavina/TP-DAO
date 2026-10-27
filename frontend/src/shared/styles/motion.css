@@ -341,6 +341,6 @@
   background: var(--surface-raised);
   box-shadow: var(--shadow-floating);
   font-size: var(--text-sm);
-  animation: arc-toast-enter-kf 240ms var(--ease-spring) both;
+  animation: arc-toast-enter-kf 240ms var(--ease-enter) both;
 }
 

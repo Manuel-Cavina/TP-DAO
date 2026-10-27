@@ -12,7 +12,7 @@ from modules.seguridad.domain.exceptions.seguridad_exceptions import (
     Permiso_Insuficiente_Exception,
     Sesion_Invalida_Exception,
 )
-from modules.seguridad.domain.usuario import ROL_ADMIN, Sesion, Usuario
+from modules.seguridad.domain.usuario import ROL_ADMIN, ROL_OPERADOR, Sesion, Usuario
 from modules.seguridad.infrastructure.seguridad_repository import Seguridad_Repository
 
 COOKIE_NAME = "stocky_session"
@@ -109,3 +109,20 @@ def validar_csrf(
             raise Sesion_Invalida_Exception("No se proporcionó token de sesión para validar CSRF.")
 
         auth_service.validar_sesion(token, csrf_token=csrf_token)
+
+
+def validar_alcance_operador(usuario: Usuario, ubicacion_id: int | None) -> None:
+    """Valida que el usuario tenga alcance operativo sobre la ubicación solicitada (T055)."""
+    if usuario.rol == ROL_ADMIN:
+        return
+
+    if usuario.rol == ROL_OPERADOR:
+        if ubicacion_id is None:
+            raise Permiso_Insuficiente_Exception(
+                "No se especificó una ubicación válida para el alcance del operador."
+            )
+        if usuario.asignacion is not None and usuario.asignacion.puede_operar(ubicacion_id):
+            return
+        raise Permiso_Insuficiente_Exception(
+            f"Acceso denegado: la ubicación {ubicacion_id} está fuera del alcance asignado al operador."
+        )

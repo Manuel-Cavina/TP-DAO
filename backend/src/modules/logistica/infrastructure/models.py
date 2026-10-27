@@ -71,6 +71,15 @@ class Remito_Model(Base):
     bultos = relationship("Bulto_Model", back_populates="remito", lazy="select")
 
 
+class Numerador_Logistica_Model(Base):
+    """Secuencias persistentes de documentos operativos generados por el sistema."""
+
+    __tablename__ = "numeradores_logistica"
+
+    clave = Column(String(20), primary_key=True)
+    ultimo_numero = Column(Integer, nullable=False, default=0)
+
+
 class Bulto_Model(Base):
     """Modelo ORM para la tabla bultos."""
 
@@ -179,3 +188,20 @@ class Evento_Trazabilidad_Model(Base):
     registros_asociados = Column(String(500), nullable=True)
     motivo_o_evidencia = Column(String(500), nullable=True)
     fecha_hora = Column(DateTime, nullable=False, default=datetime.now)
+
+
+class Control_Precinto_Model(Base):
+    """Modelo ORM para la tabla controles_precintos (evidencia de control físico - US5 / T056)."""
+
+    __tablename__ = "controles_precintos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    bulto_id = Column(Integer, ForeignKey("bultos.id"), nullable=False, index=True)
+    codigo_esperado = Column(String(50), nullable=False)
+    codigo_leido = Column(String(50), nullable=False)
+    resultado = Column(String(20), nullable=False)  # "VERIFICADO" | "RECHAZADO"
+    motivo_rechazo = Column(String(255), nullable=False, default="")
+    actor = Column(String(100), nullable=False, default="Operador")
+    ubicacion_id = Column(Integer, nullable=True)
+    fecha_hora = Column(DateTime, nullable=False, default=datetime.now)
+    version_bulto = Column(Integer, nullable=False, default=1)

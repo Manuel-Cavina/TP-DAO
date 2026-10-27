@@ -11,6 +11,7 @@ from config.api.router_registry import registrar_routers
 from config.database.base import Base
 from config.database.database_engine_singleton import Database_Engine_Singleton
 from config.database.model_registry import cargar_modelos
+from config.database.schema_migrations import aplicar_migraciones_sqlite
 from modules.logistica.application import Registro_Necesidad_Desde_Stock
 from modules.ubicaciones_stock.application import Registro_Observadores_Stock, Reposicion_Local_Observer
 
@@ -24,6 +25,7 @@ class Application_Factory:
         engine = Database_Engine_Singleton.obtener_instancia(database_url)
         cargar_modelos()
         Base.metadata.create_all(engine)
+        aplicar_migraciones_sqlite(engine)
         Application_Factory._suscribir_observadores_de_stock()
 
         app = FastAPI(

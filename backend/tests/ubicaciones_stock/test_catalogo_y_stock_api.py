@@ -75,7 +75,6 @@ class TestCatalogoYStockAPI(unittest.TestCase):
             ("POST", "/api/catalogo/productos", {**self.producto_body, "codigo": "OTRO", "precio_venta": "0"}, 400),
             ("POST", "/api/catalogo/productos", {**self.producto_body, "codigo": "OTRO", "categoria_id": 999}, 404),
             ("GET", "/api/catalogo/productos/999", None, 404),
-            ("POST", "/api/ubicaciones/centros-distribucion", {"nombre": "CD2", "direccion": "X"}, 409),
             ("DELETE", f"/api/ubicaciones/{self.cd['id']}", None, 400),
             ("GET", "/api/ubicaciones/999", None, 404),
             ("POST", "/api/stock/ingresos", {"producto_id": p, "cd_id": self.local["id"], "cantidad": 5}, 400),
@@ -136,14 +135,11 @@ class TestCatalogoYStockAPI(unittest.TestCase):
         )
         self.assertEqual(venta.status_code, 404)
 
-    def test_la_base_impide_un_segundo_cd_y_cuit_no_numerico(self) -> None:
+    def test_la_base_admite_varios_cd_y_cuit_no_numerico(self) -> None:
         with sqlite3.connect(self.db_path) as conexion:
-            for sql in (
-                "INSERT INTO ubicaciones (tipo, nombre, direccion) VALUES ('CD', 'Otro', 'X')",
-                "INSERT INTO proveedores (cuit, razon_social, telefono, email) VALUES ('2012345678X', 'X', '1', 'x@x.com')",
-            ):
-                with self.subTest(sql=sql), self.assertRaises(sqlite3.IntegrityError):
-                    conexion.execute(sql)
+            conexion.execute("INSERT INTO ubicaciones (tipo, nombre, direccion) VALUES ('CD', 'Otro', 'X')")
+            with self.assertRaises(sqlite3.IntegrityError):
+                conexion.execute("INSERT INTO proveedores (cuit, razon_social, telefono, email) VALUES ('2012345678X', 'X', '1', 'x@x.com')")
 
     def test_busqueda_por_q_en_endpoints_api(self) -> None:
         cat_res = self.client.get("/api/catalogo/categorias", params={"q": "Beb"}).json()

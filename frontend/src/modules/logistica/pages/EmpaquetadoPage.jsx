@@ -4,6 +4,7 @@ import { Button } from "../../../shared/components/Button";
 import { StatusBadge } from "../../../shared/components/Badge";
 import { FormField } from "../../../shared/components/FormControls";
 import { Select } from "../../../shared/components/Select";
+import { SegmentedControl } from "../../../shared/components/SegmentedControl";
 import { SortableDataTable } from "../../../shared/components/SortableDataTable";
 import { useDisclosure } from "../../../shared/hooks";
 import { useUbicaciones } from "../../ubicaciones_stock/hooks/useUbicaciones";
@@ -20,14 +21,17 @@ import { EmpaquetadoForm } from "../components/EmpaquetadoForm";
  * Armado, precintado individual/lote, aprobacion de bultos elegibles y emision de remito unico.
  * Cumple FR-041 (aprobacion de bultos) y FR-043 (una unica accion primaria a la vez).
  */
-export function EmpaquetadoPage() {
+export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { ordenes, reload: reloadOrd } = useOrdenes();
   const { ubicaciones } = useUbicaciones();
 
   const queryOrdenId = searchParams.get("ordenId");
-  const [selectedOrdenId, setSelectedOrdenId] = useState(queryOrdenId || "");
+  const effectiveOrdenId = ordenId ? String(ordenId) : queryOrdenId;
+  const returnTo = searchParams.get("returnTo");
+  const [selectedOrdenId, setSelectedOrdenId] = useState(effectiveOrdenId || "");
+  const [listScope, setListScope] = useState("activas");
   const [bultos, setBultos] = useState([]);
   const [loadingBultos, setLoadingBultos] = useState(false);
 
@@ -56,14 +60,14 @@ export function EmpaquetadoPage() {
   }, [ordenes]);
 
   useEffect(() => {
-    if (queryOrdenId) {
-      setSelectedOrdenId(queryOrdenId);
+    if (effectiveOrdenId) {
+      setSelectedOrdenId(effectiveOrdenId);
     } else if (!selectedOrdenId && ordenesDisponibles.length > 0) {
       const firstId = String(ordenesDisponibles[0].id);
       setSelectedOrdenId(firstId);
       setSearchParams({ ordenId: firstId });
     }
-  }, [queryOrdenId, ordenesDisponibles]);
+  }, [effectiveOrdenId, ordenesDisponibles, selectedOrdenId, setSearchParams]);
 
   const activeOrden = useMemo(() => {
     return ordenes.find((o) => String(o.id) === String(selectedOrdenId)) || null;
@@ -82,8 +86,9 @@ export function EmpaquetadoPage() {
         if (b.aprobado) setAprob.add(b.id);
       });
       if (setAprob.size > 0) setAprobadosSet((prev) => new Set([...prev, ...setAprob]));
-    } catch {
-      setBultos([]);
+      setErrorOperacion("");
+    } catch (error) {
+      setErrorOperacion(error?.message || "No se pudieron consultar los bultos de la orden.");
     } finally {
       setLoadingBultos(false);
     }
@@ -145,6 +150,7 @@ export function EmpaquetadoPage() {
       setCantidadBulto("");
       await loadBultos();
       await reloadOrd();
+      onChange?.();
     } catch (err) {
       setErrorBulto(err.message || "Error al crear el bulto.");
     } finally {
@@ -156,9 +162,10 @@ export function EmpaquetadoPage() {
   const handlePrecintarIndividual = async (bultoId, codigo) => {
     setErrorOperacion("");
     try {
-      try { await logisticaService.registrarPrecinto(codigo); } catch {}
+      try { await logisticaService.registrarPrecinto(codigo); } catch (error) { if (error?.status !== 409) throw error; }
       await logisticaService.precintarBulto(bultoId, codigo);
       await loadBultos();
+      onChange?.();
     } catch (err) {
       setErrorOperacion(err.message || "Error al precintar el bulto.");
       throw err;
@@ -169,10 +176,11 @@ export function EmpaquetadoPage() {
     setErrorOperacion("");
     try {
       for (const asig of asignaciones) {
-        try { await logisticaService.registrarPrecinto(asig.codigoPrecinto); } catch {}
+        try { await logisticaService.registrarPrecinto(asig.codigoPrecinto); } catch (error) { if (error?.status !== 409) throw error; }
         await logisticaService.precintarBulto(asig.bultoId, asig.codigoPrecinto);
       }
       await loadBultos();
+      onChange?.();
     } catch (err) {
       setErrorOperacion(err.message || "Error al precintar el lote.");
       throw err;
@@ -186,6 +194,7 @@ export function EmpaquetadoPage() {
     try {
       await logisticaService.aprobarBulto(bultoId);
       setAprobadosSet((prev) => new Set([...prev, bultoId]));
+      onChange?.();
     } catch (err) {
       setErrorAprobacion(err.message || "Error al registrar aprobacion de bulto.");
     } finally {
@@ -200,6 +209,7 @@ export function EmpaquetadoPage() {
       await logisticaService.aprobarBultosLote(selectedOrdenId, bultoIds);
       setAprobadosSet((prev) => new Set([...prev, ...bultoIds]));
       aprobacionModal.onClose();
+      onChange?.();
     } catch (err) {
       setErrorAprobacion(err.message || "Error al aprobar bultos en lote.");
     } finally {
@@ -215,7 +225,8 @@ export function EmpaquetadoPage() {
       remitoModal.onClose();
       await reloadOrd();
       const num = res?.numero || numero;
-      navigate(`/logistica/remitos/${encodeURIComponent(num)}`);
+      if (embedded) onChange?.({ remitoNumero: num });
+      else navigate(`/logistica/remitos/${encodeURIComponent(num)}`);
       return { ok: true };
     } catch (err) {
       setErrorOperacion(err.message || "Error al generar el remito.");
@@ -276,9 +287,33 @@ export function EmpaquetadoPage() {
     },
   ];
 
+  const ordenesBandeja = ordenes.filter((orden) => listScope === "historial" ? orden.estado === "CERRADA" : orden.estado === "PENDIENTE" || orden.estado === "EN_PREPARACION");
+
+  if (!embedded) {
+    return (
+      <div className="stack gap-5">
+        <div className="erp-flow-header"><div><div className="erp-breadcrumb"><span>Operaciones</span><span>·</span><span>Empaquetado</span></div><h1 className="text-xl">Bandeja de empaque y precintos</h1></div></div>
+        <SegmentedControl value={listScope} onChange={setListScope} options={[{ value: "activas", label: "Activas", count: ordenes.filter((o) => o.estado === "PENDIENTE" || o.estado === "EN_PREPARACION").length }, { value: "historial", label: "Historial", count: ordenes.filter((o) => o.estado === "CERRADA").length }]} />
+        <SortableDataTable
+          columns={[
+            { key: "id", header: "Orden", mono: true, render: (value) => `OR-${String(value).padStart(4, "0")}` },
+            { key: "origenId", header: "Origen", render: (value) => ubicMap.get(value) || `CD #${value}` },
+            { key: "destinoId", header: "Destino", render: (value) => ubicMap.get(value) || `Local #${value}` },
+            { key: "estado", header: "Estado", render: (value) => <StatusBadge status={value} /> },
+            { key: "accion", header: "Acción", align: "right", sortable: false, render: (_, row) => <Button variant="primary" size="sm" onClick={() => navigate(`/logistica/ordenes/${row.id}?tab=empaque`)}>{row.estado === "CERRADA" ? "Ver orden" : "Gestionar empaque"}</Button> },
+          ]}
+          data={ordenesBandeja}
+          rowKey="id"
+          emptyTitle={listScope === "historial" ? "Sin órdenes empaquetadas cerradas" : "No hay órdenes para empaquetar"}
+          emptyDescription="Cada acción abre la orden correspondiente y se ejecuta desde su pestaña de Empaque y precintos."
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="stack gap-5">
-      <div className="erp-flow-header">
+      {!embedded && <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">
             <span className="cursor-pointer text-secondary" onClick={() => navigate("/logistica/ordenes")}>
@@ -302,10 +337,18 @@ export function EmpaquetadoPage() {
             </Button>
           ) : null}
         </div>
-      </div>
+      </div>}
+
+      {!embedded && activeOrden && (
+        <div className="row justify-end">
+          <Button variant="ghost" size="sm" iconLeft="arrow-left" onClick={() => navigate(returnTo || `/logistica/ordenes/${activeOrden.id}?tab=empaque`)}>
+            Volver a la orden #{activeOrden.id}
+          </Button>
+        </div>
+      )}
 
       {/* Selector de orden activa */}
-      <div className="card p-4 row justify-between align-center wrap gap-3">
+      {!embedded && <div className="card p-4 row justify-between align-center wrap gap-3">
         <div className="flex-1 min-w-64">
           <FormField label="Seleccionar orden de reposición a empaquetar">
             <Select
@@ -339,7 +382,7 @@ export function EmpaquetadoPage() {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
       {errorOperacion && <div className="p-3 rounded bg-danger-subtle text-danger text-sm">{errorOperacion}</div>}
       {errorAprobacion && <div className="p-3 rounded bg-danger-subtle text-danger text-sm">{errorAprobacion}</div>}

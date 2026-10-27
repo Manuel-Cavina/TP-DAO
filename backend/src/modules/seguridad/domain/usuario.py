@@ -72,6 +72,8 @@ class Asignacion_Operador:
 
     def puede_operar(self, ubicacion_id: int) -> bool:
         """Verifica si la ubicación pertenece al alcance del operador."""
+        if not self._activo:
+            return False
         return self.puede_operar_en_origen(ubicacion_id) or self.puede_operar_en_destino(ubicacion_id)
 
 

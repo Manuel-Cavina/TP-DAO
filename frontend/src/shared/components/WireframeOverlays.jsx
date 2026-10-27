@@ -255,7 +255,7 @@ function WireframeToastStack({ toasts, removeToast }) {
     <div className="toast-stack" id="toastStack" aria-live="polite">
       {toasts.map((item) => (
         <div key={item.id} className="toast">
-          <span>✓</span>
+          <span className="micro">Listo</span>
           <span>{item.message}</span>
           <button
             type="button"

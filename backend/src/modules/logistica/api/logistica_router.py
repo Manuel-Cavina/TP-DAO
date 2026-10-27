@@ -13,11 +13,17 @@ from modules.logistica.dto import (
     Aprobar_Bulto_Request_DTO,
     Aprobar_Elegibles_Response_DTO,
     Bulto_DTO,
+    Busqueda_Logistica_Response_DTO,
     Cierre_Remito_Response_DTO,
     Consolidar_Orden_Request_DTO,
+    Control_Bultos_Batch_Request_DTO,
+    Control_Bultos_Batch_Response_DTO,
     Crear_Bulto_Request_DTO,
     Crear_Orden_Manual_Request_DTO,
+    Evento_Trazabilidad_DTO,
     Generar_Remito_Request_DTO,
+    Item_Control_Bulto_Request_DTO,
+    Item_Control_Bulto_Response_DTO,
     Item_Precintar_Bulto_DTO,
     Necesidad_Reposicion_DTO,
     Orden_Reposicion_DTO,
@@ -27,19 +33,24 @@ from modules.logistica.dto import (
     Registrar_Necesidad_Request_DTO,
     Registrar_Precinto_Request_DTO,
     Remito_DTO,
+    Resumen_Remito_Trazabilidad_Response_DTO,
     Trazabilidad_Bulto_Response_DTO,
     Trazabilidad_Orden_Response_DTO,
     Verificar_Bulto_Request_DTO,
 )
 from modules.logistica.infrastructure import Stock_Logistica_Adapter
-from modules.seguridad.api import requerir_rol
-from modules.seguridad.domain import ROL_OPERADOR
 from modules.logistica.mappers import (
     Bulto_Mapper,
     Orden_Reposicion_Mapper,
     Precinto_Mapper,
     Remito_Mapper,
 )
+from modules.seguridad.api.dependencies import (
+    obtener_usuario_actual,
+    requerir_rol,
+    validar_alcance_operador,
+)
+from modules.seguridad.domain.usuario import ROL_ADMIN, ROL_OPERADOR, Usuario
 
 router = APIRouter(
     prefix="/api/logistica",
@@ -179,9 +190,25 @@ def crear_orden_manual(
 )
 def listar_ordenes(
     estado: str | None = Query(None, description="Filtrar por estado"),
+    destino_id: int | None = Query(None, gt=0, le=2**63 - 1, description="Filtrar por local destino"),
+    usuario: Usuario = Depends(obtener_usuario_actual),
     service: Reposicion_Service = Depends(get_reposicion_service),
 ) -> list[Orden_Reposicion_DTO]:
+    if destino_id is not None:
+        validar_alcance_operador(usuario, destino_id)
     ordenes = service.listar_ordenes(estado)
+    if destino_id is not None:
+        ordenes = [o for o in ordenes if o.destino_id == destino_id]
+    elif usuario.rol == ROL_OPERADOR:
+        if usuario.asignacion is not None:
+            ordenes = [
+                o
+                for o in ordenes
+                if usuario.asignacion.puede_operar(o.destino_id)
+                or usuario.asignacion.puede_operar(o.origen_id)
+            ]
+        else:
+            ordenes = []
     return [Orden_Reposicion_Mapper.a_dto(o) for o in ordenes]
 
 
@@ -371,9 +398,25 @@ def generar_remito(
     summary="Listar todos los remitos",
 )
 def listar_remitos(
+    destino_id: int | None = Query(None, gt=0, le=2**63 - 1, description="Filtrar por local destino"),
+    usuario: Usuario = Depends(obtener_usuario_actual),
     service: Despacho_Service = Depends(get_despacho_service),
 ) -> list[Remito_DTO]:
+    if destino_id is not None:
+        validar_alcance_operador(usuario, destino_id)
     remitos = service.listar_remitos()
+    if destino_id is not None:
+        remitos = [r for r in remitos if r.destino_id == destino_id]
+    elif usuario.rol == ROL_OPERADOR:
+        if usuario.asignacion is not None:
+            remitos = [
+                r
+                for r in remitos
+                if usuario.asignacion.puede_operar(r.destino_id)
+                or usuario.asignacion.puede_operar(r.origen_id)
+            ]
+        else:
+            remitos = []
     return [Remito_Mapper.a_dto(r) for r in remitos]
 
 
@@ -384,9 +427,19 @@ def listar_remitos(
 )
 def obtener_remito(
     numero: str,
+    usuario: Usuario = Depends(obtener_usuario_actual),
     service: Despacho_Service = Depends(get_despacho_service),
 ) -> Remito_DTO:
     remito = service.obtener_remito(numero)
+    if usuario.rol == ROL_OPERADOR:
+        if not (
+            usuario.asignacion is not None
+            and (
+                usuario.asignacion.puede_operar(remito.destino_id)
+                or usuario.asignacion.puede_operar(remito.origen_id)
+            )
+        ):
+            validar_alcance_operador(usuario, remito.destino_id)
     return Remito_Mapper.a_dto(remito)
 
 
@@ -415,8 +468,11 @@ def despachar_remito(
 )
 def recibir_remito(
     numero: str,
+    usuario: Usuario = Depends(obtener_usuario_actual),
     service: Recepcion_Service = Depends(get_recepcion_service),
 ) -> Remito_DTO:
+    remito_prev = service.obtener_remito(numero)
+    validar_alcance_operador(usuario, remito_prev.destino_id)
     remito = service.recibir_remito(numero)
     return Remito_Mapper.a_dto(remito)
 
@@ -429,14 +485,48 @@ def recibir_remito(
 def verificar_bulto(
     bulto_id: Id_Path,
     req: Verificar_Bulto_Request_DTO,
+    usuario: Usuario = Depends(obtener_usuario_actual),
     service: Recepcion_Service = Depends(get_recepcion_service),
 ) -> Bulto_DTO:
+    destino_id = service.obtener_destino_bulto(bulto_id)
+    if destino_id is not None:
+        validar_alcance_operador(usuario, destino_id)
+
     bulto = service.verificar_bulto(
         bulto_id=bulto_id,
         codigo_precinto_recibido=req.codigo_precinto_recibido,
         esta_intacto=req.esta_intacto,
+        codigo_esperado=req.codigo_esperado,
+        codigo_leido=req.codigo_leido,
+        resultado_precinto=req.resultado,
+        motivo_rechazo=req.motivo_rechazo,
+        actor=usuario.login,
+        ubicacion_id=destino_id,
+        version=req.version,
     )
     return Bulto_Mapper.a_dto(bulto)
+
+
+@router.post(
+    "/remitos/{numero}/controlar-bultos",
+    response_model=Control_Bultos_Batch_Response_DTO,
+    summary="Control de precintos por lote atomico en recepcion (US5 / T057)",
+)
+def controlar_bultos_batch(
+    numero: str,
+    req: Control_Bultos_Batch_Request_DTO,
+    usuario: Usuario = Depends(obtener_usuario_actual),
+    service: Recepcion_Service = Depends(get_recepcion_service),
+) -> Control_Bultos_Batch_Response_DTO:
+    remito_prev = service.obtener_remito(numero)
+    validar_alcance_operador(usuario, remito_prev.destino_id)
+    resultado = service.controlar_bultos_batch(
+        remito_numero=numero,
+        items=req.items,
+        actor=usuario.login,
+        ubicacion_id=remito_prev.destino_id,
+    )
+    return Control_Bultos_Batch_Response_DTO(**resultado)
 
 
 @router.post(
@@ -446,15 +536,112 @@ def verificar_bulto(
 )
 def cerrar_remito(
     numero: str,
+    usuario: Usuario = Depends(obtener_usuario_actual),
     service: Recepcion_Service = Depends(get_recepcion_service),
 ) -> Cierre_Remito_Response_DTO:
+    remito_prev = service.obtener_remito(numero)
+    validar_alcance_operador(usuario, remito_prev.destino_id)
     resultado = service.cerrar_remito(numero)
     return Cierre_Remito_Response_DTO(**resultado)
 
 
 # -------------------------------------------------------------------------
-# Trazabilidad Inmutable (Regla V2 / US3)
+# Trazabilidad Inmutable (Regla V2 / US3, US5)
 # -------------------------------------------------------------------------
+
+
+@router.get(
+    "/trazabilidad/recientes",
+    response_model=list[Evento_Trazabilidad_DTO],
+    summary="Listar evidencia operativa reciente para Dashboard y Trazabilidad",
+)
+def listar_eventos_recientes(
+    limite: int = Query(12, ge=1, le=50),
+    usuario: Usuario = Depends(obtener_usuario_actual),
+    service: Trazabilidad_Service = Depends(get_trazabilidad_service),
+) -> list[Evento_Trazabilidad_DTO]:
+    eventos = service.listar_eventos_recientes(limite)
+    if usuario.rol == ROL_OPERADOR:
+        if usuario.asignacion is None:
+            return []
+        eventos = [
+            evento
+            for evento in eventos
+            if (evento.origen_id is not None and usuario.asignacion.puede_operar(evento.origen_id))
+            or (evento.destino_id is not None and usuario.asignacion.puede_operar(evento.destino_id))
+        ]
+    return [
+        Evento_Trazabilidad_DTO(
+            id=evento.id,
+            tipo_entidad=evento.tipo_entidad,
+            entidad_id=evento.entidad_id,
+            accion=evento.accion,
+            estado_anterior=evento.estado_anterior,
+            estado_nuevo=evento.estado_nuevo,
+            actor=evento.actor,
+            origen_id=evento.origen_id,
+            destino_id=evento.destino_id,
+            registros_asociados=evento.registros_asociados,
+            motivo_o_evidencia=evento.motivo_o_evidencia,
+            fecha_hora=evento.fecha_hora.isoformat(),
+        )
+        for evento in eventos
+    ]
+
+
+@router.get(
+    "/trazabilidad/buscar",
+    response_model=Busqueda_Logistica_Response_DTO,
+    summary="Busqueda global de entidades logisticas (US5 / T061)",
+)
+def buscar_logistica(
+    termino: str = Query(..., min_length=1, description="Termino de busqueda (ID o codigo)"),
+    usuario: Usuario = Depends(obtener_usuario_actual),
+    service: Trazabilidad_Service = Depends(get_trazabilidad_service),
+) -> Busqueda_Logistica_Response_DTO:
+    resultados = service.buscar_logistica(termino)
+    if usuario.rol == ROL_OPERADOR:
+        if usuario.asignacion is None:
+            return Busqueda_Logistica_Response_DTO(ordenes=[], remitos=[], bultos=[])
+        ordenes_filtradas = [
+            o
+            for o in resultados["ordenes"]
+            if usuario.asignacion.puede_operar(o["origen_id"])
+            or usuario.asignacion.puede_operar(o["destino_id"])
+        ]
+        remitos_filtrados = [
+            r
+            for r in resultados["remitos"]
+            if usuario.asignacion.puede_operar(r["origen_id"])
+            or usuario.asignacion.puede_operar(r["destino_id"])
+        ]
+        bultos_filtrados = [
+            b
+            for b in resultados["bultos"]
+            if (b.get("origen_id") is not None and usuario.asignacion.puede_operar(b["origen_id"]))
+            or (b.get("destino_id") is not None and usuario.asignacion.puede_operar(b["destino_id"]))
+        ]
+        return Busqueda_Logistica_Response_DTO(
+            ordenes=ordenes_filtradas,
+            remitos=remitos_filtrados,
+            bultos=bultos_filtrados,
+        )
+    return Busqueda_Logistica_Response_DTO(**resultados)
+
+
+@router.get(
+    "/trazabilidad/remitos/{numero}",
+    response_model=Resumen_Remito_Trazabilidad_Response_DTO,
+    summary="Consultar resumen y trazabilidad completa de un remito (US5 / T061)",
+)
+def consultar_resumen_remito(
+    numero: str,
+    usuario: Usuario = Depends(obtener_usuario_actual),
+    service: Trazabilidad_Service = Depends(get_trazabilidad_service),
+) -> Resumen_Remito_Trazabilidad_Response_DTO:
+    resumen = service.consultar_resumen_remito(numero)
+    validar_alcance_operador(usuario, resumen["destino_id"])
+    return Resumen_Remito_Trazabilidad_Response_DTO(**resumen)
 
 
 @router.get(

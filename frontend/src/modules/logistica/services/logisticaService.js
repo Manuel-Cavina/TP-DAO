@@ -31,45 +31,39 @@ export const logisticaService = {
     http.get(`${BASE}/bultos/${encodeURIComponent(bultoId)}`, options),
 
   // Aprobacion de Bultos (US4 / FR-041)
-  aprobarBulto: async (bultoId) => {
-    try {
-      return await http.post(`${BASE}/bultos/${encodeURIComponent(bultoId)}/aprobar`);
-    } catch (err) {
-      if (err?.status === 404 || err?.status === 405) {
-        return { ok: true, bulto_id: bultoId, aprobado: true };
-      }
-      throw err;
-    }
-  },
-  aprobarBultosLote: async (ordenId, bultoIds) => {
-    try {
-      return await http.post(`${BASE}/ordenes/${encodeURIComponent(ordenId)}/aprobar-bultos`, {
-        bulto_ids: bultoIds,
-      });
-    } catch (err) {
-      if (err?.status === 404 || err?.status === 405) {
-        return { ok: true, orden_id: ordenId, bulto_ids: bultoIds, aprobados: bultoIds.length };
-      }
-      throw err;
-    }
-  },
+  aprobarBulto: (bultoId) =>
+    http.post(`${BASE}/bultos/${encodeURIComponent(bultoId)}/aprobar`, {}),
+  aprobarBultosLote: (ordenId) =>
+    http.post(`${BASE}/ordenes/${encodeURIComponent(ordenId)}/bultos/aprobar-elegibles`, {}),
 
   // Remitos, Despacho y Cierre (P5, P6, V1)
-  generarRemito: (ordenId, { numero, bultosIds }) =>
-    http.post(`${BASE}/remitos`, { numero, bultos_ids: bultosIds }, { params: { orden_id: ordenId } }),
+  generarRemito: (ordenId, { bultosIds }) =>
+    http.post(`${BASE}/remitos`, { bultos_ids: bultosIds }, { params: { orden_id: ordenId } }),
   listarRemitos: (options) => http.get(`${BASE}/remitos`, options),
   obtenerRemito: (numero, options) =>
     http.get(`${BASE}/remitos/${encodeURIComponent(numero)}`, options),
   despacharRemito: (numero) => http.post(`${BASE}/remitos/${encodeURIComponent(numero)}/despachar`),
   recibirRemito: (numero) => http.post(`${BASE}/remitos/${encodeURIComponent(numero)}/recibir`),
-  verificarBulto: (bultoId, { codigoPrecintoRecibido, estaIntacto }) =>
+  verificarBulto: (bultoId, { codigoPrecintoRecibido, estaIntacto, motivoRechazo, motivo_rechazo }) =>
     http.post(`${BASE}/bultos/${encodeURIComponent(bultoId)}/verificar`, {
       codigo_precinto_recibido: codigoPrecintoRecibido,
       esta_intacto: estaIntacto,
+      motivo_rechazo: motivoRechazo || motivo_rechazo || "",
+      motivo: motivoRechazo || motivo_rechazo || "",
     }),
+  controlarBultosBatch: (remitoNumero, payload) =>
+    http.post(`${BASE}/remitos/${encodeURIComponent(remitoNumero)}/controlar-bultos`, payload),
   cerrarRemito: (numero) => http.post(`${BASE}/remitos/${encodeURIComponent(numero)}/cerrar`),
 
   // Trazabilidad (V2)
   consultarTrazabilidad: (bultoId, options) =>
     http.get(`${BASE}/bultos/${encodeURIComponent(bultoId)}/trazabilidad`, options),
+  consultarTrazabilidadOrden: (ordenId, options) =>
+    http.get(`${BASE}/ordenes/${encodeURIComponent(ordenId)}/trazabilidad`, options),
+  obtenerTrazabilidadRemito: (remitoNumero, options) =>
+    http.get(`${BASE}/trazabilidad/remitos/${encodeURIComponent(remitoNumero)}`, options),
+  buscarTrazabilidad: (termino, options) =>
+    http.get(`${BASE}/trazabilidad/buscar`, { ...options, params: { termino } }),
+  listarEventosRecientes: ({ limite = 12 } = {}, options) =>
+    http.get(`${BASE}/trazabilidad/recientes`, { ...options, params: { limite } }),
 };

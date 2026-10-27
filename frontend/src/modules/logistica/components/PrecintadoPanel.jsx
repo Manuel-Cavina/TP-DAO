@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Button } from "../../../shared/components/Button";
 import { StatusBadge } from "../../../shared/components/Badge";
 import { FormField, TextInput } from "../../../shared/components/FormControls";
+import { Alert } from "../../../shared/components/Feedback";
 
 /**
  * PrecintadoPanel (T046 / US4):
@@ -167,11 +168,7 @@ export function PrecintadoPanel({
       {/* Modo individual */}
       {activeTab === "individual" && (
         <div className="stack gap-3">
-          {individualError && (
-            <div className="p-3 rounded bg-danger-subtle text-danger text-sm">
-              {individualError}
-            </div>
-          )}
+          {individualError && <Alert tone="danger" title="No se pudo precintar" description={individualError} />}
 
           <div className="stack gap-2">
             {bultosPendientes.map((b) => {
@@ -236,11 +233,7 @@ export function PrecintadoPanel({
             </span>
           </div>
 
-          {loteGlobalError && (
-            <div className="p-3 rounded bg-danger-subtle text-danger text-sm">
-              {loteGlobalError}
-            </div>
-          )}
+          {loteGlobalError && <Alert tone="danger" title="No se pudo precintar el lote" description={loteGlobalError} />}
 
           <div className="stack gap-2 max-h-72 overflow-y-auto">
             {bultosPendientes.map((b) => {

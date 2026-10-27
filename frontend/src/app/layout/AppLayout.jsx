@@ -1,21 +1,29 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { AppShell, TASK_GROUPS } from "../../shared/components/AppShell";
 import { ScreenTransition } from "../../shared/components/Motion";
 import { ErrorBoundary } from "../providers/ErrorBoundary";
-import { useSede } from "../providers/SedeProvider";
 import { useAuth } from "../auth/AuthProvider";
+import { useSede } from "../providers/SedeProvider";
+import { useAlertasStock } from "../../modules/ubicaciones_stock/hooks/useAlertasStock";
 
 export function AppLayout() {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
-  const { sedes, sedeId, setSedeId } = useSede();
+  const { pathname, search } = useLocation();
+  const fullPath = pathname + search;
   const { user } = useAuth();
-  const [theme, setTheme] = useState("light");
-
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
+  const { sedes, sedeId, setSedeId } = useSede();
+  const { alertas, error: alertasError, marcarLeida } = useAlertasStock();
+  const notifications = alertas.map((alerta) => ({
+    id: alerta.id,
+    category: "Reposición",
+    title: `Stock bajo mínimo · producto #${alerta.productoId}`,
+    description: `${alerta.disponible} disponible(s) · mínimo ${alerta.nivelMinimo}`,
+    timestamp: alerta.fechaEmision ? new Date(alerta.fechaEmision).toLocaleString("es-AR") : "Sin fecha registrada",
+    read: alerta.leida,
+    entity: { type: "Stock", id: alerta.stockId },
+    actionLabel: "Abrir alerta",
+  }));
 
   // Derive active task group and active task sub-item from current pathname
   let activeGroup = null;
@@ -23,7 +31,10 @@ export function AppLayout() {
 
   for (const group of TASK_GROUPS) {
     for (const item of group.items) {
-      if (pathname === item.path || (item.path !== "/" && pathname.startsWith(item.path + "/"))) {
+      const itemBase = item.path.split("?")[0];
+      const isExact = item.path.includes("?") ? fullPath === item.path : pathname === item.path;
+      const isPrefix = itemBase !== "/" && itemBase !== "/logistica" && pathname.startsWith(itemBase + "/");
+      if (isExact || isPrefix) {
         activeGroup = group;
         activeItem = item;
         break;
@@ -33,12 +44,13 @@ export function AppLayout() {
   }
 
   if (!activeGroup) {
-    if (pathname.startsWith("/catalogo")) activeGroup = TASK_GROUPS.find((g) => g.id === "catalogo");
-    else if (pathname.startsWith("/stock/ubicaciones") || pathname.startsWith("/red")) activeGroup = TASK_GROUPS.find((g) => g.id === "red");
+    if (pathname.startsWith("/catalogo")) activeGroup = TASK_GROUPS.find((g) => g.id === "maestros");
+    else if (pathname.startsWith("/stock/ubicaciones") || pathname.startsWith("/red")) activeGroup = TASK_GROUPS.find((g) => g.id === "maestros");
     else if (pathname.startsWith("/stock")) activeGroup = TASK_GROUPS.find((g) => g.id === "inventario");
     else if (pathname.startsWith("/logistica")) activeGroup = TASK_GROUPS.find((g) => g.id === "distribucion");
     else if (pathname.startsWith("/ventas")) activeGroup = TASK_GROUPS.find((g) => g.id === "ventas");
-    else if (pathname.startsWith("/reportes")) activeGroup = TASK_GROUPS.find((g) => g.id === "auditoria");
+    else if (pathname.startsWith("/reportes")) activeGroup = TASK_GROUPS.find((g) => g.id === "control");
+    else if (pathname === "/dashboard") activeGroup = TASK_GROUPS.find((g) => g.id === "inicio");
   }
 
   const routeTitle =
@@ -64,22 +76,26 @@ export function AppLayout() {
 
   return (
     <AppShell
-      currentPath={pathname}
+      currentPath={fullPath}
       routeTitle={routeTitle}
       onNavigate={(path) => navigate(path)}
       activeModule={activeGroup?.id || "inventario"}
-      locations={sedes}
-      activeLocation={sedeId}
-      onSelectLocation={setSedeId}
-      theme={theme}
-      onToggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
       flowContextBadge={flowContextBadge}
+      onSearch={(query) => navigate(`/logistica/trazabilidad?q=${encodeURIComponent(query)}`)}
+      readingLocations={sedes.map((sede) => ({ value: sede.value, label: sede.label, icon: sede.icon }))}
+      activeReadingLocation={sedeId ?? ""}
+      onSelectReadingLocation={setSedeId}
+      notifications={notifications}
+      notificationsError={alertasError}
+      onMarkNotificationRead={(id) => marcarLeida(id)}
+      onMarkAllNotificationsRead={() => Promise.all(notifications.filter((notification) => !notification.read).map((notification) => marcarLeida(notification.id)))}
+      onResolveNotification={(notification) => navigate(`/stock/alertas?stockId=${notification.entity.id}`)}
       operatorName={user?.displayName || user?.name || "Administrador"}
       operatorRole={user?.role === "ADMIN" ? "Administrador" : "Operador"}
     >
       <ErrorBoundary resetKey={pathname}>
         <ScreenTransition screenKey={pathname}>
-          <Outlet context={{ sedeId, sedes, isMultiNodeFlow }} />
+          <Outlet context={{ isMultiNodeFlow }} />
         </ScreenTransition>
       </ErrorBoundary>
     </AppShell>

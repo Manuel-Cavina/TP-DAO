@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Modal } from "../../../shared/components/Motion";
+import { Drawer, Modal } from "../../../shared/components/Motion";
 import { Button } from "../../../shared/components/Button";
 import { TextInput } from "../../../shared/components/FormControls";
 import { Alert } from "../../../shared/components/Feedback";
@@ -17,6 +17,7 @@ export function ProveedorModal({
 }) {
   const isEdit = mode === "edit";
   const isDeactivate = mode === "deactivate";
+  const Overlay = isDeactivate ? Modal : Drawer;
 
   const [form, setForm] = useState({ cuit: "", razonSocial: "", telefono: "", email: "" });
 
@@ -109,7 +110,7 @@ export function ProveedorModal({
   };
 
   return (
-    <Modal
+    <Overlay
       open={open}
       onClose={onClose}
       title={getTitle()}
@@ -176,7 +177,7 @@ export function ProveedorModal({
           />
         </form>
       )}
-    </Modal>
+    </Overlay>
   );
 }
 

@@ -41,7 +41,7 @@ class Producto_Service:
 
     def crear(
         self,
-        codigo: str,
+        codigo: str | None,
         nombre: str,
         precio_venta: Decimal,
         costo_unitario: Decimal,
@@ -51,7 +51,8 @@ class Producto_Service:
     ) -> Producto:
         if not isinstance(nivel_minimo_existencia, int) or nivel_minimo_existencia <= 0:
             raise Datos_Invalidos_Exception("El nivel mínimo de existencia debe ser mayor a cero.")
-        producto = Producto(codigo, nombre, precio_venta, costo_unitario, categoria_id, proveedor_id)
+        codigo_resuelto = codigo.strip() if isinstance(codigo, str) and codigo.strip() else self._repository.siguiente_codigo()
+        producto = Producto(codigo_resuelto, nombre, precio_venta, costo_unitario, categoria_id, proveedor_id)
         if self._repository.obtener_por_codigo(producto.codigo) is not None:
             raise Entidad_Duplicada_Exception(f"Ya existe un producto con código '{producto.codigo}'.")
         self._validar_categoria_y_proveedor(categoria_id, proveedor_id)

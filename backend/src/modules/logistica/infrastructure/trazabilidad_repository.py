@@ -65,8 +65,12 @@ class Trazabilidad_Repository:
 
     def listar_todos(self) -> list[Evento_Trazabilidad]:
         """Devuelve todos los eventos registrados en orden cronológico descendente."""
+        return self.listar_recientes()
+
+    def listar_recientes(self, limite: int = 20) -> list[Evento_Trazabilidad]:
+        """Devuelve los últimos eventos inmutables, acotados para paneles operativos."""
         session = self._get_session()
-        stmt = select(Evento_Trazabilidad_Model).order_by(Evento_Trazabilidad_Model.id.desc())
+        stmt = select(Evento_Trazabilidad_Model).order_by(Evento_Trazabilidad_Model.id.desc()).limit(limite)
         modelos = session.scalars(stmt).all()
         return [
             Evento_Trazabilidad(

@@ -23,12 +23,17 @@ export function LogisticaPage({ initialTab = "remitos" }) {
   const navigate = useNavigate();
   const { sedeId } = useSede();
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [listScope, setListScope] = useState("activos");
 
   useEffect(() => {
     if (initialTab) {
       setActiveTab(initialTab);
     }
   }, [initialTab]);
+
+  useEffect(() => {
+    setListScope("activos");
+  }, [activeTab]);
 
   const [search, setSearch] = useState("");
   const [selectedNecKeys, setSelectedNecKeys] = useState([]);
@@ -40,7 +45,7 @@ export function LogisticaPage({ initialTab = "remitos" }) {
 
   const { ubicaciones } = useUbicaciones();
   const { productos } = useProductos({ activos: true });
-  const { remitos, loading: loadingRem, error: errorRem, reload: reloadRem, despachar, pendingAction } = useRemitos();
+  const { remitos, loading: loadingRem, error: errorRem, reload: reloadRem } = useRemitos();
   const { ordenes, loading: loadingOrd, error: errorOrd, reload: reloadOrd } = useOrdenes();
   const { necesidades, loading: loadingNec, error: errorNec, reload: reloadNec, consolidar, consolidarPending } = useNecesidades();
 
@@ -61,6 +66,7 @@ export function LogisticaPage({ initialTab = "remitos" }) {
       estado: r.estado,
       bultosIds: r.bultosIds || [],
       bultosResumen: r.bultosResumen || [],
+      ordenId: r.bultosResumen?.[0]?.ordenId || null,
       progresoTexto: r.progresoOperacional?.resumenTexto || `${r.totalBultos || 0} bultos`,
       totalBultos: r.totalBultos || 0,
       bultosPendientes: r.bultosPendientes || 0,
@@ -74,6 +80,15 @@ export function LogisticaPage({ initialTab = "remitos" }) {
       (r) => r.numero.toLowerCase().includes(q) || r.destino.toLowerCase().includes(q)
     );
   }, [remitosRows, search]);
+
+  const remitosEnVista = useMemo(
+    () => filteredRemitos.filter((remito) => listScope === "historial" ? remito.estado === "CERRADO" : remito.estado !== "CERRADO"),
+    [filteredRemitos, listScope]
+  );
+  const ordenesEnVista = useMemo(
+    () => ordenes.filter((orden) => listScope === "historial" ? orden.estado === "CERRADA" : orden.estado !== "CERRADA"),
+    [ordenes, listScope]
+  );
 
   const remitoColumns = [
     { key: "numero", header: "Número de remito", mono: true, sortable: true },
@@ -100,7 +115,7 @@ export function LogisticaPage({ initialTab = "remitos" }) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate(`/logistica/remitos/${encodeURIComponent(row.numero)}`)}
+            onClick={() => navigate(row.ordenId ? `/logistica/ordenes/${row.ordenId}?tab=despacho` : `/logistica/remitos/${encodeURIComponent(row.numero)}`)}
           >
             Ver detalle
           </Button>
@@ -110,8 +125,7 @@ export function LogisticaPage({ initialTab = "remitos" }) {
               variant="primary"
               size="sm"
               iconLeft="truck"
-              disabled={pendingAction}
-              onClick={() => despachar(row.numero)}
+              onClick={() => navigate(row.ordenId ? `/logistica/ordenes/${row.ordenId}?tab=despacho` : `/logistica/remitos/${encodeURIComponent(row.numero)}`)}
             >
               Despachar
             </Button>
@@ -122,7 +136,7 @@ export function LogisticaPage({ initialTab = "remitos" }) {
               variant="primary"
               size="sm"
               iconLeft="package"
-              onClick={() => navigate(`/logistica/recepcion?remito=${encodeURIComponent(row.numero)}`)}
+              onClick={() => navigate(row.ordenId ? `/logistica/ordenes/${row.ordenId}?tab=recepcion` : `/logistica/recepcion?remito=${encodeURIComponent(row.numero)}`)}
             >
               Gestionar recepción
             </Button>
@@ -191,7 +205,7 @@ export function LogisticaPage({ initialTab = "remitos" }) {
               variant="primary"
               size="sm"
               iconLeft="package"
-              onClick={() => navigate(`/logistica/empaquetado?ordenId=${row.id}`)}
+              onClick={() => navigate(`/logistica/ordenes/${row.id}?tab=empaque`)}
             >
               Empaquetar
             </Button>
@@ -201,8 +215,8 @@ export function LogisticaPage({ initialTab = "remitos" }) {
     },
   ];
 
-  // FR-043: Una unica accion primaria visible por contexto de tarea
-  const hasSelectedNeeds = activeTab === "necesidades" && selectedNecKeys.length > 0;
+  const pageTitle = activeTab === "ordenes" ? "Distribución de órdenes" : activeTab === "necesidades" ? "Reposición pendiente" : "Remitos y despacho";
+  const pageSubtitle = activeTab === "ordenes" ? "Órdenes activas e historial por destino" : activeTab === "necesidades" ? "Necesidades que aún no se convirtieron en una orden" : "Emisión, tránsito e historial de remitos";
 
   return (
     <div className="stack gap-5">
@@ -211,31 +225,17 @@ export function LogisticaPage({ initialTab = "remitos" }) {
           <div className="erp-breadcrumb">
             <span>Logística y distribución</span>
             <span>·</span>
-            <span>Trazabilidad de bultos y remitos</span>
+            <span>{pageSubtitle}</span>
           </div>
-          <h1 className="text-xl">Flujo de Remitos, Despacho y Verificación de Bultos</h1>
+          <h1 className="text-xl">{pageTitle}</h1>
         </div>
         <div className="row gap-2">
           <Button
-            variant="secondary"
-            iconLeft="package"
-            onClick={() => navigate("/logistica/empaquetado")}
-          >
-            Empaquetado
-          </Button>
-          <Button
-            variant="secondary"
-            iconLeft="check"
-            onClick={() => navigate("/logistica/recepcion")}
-          >
-            Recepción en destino
-          </Button>
-          <Button
-            variant={hasSelectedNeeds ? "secondary" : "primary"}
+            variant="primary"
             iconLeft="plus"
             onClick={() => navigate("/logistica/ordenes/nueva")}
           >
-            Nueva orden (3 pasos)
+            Nueva orden
           </Button>
         </div>
       </div>
@@ -284,10 +284,21 @@ export function LogisticaPage({ initialTab = "remitos" }) {
         )}
       </div>
 
+      {activeTab !== "necesidades" && (
+        <SegmentedControl
+          value={listScope}
+          onChange={setListScope}
+          options={[
+            { value: "activos", label: activeTab === "remitos" ? "En gestión" : "Activas", count: activeTab === "remitos" ? remitos.filter((r) => r.estado !== "CERRADO").length : ordenes.filter((o) => o.estado !== "CERRADA").length },
+            { value: "historial", label: "Historial", count: activeTab === "remitos" ? remitos.filter((r) => r.estado === "CERRADO").length : ordenes.filter((o) => o.estado === "CERRADA").length },
+          ]}
+        />
+      )}
+
       {activeTab === "remitos" && (
         <SortableDataTable
           columns={remitoColumns}
-          data={filteredRemitos}
+          data={remitosEnVista}
           rowKey="numero"
           loading={loadingRem}
           error={errorRem}
@@ -300,7 +311,7 @@ export function LogisticaPage({ initialTab = "remitos" }) {
       {activeTab === "ordenes" && (
         <SortableDataTable
           columns={ordenColumns}
-          data={ordenes}
+          data={ordenesEnVista}
           rowKey="id"
           loading={loadingOrd}
           error={errorOrd}

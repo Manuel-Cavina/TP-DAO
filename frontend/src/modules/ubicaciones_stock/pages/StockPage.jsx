@@ -4,19 +4,17 @@ import {
   FilterToolbar,
   SortableDataTable,
   Button,
-  Badge,
-  StockSplitBar,
   MetricCard,
   Alert,
   SegmentedControl,
   LiveIndicator,
+  Select,
 } from "../../../shared";
-import { useDisclosure } from "../../../shared/hooks";
 import { useSede } from "../../../app/providers/SedeProvider";
+import { useUbicaciones } from "../hooks/useUbicaciones";
 import { useStockMatriz } from "../hooks/useStockMatriz";
 import { useAlertasStock } from "../hooks/useAlertasStock";
 import { useProductos } from "../../catalogo/hooks/useProductos";
-import { IngresoCdModal } from "../components/IngresoCdModal";
 
 /**
  * Vista de existencias por ubicación y matriz de stock (/stock/stock).
@@ -25,10 +23,16 @@ import { IngresoCdModal } from "../components/IngresoCdModal";
 export function StockPage() {
   const navigate = useNavigate();
   const { sede, sedeId } = useSede();
+  const { ubicaciones } = useUbicaciones({ activas: true });
   const [search, setSearch] = useState("");
   const [filtroNivel, setFiltroNivel] = useState("todos");
+  const [ubicacionFiltro, setUbicacionFiltro] = useState("");
+  const activeUbicacionId = ubicacionFiltro || sedeId;
+  const activeSede = useMemo(
+    () => ubicaciones.find((ubicacion) => String(ubicacion.id) === String(activeUbicacionId)) || sede,
+    [ubicaciones, activeUbicacionId, sede]
+  );
 
-  const ingresoModal = useDisclosure(false);
 
   const {
     stocks,
@@ -37,16 +41,16 @@ export function StockPage() {
     reload: reloadStock,
     freshnessSeconds,
     isStale,
-  } = useStockMatriz({ ubicacionId: sedeId });
+  } = useStockMatriz({ ubicacionId: activeUbicacionId });
 
   const {
     alertas,
     reload: reloadAlertas,
-  } = useAlertasStock({ ubicacionId: sedeId });
+  } = useAlertasStock({ ubicacionId: activeUbicacionId });
 
   const { productos } = useProductos();
 
-  const isCD = sede?.scope === "CD" || sede?.tipo === "CD";
+  const isCD = activeSede?.scope === "CD" || activeSede?.tipo === "CD";
 
   // Enriquecer registros de stock con metadatos del producto
   const stockRows = useMemo(() => {
@@ -99,6 +103,13 @@ export function StockPage() {
     () => stockRows.filter((r) => r.isBajoMinimo).length,
     [stockRows]
   );
+  const reorderItems = useMemo(
+    () => stockRows.filter((row) => row.isBajoMinimo).map((row) => ({
+      productoId: row.productoId,
+      cantidad: Math.max(1, row.deficit),
+    })),
+    [stockRows]
+  );
   const totalDisponible = useMemo(
     () => stockRows.reduce((acc, r) => acc + r.disponible, 0),
     [stockRows]
@@ -138,17 +149,6 @@ export function StockPage() {
       render: (v) => <span className="tabular-nums text-secondary">{v} u.</span>,
     },
     {
-      key: "balance",
-      header: "Estado y balance",
-      render: (_, r) => (
-        <StockSplitBar
-          disponible={r.disponible}
-          enTransito={r.enTransito}
-          nivelMinimo={r.nivelMinimo}
-        />
-      ),
-    },
-    {
       key: "acciones",
       header: "Acción",
       align: "right",
@@ -159,7 +159,7 @@ export function StockPage() {
               variant="ghost"
               size="sm"
               iconRight="arrow-right"
-              onClick={() => navigate(`/stock/alertas?productoId=${r.productoId}&ubicacionId=${sedeId}`)}
+              onClick={() => navigate(`/stock/alertas?productoId=${r.productoId}&ubicacionId=${activeUbicacionId}`)}
             >
               Ver alerta
             </Button>
@@ -172,11 +172,6 @@ export function StockPage() {
     },
   ];
 
-  const handleIngresoSuccess = () => {
-    reloadStock();
-    reloadAlertas();
-  };
-
   return (
     <div className="stack gap-5">
       <div className="erp-flow-header">
@@ -184,7 +179,7 @@ export function StockPage() {
           <div className="erp-breadcrumb">
             <span>Control de existencias</span>
             <span>·</span>
-            <span>{sede?.label || "Sede activa"}</span>
+            <span>{activeSede?.label || activeSede?.nombre || "Sede activa"}</span>
           </div>
           <div className="row align-center gap-3 wrap">
             <h1 className="text-xl font-medium">Matriz de Stock por Ubicación</h1>
@@ -197,18 +192,11 @@ export function StockPage() {
         </div>
         <div className="row gap-2 align-center">
           <Button
-            variant="secondary"
-            iconLeft="alert-triangle"
-            onClick={() => navigate(`/stock/alertas?ubicacionId=${sedeId}`)}
-          >
-            Alertas de reposición ({alertas.length})
-          </Button>
-          <Button
             variant="primary"
             iconLeft="plus"
-            onClick={ingresoModal.onOpen}
+            onClick={() => navigate("/logistica/ordenes/nueva")}
           >
-            Ingresar mercadería en CD
+            Crear orden formal
           </Button>
         </div>
       </div>
@@ -216,7 +204,7 @@ export function StockPage() {
       <div className="grid-4 gap-3">
         <MetricCard
           label="Sede en foco"
-          value={sede?.label?.split(" ")[0] || "Sede"}
+          value={(activeSede?.label || activeSede?.nombre || "Sede").split(" ")[0]}
           subtext={isCD ? "Ámbito mayorista CD" : "Ámbito minorista Local"}
           badgeText={isCD ? "CD Central" : "Sucursal"}
           badgeTone={isCD ? "cd" : "local"}
@@ -239,25 +227,27 @@ export function StockPage() {
         />
       </div>
 
-      {!isCD && (
+      {!isCD && alertas.length > 0 && (
         <Alert
-          tone="info"
-          title="Contexto minorista de sucursal"
-          description="En los locales comerciales el incremento de existencias se realiza mediante la recepción y verificación de remitos despachados desde un CD. Las compras de proveedores se ingresan exclusivamente en el CD Central."
+          tone="warning"
+          title={`${alertas.length} alerta${alertas.length === 1 ? "" : "s"} de reposición`}
+          description="Hay productos por debajo de su nivel mínimo en esta sede."
           action={
             <Button
-              variant="secondary"
+              variant="primary"
               size="sm"
               iconRight="arrow-right"
-              onClick={() => navigate("/stock/ingresos")}
+              onClick={() => navigate(`/logistica/ordenes/nueva?destinoId=${activeUbicacionId}`, {
+                state: { destinoId: String(activeUbicacionId), preselectedItems: reorderItems },
+              })}
             >
-              Ir a ingreso en CD
+              Generar pedido
             </Button>
           }
         />
       )}
 
-      <div className="row justify-between align-center wrap gap-3">
+      <div className="stock-filter-row">
         <SegmentedControl
           value={filtroNivel}
           onChange={(v) => {
@@ -269,6 +259,13 @@ export function StockPage() {
             { value: "bajo_minimo", label: "Bajo mínimo", count: articulosBajoMinimo },
             { value: "normal", label: "Stock normal" },
           ]}
+        />
+        <Select
+          ariaLabel="Filtrar por sede"
+          options={ubicaciones.map((ubicacion) => ({ value: String(ubicacion.id), label: ubicacion.nombre }))}
+          value={String(activeUbicacionId || "")}
+          onChange={setUbicacionFiltro}
+          placeholder="Seleccionar sede"
         />
         <FilterToolbar
           searchValue={search}
@@ -285,15 +282,9 @@ export function StockPage() {
         error={errorStock}
         onRetry={reloadStock}
         emptyTitle="Sin existencias registradas en esta sede"
-        emptyDescription="Registra un ingreso de mercadería en un CD o completa una recepción de remito para poblar las existencias."
+        emptyDescription="Creá una orden formal y completá su recepción para registrar existencias."
       />
 
-      <IngresoCdModal
-        open={ingresoModal.open}
-        onClose={ingresoModal.onClose}
-        defaultCdId={isCD ? sedeId : undefined}
-        onSuccess={handleIngresoSuccess}
-      />
     </div>
   );
 }

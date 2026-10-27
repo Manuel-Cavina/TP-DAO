@@ -42,7 +42,7 @@ def crear_local(
     "/centros-distribucion",
     response_model=Ubicacion_DTO,
     status_code=status.HTTP_201_CREATED,
-    summary="Alta del Centro de Distribución (único en el sistema)",
+    summary="Alta de Centro de Distribución",
 )
 def crear_centro_distribucion(
     req: Ubicacion_Request_DTO,

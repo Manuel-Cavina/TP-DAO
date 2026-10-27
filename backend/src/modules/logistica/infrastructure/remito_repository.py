@@ -1,3 +1,5 @@
+import re
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -6,7 +8,7 @@ from config.database.request_session_context import Request_Session_Context
 from modules.logistica.domain.exceptions import Remito_Duplicado_Exception
 from modules.logistica.domain.remito import Remito
 from modules.logistica.infrastructure.bulto_repository import Bulto_Repository
-from modules.logistica.infrastructure.models import Bulto_Model, Remito_Model
+from modules.logistica.infrastructure.models import Bulto_Model, Numerador_Logistica_Model, Remito_Model
 
 
 class Remito_Repository:
@@ -47,6 +49,23 @@ class Remito_Repository:
 
         session.flush()
         return remito
+
+    def siguiente_numero(self) -> str:
+        """Reserva un correlativo interno de remito en la transacción actual."""
+        session = self._get_session()
+        numerador = session.get(Numerador_Logistica_Model, "RM")
+        if numerador is None:
+            existentes = session.scalars(select(Remito_Model.numero)).all()
+            ultimo = max(
+                (int(coincidencia.group(1)) for numero in existentes if (coincidencia := re.fullmatch(r"RM-(\d+)", numero))),
+                default=0,
+            )
+            numerador = Numerador_Logistica_Model(clave="RM", ultimo_numero=ultimo)
+            session.add(numerador)
+            session.flush()
+        numerador.ultimo_numero += 1
+        session.flush()
+        return f"RM-{numerador.ultimo_numero:06d}"
 
     def existe_para_orden(self, orden_id: int) -> bool:
         """Verifica si ya existe un remito emitido para la orden de reposición (US4 / T047)."""

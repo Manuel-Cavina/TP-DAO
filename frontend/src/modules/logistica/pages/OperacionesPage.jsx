@@ -36,8 +36,6 @@ export function OperacionesPage() {
   // Modales de confirmacion por drop (FR-031)
   const [modalDropOrden, setModalDropOrden] = useState(null);
   const [modalDropRemito, setModalDropRemito] = useState(null);
-  const [procesandoMutacion, setProcesandoMutacion] = useState(false);
-  const [errorMutacion, setErrorMutacion] = useState("");
 
   const ubicMap = useMemo(
     () => new Map(ubicaciones.map((u) => [u.id, u.nombre])),
@@ -56,8 +54,8 @@ export function OperacionesPage() {
   // Carga reactiva de datos operacionales (15s polling - FR-028)
   const fetchOperacionesData = useCallback(async () => {
     const [ordRes, remRes] = await Promise.all([
-      logisticaService.listarOrdenes().catch(() => []),
-      logisticaService.listarRemitos().catch(() => []),
+      logisticaService.listarOrdenes(),
+      logisticaService.listarRemitos(),
     ]);
 
     const ordList = Array.isArray(ordRes) ? ordRes : ordRes?.data || [];
@@ -66,21 +64,13 @@ export function OperacionesPage() {
     const ordenesMapped = ordList.map(mapOrdenToUI);
     const remitosMapped = remList.map(mapRemitoToUI);
 
-    // Cargar bultos de las ordenes en preparacion para computar etapas de Kanban
+    // Cada tarjeta necesita sus bultos reales, incluso si la orden ya fue cerrada.
     const bultosMap = {};
-    const ordenesPrep = ordenesMapped.filter(
-      (o) => o.estado === "PENDIENTE" || o.estado === "EN_PREPARACION"
-    );
-
     await Promise.all(
-      ordenesPrep.map(async (o) => {
-        try {
-          const res = await logisticaService.listarBultosPorOrden(o.id);
-          const list = Array.isArray(res) ? res : res?.data || [];
-          bultosMap[o.id] = list.map(mapBultoToUI);
-        } catch {
-          bultosMap[o.id] = [];
-        }
+      ordenesMapped.map(async (o) => {
+        const res = await logisticaService.listarBultosPorOrden(o.id);
+        const list = Array.isArray(res) ? res : res?.data || [];
+        bultosMap[o.id] = list.map(mapBultoToUI);
       })
     );
 
@@ -108,7 +98,6 @@ export function OperacionesPage() {
 
   // Handlers para drops (FR-031: Intent que abre modal, sin mutar inmediatamente)
   const handleDropOrder = (card, targetStage) => {
-    setErrorMutacion("");
     setModalDropOrden({
       card,
       targetStage,
@@ -117,7 +106,6 @@ export function OperacionesPage() {
   };
 
   const handleDropRemito = (card, targetStage) => {
-    setErrorMutacion("");
     setModalDropRemito({
       card,
       targetStage,
@@ -130,36 +118,20 @@ export function OperacionesPage() {
     const { card, targetStage } = modalDropOrden;
     setModalDropOrden(null);
 
-    // Redirigir al flujo de trabajo correspondiente segun la intencion del drop
-    if (targetStage === 1 || targetStage === 2) {
-      navigate(`/logistica/empaquetado?ordenId=${card.ordenId}`);
-    } else if (targetStage === 3) {
-      navigate(`/logistica/empaquetado?ordenId=${card.ordenId}`);
-    } else {
-      navigate(`/logistica/ordenes/${card.ordenId}`);
-    }
+    const tab = targetStage <= 2 ? "empaque" : targetStage === 3 ? "despacho" : "recepcion";
+    navigate(`/logistica/ordenes/${card.ordenId}?tab=${tab}`);
   };
 
-  const handleConfirmarDropRemito = async () => {
+  const handleConfirmarDropRemito = () => {
     if (!modalDropRemito) return;
     const { card, targetStage } = modalDropRemito;
-    setProcesandoMutacion(true);
-    setErrorMutacion("");
-    try {
-      if (targetStage === 1) {
-        // Despachar remito
-        await logisticaService.despacharRemito(card.numero);
-      } else if (targetStage === 2) {
-        // Recibir remito en destino
-        await logisticaService.recibirRemito(card.numero);
-      }
-      setModalDropRemito(null);
-      await refresh();
-    } catch (err) {
-      setErrorMutacion(err.message || "Error al procesar la transicion del remito.");
-    } finally {
-      setProcesandoMutacion(false);
-    }
+    setModalDropRemito(null);
+    const tab = targetStage <= 1 ? "despacho" : "recepcion";
+    navigate(
+      card.ordenId
+        ? `/logistica/ordenes/${card.ordenId}?tab=${tab}`
+        : `/logistica/remitos/${encodeURIComponent(card.numero)}`
+    );
   };
 
   return (
@@ -315,39 +287,30 @@ export function OperacionesPage() {
         <Modal
           open={Boolean(modalDropRemito)}
           onClose={() => setModalDropRemito(null)}
-          title={`Confirmar avance de ${modalDropRemito.card.code}`}
-          subtitle={`Transición a: ${modalDropRemito.targetStageInfo?.title}`}
+          title={`Abrir orden de ${modalDropRemito.card.code}`}
+          subtitle={`Etapa de trabajo: ${modalDropRemito.targetStageInfo?.title}`}
           footer={
             <div className="row justify-between w-full">
               <Button
                 variant="ghost"
                 onClick={() => setModalDropRemito(null)}
-                disabled={procesandoMutacion}
               >
                 Cancelar
               </Button>
               <Button
                 variant="primary"
                 onClick={handleConfirmarDropRemito}
-                loading={procesandoMutacion}
-                loadingLabel="Procesando..."
-              >
-                Confirmar transición
+            >
+                Abrir orden
               </Button>
             </div>
           }
         >
           <div className="stack gap-3">
-            {errorMutacion && (
-              <div className="p-3 rounded bg-danger-subtle text-danger text-sm">
-                {errorMutacion}
-              </div>
-            )}
-
             <div className="erp-callout">
               <span className="text-sm text-secondary">
-                Regla FR-031 / FR-032: El drop abre este panel de confirmación con indicación
-                expresa del documento, estado actual, resultado y evidencia a registrar.
+                El tablero sólo ordena el trabajo. La acción se completa dentro de la orden, donde
+                se conserva la evidencia y se indica el siguiente paso.
               </span>
             </div>
 
@@ -362,13 +325,11 @@ export function OperacionesPage() {
             <div className="text-sm text-secondary">
               {modalDropRemito.targetStage === 1 ? (
                 <span>
-                  Consecuencia: Al despachar el remito, los bultos pasarán a estado En tránsito.
-                  La mercadería se registra en tránsito hacia la sucursal de destino.
+                  Abra la orden para revisar el remito y ejecutar el despacho formal desde su pestaña.
                 </span>
               ) : (
                 <span>
-                  Consecuencia: Al confirmar la recepción, los bultos se registran como recibidos
-                  en destino listos para verificación individual de precintos de seguridad.
+                  Abra la orden para registrar la recepción y verificar los precintos de cada bulto.
                 </span>
               )}
             </div>
