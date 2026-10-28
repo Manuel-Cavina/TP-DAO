@@ -1,6 +1,5 @@
 from modules.ubicaciones_stock.domain.exceptions.stock_exceptions import (
     Cantidad_Invalida_Exception,
-    Centro_Distribucion_Duplicado_Exception,
     Entidad_No_Encontrada_Exception,
     Ingreso_No_Permitido_Exception,
     Stock_Insuficiente_Exception,
@@ -9,7 +8,6 @@ from modules.ubicaciones_stock.domain.exceptions.stock_exceptions import (
 
 __all__ = [
     "Cantidad_Invalida_Exception",
-    "Centro_Distribucion_Duplicado_Exception",
     "Entidad_No_Encontrada_Exception",
     "Ingreso_No_Permitido_Exception",
     "Stock_Insuficiente_Exception",

@@ -1,0 +1,1 @@
+export { ventasService } from "./ventasService";

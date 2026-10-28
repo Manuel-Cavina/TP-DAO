@@ -1,0 +1,469 @@
+/**
+ * Stocky · Sistema de Ventas e Inventario: Centro de Distribución a Locales
+ * Módulo de Reportes Analíticos (R1 & R2)
+ * tokens.css compliant styling
+ */
+
+@import "./reportes-details.css";
+
+/* -------------------------------------------------------------------------
+ * 1. CABECERA BRANDING OFICIAL STOCKY
+ * ------------------------------------------------------------------------- */
+
+.stocky-report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  padding: 16px 20px;
+  box-shadow: var(--shadow-control);
+}
+
+.stocky-brand-block {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stocky-logo-img {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.stocky-brand-title {
+  font-size: 1.15rem;
+  font-weight: var(--font-medium);
+  color: var(--foreground);
+  line-height: 1.25;
+  margin: 0;
+}
+
+.stocky-brand-subtitle {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.stocky-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stocky-operator-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.stocky-operator-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+/* -------------------------------------------------------------------------
+ * 2. BARRA DE HERRAMIENTAS Y FILTROS
+ * ------------------------------------------------------------------------- */
+
+.stocky-toolbar-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stocky-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.stocky-filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stocky-filter-select {
+  min-width: 170px;
+}
+
+.stocky-export-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* -------------------------------------------------------------------------
+ * 3. METRIC & KPI GRID
+ * ------------------------------------------------------------------------- */
+
+.stocky-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+/* -------------------------------------------------------------------------
+ * 4. GRÁFICOS Y CONTENEDORES PLOTLY
+ * ------------------------------------------------------------------------- */
+
+.stocky-chart-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  min-height: 380px;
+  position: relative;
+  overflow: hidden;
+}
+
+.stocky-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.stocky-chart-title {
+  font-size: 0.9375rem;
+  font-weight: var(--font-medium);
+  color: var(--foreground);
+}
+
+.stocky-chart-canvas {
+  width: 100%;
+  flex: 1;
+  min-height: 300px;
+}
+
+/* Fallback visual cuando Plotly no está cargado */
+.stocky-chart-fallback {
+  width: 100%;
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-muted);
+  border-radius: var(--radius-control);
+  padding: 16px;
+  gap: 12px;
+}
+
+.stocky-chart-fallback-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  height: 180px;
+  width: 90%;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stocky-fallback-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.stocky-fallback-bar {
+  width: 100%;
+  max-width: 42px;
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+  transition: height 300ms ease;
+  min-height: 4px;
+}
+
+.stocky-fallback-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background-color: var(--accent);
+  display: inline-block;
+}
+
+.stocky-fallback-label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-align: center;
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* -------------------------------------------------------------------------
+ * 5. MODALES DE DRILL-DOWN ANCHOS (980PX)
+ * ------------------------------------------------------------------------- */
+
+.stocky-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(13, 13, 12, 0.52);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: arc-backdrop-enter-kf 180ms var(--ease-enter) both;
+}
+
+.stocky-modal-wide {
+  width: 100%;
+  max-width: 980px;
+  max-height: 90vh;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-floating);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: arc-modal-enter-kf 220ms var(--ease-enter) both;
+}
+
+.stocky-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.stocky-modal-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stocky-modal-logo {
+  height: 34px;
+  width: auto;
+}
+
+.stocky-modal-title {
+  font-size: 1.05rem;
+  font-weight: var(--font-medium);
+  color: var(--foreground);
+  margin: 0;
+}
+
+.stocky-modal-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 2px 0 0 0;
+}
+
+.stocky-modal-nav {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-muted);
+  padding: 0 16px;
+  gap: 4px;
+}
+
+.stocky-modal-tab-btn {
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  font-size: 0.8125rem;
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.stocky-modal-tab-btn:hover {
+  color: var(--foreground);
+}
+
+.stocky-modal-tab-btn.is-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: var(--surface);
+}
+
+.stocky-modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.stocky-modal-footer {
+  padding: 14px 24px;
+  background: var(--surface-muted);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* -------------------------------------------------------------------------
+ * 6. ADAPTABILIDAD RESPONSIVA (320px / 768px / 1366px / 1759px)
+ * ------------------------------------------------------------------------- */
+
+@media (max-width: 768px) {
+  .stocky-report-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .stocky-brand-block {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .stocky-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .stocky-filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .stocky-filter-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .stocky-filter-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .stocky-export-group {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .stocky-modal-wide {
+    max-width: 100%;
+    max-height: calc(100dvh - 16px);
+  }
+
+  .stocky-modal-header {
+    padding: 12px 16px;
+  }
+
+  .stocky-modal-nav {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 8px;
+  }
+
+  .stocky-modal-body {
+    padding: 14px 16px;
+  }
+
+  .stocky-modal-footer {
+    padding: 12px 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .stocky-formal-header {
+    grid-template-columns: 1fr;
+    text-align: left;
+    gap: 12px;
+  }
+
+  .stocky-formal-meta-box {
+    text-align: left;
+  }
+
+  .stocky-formal-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .stocky-formal-preview-wrap {
+    padding: var(--space-2) !important;
+  }
+
+  .stocky-stepper-wrap {
+    padding: 12px;
+  }
+
+  .stocky-stepper {
+    overflow-x: auto;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .stocky-step {
+    min-width: 80px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stocky-report-header {
+    padding: 12px;
+  }
+
+  .stocky-brand-title {
+    font-size: 1rem;
+  }
+
+  .stocky-toolbar-card {
+    padding: 10px 12px;
+  }
+
+  .stocky-kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .stocky-formal-kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .stocky-modal-tab-btn {
+    padding: 8px 10px;
+    font-size: 0.75rem;
+  }
+}

@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Stocky ERP · Prototipo integral para aprobación</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas:#f4f4f2; --surface:#ffffff; --surface-2:#ededeb; --surface-3:#e4e4e1;
+      --nav:#111214; --nav-2:#1b1c1f; --ink:#151619; --ink-2:#5f6065; --ink-3:#898a8f;
+      --line:#d7d7d3; --line-strong:#b9bab6; --primary:#17181b; --primary-hover:#2b2c30;
+      --info:#315f82; --success:#316b49; --warning:#8a611d; --danger:#a23b35;
+      --info-bg:#edf4f8; --success-bg:#edf6f0; --warning-bg:#faf4e8; --danger-bg:#f9ecea;
+      --radius:10px; --radius-lg:15px; --shadow:0 1px 2px rgba(17,18,20,.06);
+      --floating:0 20px 55px rgba(17,18,20,.18); --sidebar:252px;
+    }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; color:var(--ink); background:var(--canvas); font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
+    button,input,select,textarea { font:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible { outline:2px solid #5c7790; outline-offset:2px; }
+    .prototype-banner { padding:9px 18px; color:#f7f7f5; background:#0c0d0f; text-align:center; font-size:13px; }
+    .switcher { position:sticky; top:0; z-index:50; display:flex; gap:5px; padding:9px 14px; overflow:auto; background:rgba(244,244,242,.96); border-bottom:1px solid var(--line); backdrop-filter:blur(14px); }
+    .switcher button { min-height:36px; padding:7px 11px; color:var(--ink-2); white-space:nowrap; border:1px solid transparent; border-radius:8px; background:transparent; }
+    .switcher button:hover { color:var(--ink); background:var(--surface-2); }
+    .switcher button[aria-selected="true"] { color:#fff; border-color:var(--primary); background:var(--primary); }
+    .screen { display:none; min-height:calc(100vh - 86px); }
+    .screen.active { display:grid; grid-template-columns:var(--sidebar) minmax(0,1fr); }
+    .screen.no-shell.active { display:block; }
+    .sidebar { min-height:100%; padding:20px 14px; color:#d8d8d5; background:var(--nav); }
+    .brand { display:flex; align-items:center; gap:10px; margin:0 8px 22px; color:#fff; font-size:19px; font-weight:600; }
+    .brand-mark { width:28px; height:28px; display:grid; place-items:center; border:1px solid #55565b; border-radius:7px; background:#232428; font-size:12px; }
+    .nav-group { margin:16px 0 5px; padding:0 10px; color:#85868b; font-size:11px; }
+    .nav-item { display:flex; align-items:center; width:100%; min-height:38px; gap:9px; margin:2px 0; padding:8px 10px; color:inherit; text-align:left; border:0; border-radius:8px; background:transparent; }
+    .nav-item:hover { color:#fff; background:#202126; }
+    .nav-item.active { color:#fff; background:#2a2b30; }
+    .nav-icon { width:18px; color:#a7a8ac; text-align:center; }
+    .nav-count { margin-left:auto; min-width:22px; padding:1px 6px; color:#dededb; text-align:center; border-radius:999px; background:#36373c; font-size:11px; font-variant-numeric:tabular-nums; }
+    .tree { position:relative; margin:3px 0 8px 18px; padding-left:14px; border-left:1px solid #3b3c41; }
+    .tree .nav-item { min-height:34px; color:#b2b3b7; font-size:13px; }
+    .tree .nav-item::before { content:""; width:8px; margin-left:-14px; border-top:1px solid #3b3c41; }
+    .sidebar-user { margin-top:24px; padding:12px; border:1px solid #303136; border-radius:10px; background:#18191c; }
+    .workspace { min-width:0; }
+    .topbar { position:relative; min-height:58px; display:flex; align-items:center; gap:11px; padding:9px 22px; background:var(--surface); border-bottom:1px solid var(--line); }
+    .global-search { flex:1; min-width:150px; max-width:720px; }
+    .input,.select,.search-input,textarea { width:100%; min-height:39px; padding:8px 11px; color:var(--ink); border:1px solid var(--line); border-radius:8px; background:var(--surface); }
+    .search-input { padding-left:34px; background:var(--canvas); }
+    .search-wrap { position:relative; }
+    .search-wrap::before { content:"⌕"; position:absolute; left:12px; top:7px; z-index:1; color:var(--ink-3); font-size:18px; }
+    .scope-switcher { width:220px; min-width:220px; flex:0 0 220px; }
+    .icon-button { position:relative; width:40px; height:40px; display:grid; place-items:center; border:1px solid transparent; border-radius:8px; color:var(--ink); background:transparent; }
+    .icon-button:hover { border-color:var(--line); background:var(--canvas); }
+    .notification-dot { position:absolute; right:6px; top:5px; width:8px; height:8px; border:2px solid #fff; border-radius:50%; background:var(--danger); }
+    .avatar { width:34px; height:34px; display:grid; place-items:center; flex:0 0 auto; color:#fff; border-radius:50%; background:#323338; font-size:12px; font-weight:600; }
+    .avatar.sm { width:28px; height:28px; font-size:10px; }
+    .avatar.light { color:var(--ink); border:1px solid var(--line); background:var(--surface-2); }
+    .notification-panel { position:absolute; right:64px; top:51px; z-index:70; width:min(390px,calc(100vw - 28px)); padding:10px; border:1px solid var(--line); border-radius:12px; background:var(--surface); box-shadow:var(--floating); }
+    .notification-panel[hidden] { display:none; }
+    .notification-item { display:grid; grid-template-columns:9px 1fr auto; gap:10px; padding:12px 8px; border-bottom:1px solid var(--surface-2); }
+    .notification-item:last-child { border-bottom:0; }
+    .notification-item .dot { width:8px; height:8px; margin-top:5px; border-radius:50%; background:var(--danger); }
+    main { padding:24px; }
+    h1,h2,h3,p { margin-top:0; }
+    h1 { margin-bottom:5px; font-size:27px; line-height:1.2; font-weight:600; letter-spacing:-.02em; }
+    h2 { margin-bottom:8px; font-size:17px; font-weight:600; }
+    h3 { margin-bottom:5px; font-size:14px; font-weight:600; }
+    .muted { color:var(--ink-2); }
+    .micro { color:var(--ink-3); font-size:12px; }
+    .tabular { font-variant-numeric:tabular-nums; }
+    .page-head,.row,.toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .page-head { align-items:flex-start; margin-bottom:20px; }
+    .toolbar { justify-content:flex-start; flex-wrap:wrap; margin:14px 0; }
+    .button { min-height:36px; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:7px 14px; color:var(--ink); border:1px solid var(--line-strong); border-radius:999px; background:linear-gradient(#fff,#f7f7f5); box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 1px 2px rgba(17,18,20,.05); font-weight:500; transition:transform 120ms,box-shadow 120ms,background 120ms; }
+    .button:hover { transform:translateY(-1px); border-color:#8e8f8b; background:#fff; box-shadow:inset 0 1px 0 #fff,0 3px 9px rgba(17,18,20,.08); }
+    .button:active { transform:translateY(0); box-shadow:inset 0 1px 2px rgba(17,18,20,.12); }
+    .button.primary { color:#fff; border-color:#111214; background:linear-gradient(#2c2d31,#17181b); box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 2px 5px rgba(17,18,20,.18); }
+    .button.primary:hover { background:linear-gradient(#38393e,#202125); }
+    .button.ghost { border-color:transparent; background:transparent; }
+    .button.danger { color:#fff; border-color:var(--danger); background:var(--danger); }
+    .button.small { min-height:30px; padding:5px 11px; font-size:12px; }
+    .button:disabled { cursor:not-allowed; opacity:.45; }
+    .grid { display:grid; gap:14px; }
+    .kpis { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .two { grid-template-columns:minmax(0,1.45fr) minmax(290px,.7fr); }
+    .three { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .card { padding:16px; border:1px solid var(--line); border-radius:var(--radius-lg); background:var(--surface); box-shadow:var(--shadow); }
+    .metric strong { display:block; margin:4px 0 2px; font-size:25px; font-weight:600; }
+    .metric .trend { font-size:12px; }
+    .trend-chip { display:inline-flex; align-items:center; gap:4px; width:max-content; margin-top:5px; padding:2px 7px; border-radius:999px; color:var(--ink-2); background:var(--surface-2); font-size:11px; font-variant-numeric:tabular-nums; }
+    .trend-chip.up { color:var(--success); background:var(--success-bg); }
+    .trend-chip.down { color:var(--danger); background:var(--danger-bg); }
+    .live-indicator { display:inline-flex; align-items:center; gap:6px; color:var(--success); font-size:12px; }
+    .live-indicator::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--success); box-shadow:0 0 0 3px var(--success-bg); }
+    .badge { display:inline-flex; align-items:center; gap:5px; width:max-content; padding:3px 8px; color:var(--ink-2); border:1px solid var(--line); border-radius:999px; background:var(--surface-2); font-size:11px; font-weight:600; }
+    .badge::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+    .badge.info { color:var(--info); border-color:#cbdde8; background:var(--info-bg); }
+    .badge.ok { color:var(--success); border-color:#cbe1d2; background:var(--success-bg); }
+    .badge.warn { color:var(--warning); border-color:#ead7b0; background:var(--warning-bg); }
+    .badge.bad { color:var(--danger); border-color:#e8c5c2; background:var(--danger-bg); }
+    .list { margin:8px 0 0; padding:0; list-style:none; }
+    .list li { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:55px; padding:9px 0; border-top:1px solid var(--surface-2); }
+    .list-actions { display:flex; align-items:center; gap:8px; }
+    .context-strip { display:flex; align-items:center; gap:16px; margin-bottom:15px; padding:11px 14px; border:1px solid var(--line); border-radius:10px; background:#fafaf9; }
+    .context-strip strong { font-weight:600; }
+    .separator { width:1px; height:28px; background:var(--line); }
+    table { width:100%; border-collapse:collapse; }
+    th,td { padding:10px; text-align:left; border-bottom:1px solid var(--surface-2); }
+    th { color:var(--ink-2); font-size:12px; font-weight:500; }
+    td.num,th.num { text-align:right; font-variant-numeric:tabular-nums; }
+    .tabs { display:flex; gap:20px; margin:12px 0 15px; overflow:auto; border-bottom:1px solid var(--line); }
+    .tabs button { min-height:40px; padding:8px 1px; white-space:nowrap; color:var(--ink-2); border:0; border-bottom:2px solid transparent; background:transparent; }
+    .tabs button.active { color:var(--ink); border-color:var(--ink); font-weight:600; }
+    .progress { height:6px; overflow:hidden; border-radius:3px; background:var(--surface-2); }
+    .progress span { display:block; height:100%; background:#45474c; }
+    .action-panel { border-top:3px solid var(--primary); }
+    .timeline { margin:12px 0 0; padding:0 0 0 19px; border-left:1px solid var(--line-strong); list-style:none; }
+    .timeline li { position:relative; padding:0 0 16px 13px; }
+    .timeline li::before { content:""; position:absolute; left:-17px; top:5px; width:7px; height:7px; border-radius:50%; background:#47484c; }
+    .stepper { display:grid; grid-template-columns:repeat(4,1fr); margin:16px 0 22px; }
+    .step { position:relative; padding-top:24px; color:var(--ink-3); text-align:center; font-size:12px; }
+    .step::before { content:""; position:absolute; z-index:2; left:calc(50% - 8px); top:0; width:16px; height:16px; border:3px solid var(--surface); border-radius:50%; background:var(--line-strong); box-shadow:0 0 0 1px var(--line); }
+    .step::after { content:""; position:absolute; left:0; right:0; top:8px; height:1px; background:var(--line); }
+    .step:first-child::after { left:50%; }
+    .step:last-child::after { right:50%; }
+    .step.done,.step.current { color:var(--ink); }
+    .step.done::before,.step.current::before { background:var(--primary); }
+    .step.current { font-weight:600; }
+    .field-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .field { display:grid; gap:5px; }
+    .field label { font-size:13px; font-weight:500; }
+    .field-help { color:var(--ink-3); font-size:12px; }
+    .field-error { color:var(--danger); font-size:12px; }
+    .input.invalid { border-color:var(--danger); background:#fffafa; }
+    .search-select { position:relative; }
+    .search-select-results { margin-top:5px; padding:5px; border:1px solid var(--line); border-radius:9px; background:var(--surface); box-shadow:0 8px 22px rgba(17,18,20,.08); }
+    .option { display:flex; align-items:center; justify-content:space-between; width:100%; min-height:38px; padding:7px 9px; text-align:left; border:0; border-radius:7px; background:transparent; }
+    .option:hover { background:var(--surface-2); }
+    .validation-note { padding:12px 14px; border:1px solid #cfdee7; border-radius:10px; background:var(--info-bg); }
+    .kanban-shell { overflow-x:auto; padding-bottom:8px; }
+    .kanban { min-width:1110px; display:grid; grid-template-columns:repeat(6,minmax(168px,1fr)); gap:9px; align-items:start; }
+    .kanban.receive { grid-template-columns:repeat(5,minmax(190px,1fr)); }
+    .column { min-height:505px; padding:8px; border:1px solid var(--line); border-radius:12px; background:#ececea; transition:border-color 140ms,background 140ms; }
+    .column.valid-target { border-color:#73757b; background:#e3e3e0; }
+    .column.invalid-target { opacity:.55; }
+    .column.drop-target { border-color:var(--primary); box-shadow:inset 0 0 0 1px var(--primary); }
+    .column-head { display:flex; align-items:center; justify-content:space-between; min-height:35px; padding:3px 4px 9px; font-size:12px; font-weight:600; }
+    .column-count { min-width:21px; padding:1px 6px; text-align:center; border-radius:999px; background:#d7d7d3; font-variant-numeric:tabular-nums; }
+    .task { margin-bottom:8px; padding:11px; cursor:grab; border:1px solid #d0d0cd; border-radius:9px; background:var(--surface); box-shadow:var(--shadow); transition:transform 140ms,box-shadow 140ms; }
+    .task:hover { transform:translateY(-1px); box-shadow:0 5px 14px rgba(17,18,20,.08); }
+    .task.dragging { transform:rotate(3deg) scale(1.02); box-shadow:var(--floating); opacity:.86; }
+    .task-title { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+    .task-route { margin:8px 0 6px; font-size:12px; font-weight:600; }
+    .task-meta { margin:5px 0; color:var(--ink-2); font-size:11px; }
+    .owner { display:flex; align-items:center; gap:7px; margin-top:9px; padding-top:8px; border-top:1px solid var(--surface-2); color:var(--ink-2); font-size:11px; }
+    .task-next { width:100%; min-height:31px; margin-top:8px; }
+    .board[hidden] { display:none; }
+    .board-toggle.primary { color:var(--ink); border-color:var(--line-strong); background:var(--surface-3); box-shadow:inset 0 1px 0 rgba(255,255,255,.75); }
+    .entity-chain { display:flex; align-items:stretch; gap:8px; overflow:auto; }
+    .entity-node { min-width:190px; padding:12px; border:1px solid var(--line); border-radius:9px; background:var(--surface); }
+    .chain-arrow { align-self:center; color:var(--ink-3); font-size:18px; }
+    .mobile-stage { max-width:410px; margin:0 auto; border:1px solid var(--line); border-radius:24px; overflow:hidden; background:var(--surface); box-shadow:0 16px 45px rgba(17,18,20,.13); }
+    .mobile-top { display:flex; align-items:center; gap:9px; padding:14px 16px; border-bottom:1px solid var(--line); }
+    .mobile-body { padding:17px; }
+    .mobile-context { padding:13px; border:1px solid var(--line); border-radius:11px; background:#f7f7f5; }
+    .mobile-nav { position:sticky; bottom:0; display:grid; grid-template-columns:repeat(4,1fr); padding:max(8px,env(safe-area-inset-bottom)) 8px 8px; border-top:1px solid var(--line); background:var(--surface); }
+    .mobile-nav button { min-height:44px; color:var(--ink-2); border:0; background:transparent; font-size:11px; }
+    .mobile-nav button.active { color:var(--ink); font-weight:600; }
+    .chart { min-height:180px; display:flex; align-items:flex-end; gap:12px; padding:18px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
+    .bar { flex:1; min-width:28px; background:#34353a; }
+    .bar.alt { background:#85868b; }
+    .report-paper { padding:24px; border:1px solid var(--line); background:#fff; box-shadow:0 6px 20px rgba(17,18,20,.08); }
+    .report-paper header,.report-paper footer { display:flex; justify-content:space-between; gap:15px; }
+    .report-paper header { padding-bottom:12px; border-bottom:2px solid #1d1e21; }
+    .report-paper footer { margin-top:14px; padding-top:10px; border-top:1px solid var(--line); color:var(--ink-2); font-size:11px; }
+    .login-shell { min-height:calc(100vh - 86px); display:grid; grid-template-columns:minmax(330px,.9fr) minmax(450px,1.1fr); }
+    .login-story { padding:7vw; display:flex; flex-direction:column; justify-content:space-between; color:#eee; background:#111214; }
+    .login-story h1 { max-width:540px; color:#fff; font-size:40px; }
+    .login-panel { display:grid; place-items:center; padding:35px; }
+    .login-card { width:min(440px,100%); padding:26px; border:1px solid var(--line); border-radius:16px; background:var(--surface); box-shadow:0 14px 40px rgba(17,18,20,.08); }
+    .role-choice { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin:13px 0; }
+    .role-card { padding:12px; text-align:left; border:1px solid var(--line); border-radius:9px; background:var(--surface); }
+    .role-card.active { border-color:var(--primary); box-shadow:inset 0 0 0 1px var(--primary); }
+    .overlay { position:fixed; inset:0; z-index:100; display:flex; background:rgba(12,13,15,.48); backdrop-filter:blur(2px); }
+    .overlay[hidden] { display:none; }
+    .drawer { width:min(780px,100vw); height:100%; margin-left:auto; display:flex; flex-direction:column; background:var(--surface); box-shadow:var(--floating); animation:slide-in 180ms ease-out; }
+    .drawer-head,.drawer-foot { padding:16px 19px; border-bottom:1px solid var(--line); }
+    .drawer-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .drawer-body { flex:1; min-width:0; overflow-y:auto; overflow-x:hidden; padding:19px; }
+    .drawer-body > * { min-width:0; max-width:100%; }
+    .drawer-body table { width:100%; table-layout:fixed; }
+    .drawer-body th,.drawer-body td { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+    .drawer-body .input,.drawer-body .select { min-width:0; max-width:100%; }
+    .drawer-foot { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:9px; padding-right:28px; border-top:1px solid var(--line); border-bottom:0; }
+    .modal-wrap { width:min(620px,calc(100vw - 28px)); max-height:calc(100vh - 36px); margin:auto; display:flex; flex-direction:column; border-radius:15px; background:var(--surface); box-shadow:var(--floating); animation:modal-in 160ms ease-out; }
+    .modal-body { overflow:auto; padding:19px; }
+    .modal-foot { display:flex; justify-content:flex-end; gap:9px; padding:14px 19px; border-top:1px solid var(--line); }
+    .toast-stack { position:fixed; right:18px; bottom:18px; z-index:130; display:grid; gap:8px; width:min(390px,calc(100vw - 36px)); }
+    .toast { display:grid; grid-template-columns:24px 1fr auto; gap:10px; padding:13px; color:#fff; border-radius:10px; background:#202125; box-shadow:var(--floating); animation:toast-in 180ms ease-out; }
+    .toast button { color:#fff; border:0; background:transparent; }
+    @keyframes slide-in { from { transform:translateX(100%); } }
+    @keyframes modal-in { from { opacity:0; transform:translateY(8px) scale(.98); } }
+    @keyframes toast-in { from { opacity:0; transform:translateY(8px); } }
+    @media (max-width:1050px) {
+      .screen.active { grid-template-columns:1fr; }
+      .sidebar { display:none; }
+      .kpis,.three { grid-template-columns:1fr 1fr; }
+      .scope-switcher { display:none; }
+      .login-shell { grid-template-columns:1fr; }
+      .login-story { min-height:280px; padding:38px; }
+    }
+    @media (max-width:680px) {
+      .prototype-banner { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      main { padding:16px; }
+      .topbar { padding:9px 12px; }
+      .kpis,.two,.three,.field-grid { grid-template-columns:1fr; }
+      .page-head { flex-direction:column; }
+      .context-strip { align-items:flex-start; flex-direction:column; gap:8px; }
+      .separator { width:100%; height:1px; }
+      .login-story { min-height:220px; padding:28px 20px; }
+      .login-story h1 { font-size:30px; }
+      .login-panel { padding:20px 14px; }
+      .role-choice { grid-template-columns:1fr; }
+      .hide-mobile { display:none; }
+    }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation-duration:1ms!important; transition-duration:1ms!important; } }
+  </style>
+</head>
+<body>
+  <div class="prototype-banner">Prototipo interactivo para aprobación: no persiste datos ni reemplaza las validaciones del backend</div>
+  <nav class="switcher" aria-label="Pantallas del prototipo">
+    <button aria-selected="true" data-screen="login">Acceso</button>
+    <button aria-selected="false" data-screen="dashboard">Panel Admin</button>
+    <button aria-selected="false" data-screen="masters">Maestros y drawer</button>
+    <button aria-selected="false" data-screen="wizard">Wizard de orden</button>
+    <button aria-selected="false" data-screen="kanban">Kanban</button>
+    <button aria-selected="false" data-screen="order">Detalle orden</button>
+    <button aria-selected="false" data-screen="remito">Detalle remito</button>
+    <button aria-selected="false" data-screen="bulto">Detalle bulto</button>
+    <button aria-selected="false" data-screen="trace">Trazabilidad</button>
+    <button aria-selected="false" data-screen="operator">Operador móvil</button>
+    <button aria-selected="false" data-screen="reports">Reportes y PDF</button>
+  </nav>
+
+  <section class="screen no-shell active" id="login">
+    <div class="login-shell">
+      <div class="login-story">
+        <div class="brand"><span class="brand-mark">ST</span> Stocky</div>
+        <div><h1>Operación trazable desde el centro hasta cada local.</h1><p class="muted" style="color:#aaa">Preparación, precintos, remitos, recepción y stock en un flujo verificable.</p></div>
+        <p class="micro">Entorno de aprobación · Datos demostrativos</p>
+      </div>
+      <div class="login-panel">
+        <form class="login-card" id="loginForm">
+          <h1>Ingresar</h1><p class="muted">El rol determina la navegación, los centros y las acciones disponibles.</p>
+          <div class="role-choice" aria-label="Rol de demostración">
+            <button type="button" class="role-card active" data-role="Administrador"><strong>Administrador</strong><br><span class="micro">Red completa y todas las acciones</span></button>
+            <button type="button" class="role-card" data-role="Operador"><strong>Operador</strong><br><span class="micro">Trabajo asignado por sede</span></button>
+          </div>
+          <div class="field"><label for="loginEmail">Usuario</label><input class="input" id="loginEmail" autocomplete="username" value="admin@stocky.local" required></div>
+          <div class="field" style="margin-top:12px"><label for="loginPassword">Contraseña</label><input class="input" id="loginPassword" type="password" autocomplete="current-password" value="stocky-demo" required minlength="8"><span class="field-help">Mínimo 8 caracteres. Nunca se muestra ni se registra en el prototipo.</span></div>
+          <button class="button primary" style="width:100%;margin-top:17px" type="submit">Ingresar como administrador</button>
+          <p class="micro" style="margin:12px 0 0">Cuentas mínimas previstas: 1 administrador y 1 operador. En producción, permisos verificados también por backend.</p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" id="dashboard">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">ST</span> Stocky</div>
+      <button class="nav-item active"><span class="nav-icon">⌂</span>Inicio</button>
+      <div class="nav-group">Operación logística</div>
+      <button class="nav-item"><span class="nav-icon">▾</span>Abastecimiento<span class="nav-count">7</span></button>
+      <div class="tree"><button class="nav-item" data-go="wizard">Necesidades</button><button class="nav-item" data-go="order">Órdenes</button></div>
+      <button class="nav-item"><span class="nav-icon">▾</span>Distribución<span class="nav-count">12</span></button>
+      <div class="tree"><button class="nav-item" data-go="kanban">Preparación y despacho</button><button class="nav-item" data-go="remito">Remitos</button><button class="nav-item" data-go="operator">Recepciones</button><button class="nav-item" data-go="trace">Trazabilidad</button></div>
+      <div class="nav-group">Gestión</div>
+      <button class="nav-item"><span class="nav-icon">▦</span>Inventario</button>
+      <button class="nav-item" data-go="masters"><span class="nav-icon">◇</span>Catálogo y maestros</button>
+      <button class="nav-item"><span class="nav-icon">⌖</span>Centros y locales</button>
+      <button class="nav-item" data-go="reports"><span class="nav-icon">▥</span>Reportes</button>
+      <div class="sidebar-user"><div class="row" style="justify-content:flex-start"><span class="avatar sm">MG</span><span><strong>Martín Gómez</strong><br><span class="micro">Administrador · Red completa</span></span></div></div>
+    </aside>
+    <div class="workspace">
+      <div class="topbar">
+        <div class="search-wrap global-search"><input class="search-input" placeholder="Buscar orden, remito, bulto, precinto o SKU" aria-label="Búsqueda global"></div>
+        <select class="select scope-switcher" aria-label="Alcance operativo"><option>Red completa</option><option>CD Central</option><option>CD Norte</option><option>Local Palermo</option></select>
+        <button class="icon-button notification-trigger" aria-label="Abrir notificaciones">♢<span class="notification-dot"></span></button><span class="avatar">MG</span>
+        <div class="notification-panel" hidden><div class="row"><h2>Notificaciones</h2><button class="button ghost small notification-close">Cerrar</button></div><div class="notification-item"><span class="dot"></span><span><strong>Remito demorado</strong><br><span class="micro">RM-000078 · Local Palermo</span></span><button class="button small" data-demo="Abriendo el remito RM-000078">Abrir</button></div><div class="notification-item"><span class="dot" style="background:var(--warning)"></span><span><strong>Stock bajo mínimo</strong><br><span class="micro">4 productos · CD Central</span></span><button class="button small" data-demo="Abriendo alertas de stock">Resolver</button></div><div class="notification-item"><span class="dot" style="background:var(--info)"></span><span><strong>Bultos recibidos</strong><br><span class="micro">3 pendientes de control</span></span><button class="button small" data-go="operator">Ver</button></div></div>
+      </div>
+      <main>
+        <div class="context-strip"><span><span class="micro">Alcance actual</span><br><strong>Red completa</strong></span><span class="separator"></span><span><span class="micro">Centros activos</span><br><strong>CD Central · CD Norte</strong></span><span class="separator"></span><span><span class="micro">Locales activos</span><br><strong>Palermo · Centro · Norte · Sur</strong></span><button class="button small" style="margin-left:auto" data-demo="Abriendo configuración de alcance">Cambiar alcance</button></div>
+        <div class="page-head"><div><h1>Panel de control</h1><p class="muted">Alertas con resolución directa, trabajo pendiente y últimos movimientos.</p></div><span class="micro tabular">Actualizado hace 6 s</span></div>
+        <div class="grid kpis"><article class="card metric"><span class="micro">Tareas críticas</span><strong class="tabular">7</strong><span class="badge bad">2 vencidas</span></article><article class="card metric"><span class="micro">En preparación</span><strong class="tabular">12</strong><span class="trend muted">4 requieren precinto</span></article><article class="card metric"><span class="micro">En tránsito</span><strong class="tabular">5</strong><span class="trend muted">84 unidades</span></article><article class="card metric"><span class="micro">Por verificar</span><strong class="tabular">8</strong><span class="badge warn">1 incidencia</span></article></div>
+        <div class="grid two" style="margin-top:14px">
+          <article class="card"><div class="row"><h2>Alertas accionables</h2><button class="button ghost small" data-demo="Mostrando todas las alertas">Ver todas</button></div><ul class="list"><li><span><strong>Remito RM-000078 demorado</strong><br><span class="micro">Local Palermo · 3 h sin recepción</span></span><span class="list-actions"><span class="badge bad">Crítica</span><button class="button small primary" data-go="operator">Registrar recepción</button></span></li><li><span><strong>4 productos bajo mínimo</strong><br><span class="micro">CD Central · sugerencia calculada</span></span><span class="list-actions"><span class="badge warn">Stock</span><button class="button small" data-go="wizard">Crear reposición</button></span></li><li><span><strong>2 bultos sin precinto</strong><br><span class="micro">Orden OR-000115</span></span><span class="list-actions"><span class="badge warn">Bloqueo</span><button class="button small" data-open-drawer="package">Asignar precintos</button></span></li></ul></article>
+          <article class="card"><h2>Trabajo pendiente</h2><ul class="list"><li><span>Órdenes por preparar</span><strong class="tabular">4</strong></li><li><span>Remitos por despachar</span><strong class="tabular">2</strong></li><li><span>Bultos por verificar</span><strong class="tabular">8</strong></li></ul><button class="button primary" data-go="kanban">Abrir operación activa</button></article>
+        </div>
+        <article class="card" style="margin-top:14px"><div class="row"><h2>Últimos movimientos</h2><button class="button ghost small" data-go="trace">Abrir trazabilidad</button></div><table><thead><tr><th>Hora</th><th>Entidad</th><th>Acción</th><th>Responsable</th><th>Sede</th><th>Consecuencia</th></tr></thead><tbody><tr><td class="tabular">14:31</td><td>BU-000045</td><td>Verificado</td><td><span class="row" style="justify-content:flex-start"><span class="avatar sm light">AR</span>Ana Ruiz</span></td><td>Local Palermo</td><td>+12 u. disponibles</td></tr><tr><td class="tabular">14:26</td><td>RM-000077</td><td>Despachado</td><td>Laura Pérez</td><td>CD Central</td><td>4 bultos en tránsito</td></tr></tbody></table></article>
+      </main>
+    </div>
+  </section>
+
+  <section class="screen" id="masters">
+    <aside class="sidebar"><div class="brand"><span class="brand-mark">ST</span> Stocky</div><button class="nav-item" data-go="dashboard">← Inicio</button><div class="nav-group">Catálogo</div><button class="nav-item active">Productos</button><div class="tree"><button class="nav-item">Precios</button><button class="nav-item">Categorías</button><button class="nav-item">Proveedores</button></div><div class="nav-group">Sedes</div><button class="nav-item">Centros y locales</button></aside>
+    <div class="workspace"><div class="topbar"><div class="search-wrap global-search"><input class="search-input" placeholder="Buscar SKU o producto"></div><button class="icon-button notification-trigger">♢</button><span class="avatar">MG</span></div><main>
+      <div class="page-head"><div><h1>Productos</h1><p class="muted">Catálogo, precios, mínimos y proveedor desde una única lista.</p></div><button class="button primary" data-open-drawer="product">Nuevo producto</button></div>
+      <div class="toolbar"><div class="search-wrap" style="min-width:270px"><input class="search-input" placeholder="Buscar nombre o SKU"></div><select class="select" style="width:190px"><option>Todas las categorías</option><option>Almacén</option><option>Bebidas</option></select><select class="select" style="width:190px"><option>Todos los proveedores</option><option>Mayorista Sur</option></select><select class="select" style="width:150px"><option>Activos</option><option>Inactivos</option></select><button class="button ghost">Limpiar filtros</button></div>
+      <div class="validation-note"><strong>Patrón de selección:</strong> hasta 7 opciones se muestran junto al campo. Con más opciones se usa búsqueda/autocompletado por nombre, código o CUIT, con resultados limitados y navegación por teclado.</div>
+      <article class="card" style="margin-top:14px"><div class="row"><span><strong>3 productos seleccionados</strong> <span class="micro">para actualización masiva</span></span><button class="button" data-open-drawer="bulk">Actualizar atributo</button></div><table><thead><tr><th><input type="checkbox" checked aria-label="Seleccionar todos"></th><th>SKU</th><th>Producto</th><th>Categoría</th><th>Proveedor</th><th class="num">Precio</th><th class="num">Mínimo</th><th>Estado</th><th></th></tr></thead><tbody><tr><td><input type="checkbox" checked></td><td>SKU-104</td><td>Yerba 1 kg</td><td>Almacén</td><td>Mayorista Sur</td><td class="num">ARS 3.450,00</td><td class="num">42</td><td><span class="badge ok">Activo</span></td><td><button class="button ghost small" data-open-drawer="product">Editar</button></td></tr><tr><td><input type="checkbox" checked></td><td>SKU-229</td><td>Café 500 g</td><td>Almacén</td><td>Café Norte</td><td class="num">ARS 7.800,00</td><td class="num">28</td><td><span class="badge ok">Activo</span></td><td><button class="button ghost small" data-open-drawer="product">Editar</button></td></tr></tbody></table></article>
+    </main></div>
+  </section>
+
+  <section class="screen" id="wizard">
+    <aside class="sidebar"><div class="brand"><span class="brand-mark">ST</span> Stocky</div><button class="nav-item" data-go="dashboard">← Inicio</button><div class="nav-group">Nueva reposición</div><button class="nav-item">1. Origen y destino</button><button class="nav-item active">2. Necesidades</button><button class="nav-item">3. Cantidades</button><button class="nav-item">4. Revisar</button></aside>
+    <div class="workspace"><div class="topbar"><div class="search-wrap global-search"><input class="search-input" placeholder="Buscar necesidad, producto o local"></div><span class="avatar">MG</span></div><main>
+      <div class="page-head"><div><h1>Crear orden de reposición</h1><p class="muted">Página completa para un proceso complejo. Guarda borrador sin emitir movimientos.</p></div><button class="button ghost" data-demo="Borrador guardado">Guardar borrador</button></div>
+      <div class="stepper"><div class="step done">Origen y destino</div><div class="step current">Necesidades</div><div class="step">Cantidades</div><div class="step">Revisar y crear</div></div>
+      <div class="grid two"><article class="card"><h2>1. Contexto de abastecimiento</h2><div class="field-grid"><div class="field"><label>Centro de distribución de origen</label><select class="select"><option>CD Central · Av. Rivadavia 1200</option><option>CD Norte · Ruta 8 km 22</option></select><span class="field-help">Sólo centros activos con stock consultable.</span></div><div class="field"><label>Local destino</label><div class="search-select"><input class="input" value="Local Palermo" aria-label="Buscar local destino"><div class="search-select-results"><button class="option"><span><strong>Local Palermo</strong><br><span class="micro">Av. Santa Fe 3320</span></span><span>Seleccionado</span></button><button class="option"><span><strong>Local Centro</strong><br><span class="micro">Córdoba 415</span></span></button></div></div><span class="field-help">Búsqueda por nombre, código o dirección.</span></div></div><h2 style="margin-top:20px">2. Necesidades compatibles</h2><div class="toolbar"><div class="search-wrap" style="flex:1"><input class="search-input" placeholder="Buscar producto, SKU o categoría"></div><select class="select" style="width:180px"><option>Todas las categorías</option></select><select class="select" style="width:150px"><option>Prioridad</option><option>Crítica</option></select></div><table><thead><tr><th></th><th>Producto</th><th class="num">Disponible CD</th><th class="num">Necesidad</th><th class="num">Sugerido</th></tr></thead><tbody><tr><td><input type="checkbox" checked></td><td>SKU-104 · Yerba 1 kg</td><td class="num">126</td><td class="num">34</td><td class="num"><input class="input" style="width:88px;text-align:right" value="34" inputmode="numeric" pattern="[0-9]+"></td></tr><tr><td><input type="checkbox" checked></td><td>SKU-229 · Café 500 g</td><td class="num">46</td><td class="num">21</td><td class="num"><input class="input invalid" style="width:88px;text-align:right" value="60x" aria-invalid="true"><span class="field-error">Sólo enteros; máximo 46</span></td></tr></tbody></table></article><aside class="card action-panel"><h2>Resumen antes de avanzar</h2><ul class="list"><li><span>Origen</span><strong>CD Central</strong></li><li><span>Destino</span><strong>Local Palermo</strong></li><li><span>Productos</span><strong class="tabular">2</strong></li><li><span>Unidades válidas</span><strong class="tabular">34</strong></li></ul><div class="validation-note" style="margin:12px 0">Se normalizan espacios y formatos, se rechaza HTML/código y se aceptan sólo números enteros positivos dentro del stock. El backend vuelve a validar todo.</div><button class="button primary" disabled title="Corregir Café 500 g">Continuar a cantidades</button><p class="field-error" style="margin-top:8px">Corregir 1 campo antes de continuar.</p></aside></div>
+    </main></div>
+  </section>
+
+  <section class="screen" id="kanban">
+    <aside class="sidebar"><div class="brand"><span class="brand-mark">ST</span> Stocky</div><button class="nav-item" data-go="dashboard">← Inicio</button><div class="nav-group">Distribución</div><button class="nav-item active">Tablero operativo</button><div class="tree"><button class="nav-item" data-board-show="prep">Preparación y despacho</button><button class="nav-item" data-board-show="receive">Recepción y control</button></div><button class="nav-item" data-go="trace">Trazabilidad</button></aside>
+    <div class="workspace"><div class="topbar"><div class="search-wrap global-search"><input class="search-input" placeholder="Buscar orden, remito o responsable"></div><select class="select scope-switcher"><option>CD Central</option><option>CD Norte</option></select><span class="avatar">MG</span></div><main>
+      <div class="page-head"><div><h1>Tablero operativo</h1><p class="muted">Todas las etapas visibles. Arrastrar abre la acción requerida; confirmar recién registra.</p></div><span class="micro tabular">Actualizado hace 4 s</span></div>
+      <div class="toolbar"><button class="button primary board-toggle" data-board-show="prep">Preparación y despacho</button><button class="button board-toggle" data-board-show="receive">Recepción y control</button><select class="select" style="width:170px"><option>Todos los destinos</option></select><select class="select" style="width:170px"><option>Todo responsable</option></select><button class="button">Vista lista</button></div>
+      <div class="board" data-board="prep"><div class="kanban-shell"><div class="kanban">
+        <section class="column" data-stage="0"><div class="column-head"><span>Por preparar</span><span class="column-count">4</span></div><article class="task" draggable="true" data-stage="0"><div class="task-title"><strong>OR-000123</strong><span class="badge">Pendiente</span></div><div class="task-route">CD Central → Local Norte</div><div class="task-meta">24 u. · 3 productos · hace 18 min</div><div class="owner"><span class="avatar sm light">LP</span>Laura Pérez</div></article></section>
+        <section class="column" data-stage="1"><div class="column-head"><span>Empaquetando</span><span class="column-count">6</span></div><article class="task" draggable="true" data-stage="1"><div class="task-title"><strong>OR-000118</strong><span class="badge warn">En preparación</span></div><div class="task-route">CD Central → Local Palermo</div><div class="progress"><span style="width:75%"></span></div><div class="task-meta">18/24 u. · faltan 6 u.</div><div class="owner"><span class="avatar sm light">MG</span>Martín Gómez</div></article></section>
+        <section class="column" data-stage="2"><div class="column-head"><span>Para precintar</span><span class="column-count">3</span></div><article class="task" draggable="true" data-stage="2"><div class="task-title"><strong>OR-000115</strong><span class="badge warn">2 sin precinto</span></div><div class="task-route">CD Norte → Local Centro</div><div class="task-meta">36/36 u. · 3 bultos</div><div class="owner"><span class="avatar sm light">AR</span>Ana Ruiz</div></article></section>
+        <section class="column" data-stage="3"><div class="column-head"><span>Para remito</span><span class="column-count">2</span></div><article class="task" draggable="true" data-stage="3"><div class="task-title"><strong>OR-000111</strong><span class="badge info">Completa</span></div><div class="task-route">CD Central → Local Sur</div><div class="task-meta">48/48 u. · 4 precintos</div><div class="owner"><span class="avatar sm light">LP</span>Laura Pérez</div></article></section>
+        <section class="column" data-stage="4"><div class="column-head"><span>Para despacho</span><span class="column-count">2</span></div><article class="task" draggable="true" data-stage="4"><div class="task-title"><strong>RM-000077</strong><span class="badge info">Emitido</span></div><div class="task-route">CD Central → Local Sur</div><div class="task-meta">4 bultos · 48 u.</div><div class="owner"><span class="avatar sm light">LP</span>Laura Pérez</div></article></section>
+        <section class="column" data-stage="5"><div class="column-head"><span>En tránsito</span><span class="column-count">5</span></div><article class="task" draggable="true" data-stage="5"><div class="task-title"><strong>RM-000078</strong><span class="badge warn">En tránsito</span></div><div class="task-route">CD Central → Local Palermo</div><div class="task-meta">3 bultos · demorado 3 h</div><div class="owner"><span class="avatar sm light">AR</span>Ana Ruiz · destino</div></article></section>
+      </div></div></div>
+      <div class="board" data-board="receive" hidden><div class="kanban-shell"><div class="kanban receive"><section class="column" data-stage="0"><div class="column-head"><span>En tránsito</span><span class="column-count">5</span></div><article class="task" draggable="true" data-stage="0"><div class="task-title"><strong>RM-000078</strong><span class="badge warn">En tránsito</span></div><div class="task-route">CD Central → Local Palermo</div><div class="owner"><span class="avatar sm light">AR</span>Ana Ruiz</div></article></section><section class="column" data-stage="1"><div class="column-head"><span>Arribados</span><span class="column-count">2</span></div></section><section class="column" data-stage="2"><div class="column-head"><span>Por verificar</span><span class="column-count">8</span></div><article class="task" draggable="true" data-stage="2"><div class="task-title"><strong>BU-000045</strong><span class="badge info">Recibido</span></div><div class="task-route">Precinto PC-883102</div><div class="owner"><span class="avatar sm light">AR</span>Ana Ruiz</div></article></section><section class="column" data-stage="3"><div class="column-head"><span>Con incidencia</span><span class="column-count">1</span></div></section><section class="column" data-stage="4"><div class="column-head"><span>Cerrados hoy</span><span class="column-count">9</span></div></section></div></div></div>
+      <div class="validation-note" style="margin-top:12px">Prueba el drag-and-drop: sólo la columna siguiente es válida. La tarjeta se inclina 3°, el drop abre confirmación y no se mueve hasta confirmar. En móvil y teclado se usa el menú de acción equivalente.</div>
+    </main></div>
+  </section>
+
+  <section class="screen" id="order">
+    <aside class="sidebar"><div class="brand"><span class="brand-mark">ST</span> Stocky</div><button class="nav-item" data-go="kanban">← Operaciones</button><div class="nav-group">OR-000118</div><button class="nav-item active">Resumen</button><button class="nav-item">Contenido</button><button class="nav-item">Trazabilidad</button><button class="nav-item">Documentos e impacto</button></aside>
+    <div class="workspace"><div class="topbar"><div class="search-wrap global-search"><input class="search-input" placeholder="Buscar en operaciones"></div><select class="select scope-switcher"><option>CD Central</option></select><span class="avatar">MG</span></div><main><div class="page-head"><div><p class="micro">Órdenes / OR-000118</p><div class="row" style="justify-content:flex-start"><h1>Orden OR-000118</h1><span class="badge warn">En preparación</span></div><p class="muted">CD Central → Local Palermo · Martín Gómez</p></div><button class="button primary" data-open-drawer="package">Continuar empaquetado</button></div><div class="tabs"><button class="active">Resumen</button><button>Contenido</button><button>Trazabilidad</button><button>Documentos e impacto</button></div><div class="grid two"><div class="grid"><article class="card"><div class="row"><h2>Avance de la orden</h2><strong class="tabular">18/24 unidades</strong></div><div class="progress" style="margin:12px 0"><span style="width:75%"></span></div><table><thead><tr><th>Producto</th><th class="num">Solicitado</th><th class="num">Empaquetado</th><th class="num">Pendiente</th></tr></thead><tbody><tr><td>SKU-104 · Yerba 1 kg</td><td class="num">12</td><td class="num">12</td><td class="num">0</td></tr><tr><td>SKU-229 · Café 500 g</td><td class="num">12</td><td class="num">6</td><td class="num">6</td></tr></tbody></table></article><article class="card"><h2>Actividad reciente</h2><ul class="timeline"><li><strong>BU-000044 precintado</strong><br><span class="micro">Martín Gómez · CD Central · 14:21</span></li><li><strong>BU-000045 creado</strong><br><span class="micro">6 unidades reservadas · 14:08</span></li><li><strong>Preparación iniciada</strong><br><span class="micro">Primer bulto creado · 13:54</span></li></ul></article></div><aside class="card action-panel"><h2>Próxima acción</h2><p>Faltan 6 unidades y un bulto sin precinto. El remito completo no puede emitirse.</p><ul><li>Empaquetar 6 u. de SKU-229</li><li>Asignar precinto a BU-000045</li></ul><button class="button primary" data-open-drawer="package">Crear o completar bulto</button><button class="button ghost" data-go="bulto">Abrir BU-000045</button></aside></div></main></div>
+  </section>
+
+  <section class="screen" id="remito">
+    <aside class="sidebar"><div class="brand"><span class="brand-mark">ST</span> Stocky</div><button class="nav-item" data-go="order">← Orden OR-000109</button><div class="nav-group">RM-000077</div><button class="nav-item active">Resumen</button><button class="nav-item">Bultos</button><button class="nav-item">Trazabilidad</button><button class="nav-item">Documento</button></aside>
+    <div class="workspace"><div class="topbar"><div class="search-wrap global-search"><input class="search-input" placeholder="Buscar"></div><select class="select scope-switcher"><option>CD Central</option></select><span class="avatar">LP</span></div><main><div class="page-head"><div><p class="micro">Remitos / RM-000077</p><div class="row" style="justify-content:flex-start"><h1>Remito RM-000077</h1><span class="badge info">Emitido</span></div><p class="muted">Orden OR-000109 · CD Central → Local Sur</p></div><button class="button primary" data-confirm="dispatch">Registrar despacho completo</button></div><div class="grid kpis"><article class="card metric"><span class="micro">Bultos</span><strong>4/4</strong><span class="muted">todos precintados</span></article><article class="card metric"><span class="micro">Unidades</span><strong>48</strong><span class="muted">orden completa</span></article><article class="card metric"><span class="micro">Emitido</span><strong style="font-size:17px">19 oct · 13:40</strong><span class="muted">Laura Pérez</span></article><article class="card metric"><span class="micro">Control</span><strong style="font-size:17px">Pendiente</strong><span class="muted">en destino</span></article></div><div class="grid two" style="margin-top:14px"><article class="card"><h2>Bultos incluidos</h2><table><thead><tr><th>Bulto</th><th>Precinto</th><th class="num">Unidades</th><th>Estado</th></tr></thead><tbody><tr><td>BU-000041</td><td>PC-88101</td><td class="num">12</td><td><span class="badge warn">Precintado</span></td></tr><tr><td>BU-000042</td><td>PC-88102</td><td class="num">12</td><td><span class="badge warn">Precintado</span></td></tr><tr><td>BU-000043</td><td>PC-88103</td><td class="num">12</td><td><span class="badge warn">Precintado</span></td></tr><tr><td>BU-000044</td><td>PC-88104</td><td class="num">12</td><td><span class="badge warn">Precintado</span></td></tr></tbody></table></article><aside class="card action-panel"><h2>Despacho completo</h2><p>Los 4 bultos pasarán juntos a tránsito. No se permite despacho parcial.</p><button class="button primary" data-confirm="dispatch">Revisar y confirmar</button><button class="button" data-demo="Abriendo vista previa formal del remito">Vista previa del remito</button></aside></div></main></div>
+  </section>
+
+  <section class="screen" id="bulto">
+    <aside class="sidebar"><div class="brand"><span class="brand-mark">ST</span> Stocky</div><button class="nav-item" data-go="remito">← Remito RM-000078</button><div class="nav-group">BU-000045</div><button class="nav-item active">Resumen</button><button class="nav-item">Contenido</button><button class="nav-item">Trazabilidad</button><button class="nav-item">Impacto de stock</button></aside>
+    <div class="workspace"><div class="topbar"><div class="search-wrap global-search"><input class="search-input" placeholder="Buscar"></div><select class="select scope-switcher"><option>Local Palermo</option></select><span class="avatar">AR</span></div><main><div class="page-head"><div><p class="micro">Bultos / BU-000045</p><div class="row" style="justify-content:flex-start"><h1>Bulto BU-000045</h1><span class="badge info">Recibido</span></div><p class="muted">Precinto PC-883102 · RM-000078 · OR-000112</p></div><span class="micro">Actualizado hace 5 s</span></div><div class="grid two"><div class="grid"><article class="card"><h2>Contenido e impacto</h2><table><thead><tr><th>Producto</th><th class="num">Cantidad</th><th>Situación</th></tr></thead><tbody><tr><td>SKU-104 · Yerba 1 kg</td><td class="num">8</td><td>En tránsito recibido</td></tr><tr><td>SKU-229 · Café 500 g</td><td class="num">4</td><td>En tránsito recibido</td></tr></tbody></table><div class="validation-note" style="margin-top:12px">Intacto: 12 unidades quedan listas para acreditar al cerrar el remito. Violado: se registrarán como merma al cierre.</div></article><article class="card"><h2>Trazabilidad</h2><ul class="timeline"><li><strong>Recibido</strong><br><span class="micro">Ana Ruiz · Local Palermo · 14:32</span></li><li><strong>En tránsito</strong><br><span class="micro">Laura Pérez · CD Central · RM-000078</span></li><li><strong>Precintado</strong><br><span class="micro">Martín Gómez · PC-883102</span></li></ul></article></div><aside class="card action-panel"><h2>Verificar precinto</h2><p>Compare físicamente el código con <strong>PC-883102</strong>.</p><button class="button primary" data-confirm="verify">Precinto intacto</button><button class="button danger" style="margin-top:8px" data-confirm="reject">Registrar incidencia</button><button class="button ghost" data-go="trace">Ver trazabilidad completa</button></aside></div></main></div>
+  </section>
+
+  <section class="screen" id="trace">
+    <aside class="sidebar"><div class="brand"><span class="brand-mark">ST</span> Stocky</div><button class="nav-item" data-go="dashboard">← Inicio</button><div class="nav-group">Trazabilidad</div><button class="nav-item active">Explorador</button><button class="nav-item">Movimientos de stock</button><button class="nav-item">Incidencias</button></aside>
+    <div class="workspace"><div class="topbar"><div class="search-wrap global-search"><input class="search-input" value="PC-883102" aria-label="Buscar trazabilidad"></div><select class="select scope-switcher"><option>Red completa</option></select><span class="avatar">MG</span></div><main><div class="page-head"><div><h1>Trazabilidad integral</h1><p class="muted">Consulta por orden, remito, bulto, precinto, SKU o producto.</p></div><button class="button">Exportar evidencia</button></div><div class="toolbar"><select class="select" style="width:160px"><option>Todas las entidades</option></select><select class="select" style="width:160px"><option>Todos los estados</option></select><input class="input" type="date" style="width:160px"><button class="button ghost">Limpiar</button></div><article class="card"><h2>Cadena documental de PC-883102</h2><div class="entity-chain"><div class="entity-node"><span class="micro">Orden</span><h3>OR-000112</h3><span class="badge warn">Despachada</span></div><span class="chain-arrow">→</span><div class="entity-node"><span class="micro">Remito único</span><h3>RM-000078</h3><span class="badge info">Recibido</span></div><span class="chain-arrow">→</span><div class="entity-node"><span class="micro">Bulto</span><h3>BU-000045</h3><span class="badge info">Recibido</span></div><span class="chain-arrow">→</span><div class="entity-node"><span class="micro">Precinto</span><h3>PC-883102</h3><span class="badge warn">Por verificar</span></div></div></article><div class="grid two" style="margin-top:14px"><article class="card"><h2>Línea temporal inmutable</h2><ul class="timeline"><li><strong>Recepción registrada</strong><br><span class="micro">19 oct 14:32 · Ana Ruiz · Local Palermo · sin impacto todavía</span></li><li><strong>Despacho registrado</strong><br><span class="micro">19 oct 11:18 · Laura Pérez · CD Central · 12 u. en tránsito</span></li><li><strong>Precinto asignado</strong><br><span class="micro">19 oct 10:42 · Martín Gómez · PC-883102</span></li><li><strong>Bulto preparado</strong><br><span class="micro">19 oct 10:20 · 12 u. reservadas</span></li></ul></article><aside class="card"><h2>Estado actual</h2><ul class="list"><li><span>Ubicación</span><strong>Local Palermo</strong></li><li><span>Responsable actual</span><strong>Ana Ruiz</strong></li><li><span>Stock</span><strong>12 u. en tránsito</strong></li><li><span>Siguiente acción</span><strong>Verificar precinto</strong></li></ul><button class="button primary" data-go="bulto">Abrir bulto</button></aside></div></main></div>
+  </section>
+
+  <section class="screen no-shell" id="operator">
+    <main><div class="mobile-stage"><div class="mobile-top"><div><strong>Stocky Operaciones</strong><br><span class="micro">Sesión de Ana Ruiz</span></div><span style="flex:1"></span><button class="icon-button notification-trigger">♢<span class="notification-dot"></span></button><span class="avatar">AR</span></div><div class="mobile-body">
+      <div class="mobile-context"><div class="row"><div><span class="micro">Reportada a</span><br><strong>CD Central · Logística</strong></div><button class="button small" data-demo="Abriendo selección de centro asignado">Cambiar</button></div><hr style="border:0;border-top:1px solid var(--line)"><div class="field"><label for="operatorLocal">Local de trabajo actual</label><select class="select" id="operatorLocal"><option>Local Palermo · Recepción</option><option>Local Centro · Recepción</option></select><span class="field-help">Sólo aparecen locales asignados al operador para este turno.</span></div><p class="micro" style="margin:9px 0 0">Turno 08:00–16:00 · Supervisor: Martín Gómez</p></div>
+      <div class="page-head" style="margin:18px 0 12px"><div><h1>Mi trabajo</h1><p class="muted">3 acciones pendientes</p></div><span class="micro">Actualizado 5 s</span></div>
+      <article class="card action-panel"><div class="row"><span class="badge bad">Demorado</span><span class="micro">hace 3 h</span></div><h2 style="margin-top:10px">Recibir RM-000078</h2><p>CD Central → Local Palermo<br>3 bultos · 36 unidades</p><button class="button primary" style="width:100%" data-confirm="receive">Registrar recepción</button></article>
+      <article class="card" style="margin-top:11px"><div class="row"><span class="badge info">Recibido</span><span class="micro">hace 8 min</span></div><h2 style="margin-top:10px">Verificar BU-000045</h2><p>Precinto PC-883102 · 12 unidades</p><button class="button primary" style="width:100%" data-confirm="verify">Precinto intacto</button><button class="button danger" style="width:100%;margin-top:8px" data-confirm="reject">Registrar incidencia</button></article>
+      <div class="validation-note" style="margin-top:11px">La pantalla siempre muestra centro de reporte, local seleccionado, turno, destino y efecto de la acción.</div>
+    </div><nav class="mobile-nav"><button class="active">Trabajo</button><button data-demo="Escáner listo para orden, remito, bulto o precinto">Escanear</button><button data-go="trace">Historial</button><button data-demo="Abriendo perfil y asignaciones">Perfil</button></nav></div></main>
+  </section>
+
+  <section class="screen" id="reports">
+    <aside class="sidebar"><div class="brand"><span class="brand-mark">ST</span> Stocky</div><button class="nav-item" data-go="dashboard">← Inicio</button><div class="nav-group">Reportes</div><button class="nav-item active">R1 · Existencias</button><button class="nav-item">R2 · Mermas y precintos</button><button class="nav-item">Exportaciones</button></aside>
+    <div class="workspace"><div class="topbar"><div class="search-wrap global-search"><input class="search-input" placeholder="Buscar reporte"></div><select class="select scope-switcher"><option>Red completa</option></select><span class="avatar">MG</span></div><main><div class="page-head"><div><h1>Estado de existencias</h1><p class="muted">¿Qué productos requieren reposición y qué valor representan?</p></div><button class="button primary" data-confirm="pdf">Exportar PDF formal</button></div><div class="toolbar"><select class="select" style="width:180px"><option>CD Central</option></select><div class="search-wrap" style="width:220px"><input class="search-input" placeholder="Buscar categoría"></div><label class="button"><input type="checkbox"> Sólo bajo mínimo</label><button class="button primary">Aplicar</button><button class="button ghost">Limpiar</button></div><div class="grid kpis"><article class="card metric"><span class="micro">Productos críticos</span><strong>18</strong></article><article class="card metric"><span class="micro">Unidades faltantes</span><strong>246</strong></article><article class="card metric"><span class="micro">En tránsito</span><strong>430</strong></article><article class="card metric"><span class="micro">Valorización a costo</span><strong style="font-size:20px">ARS 8,4 M</strong></article></div><div class="grid two" style="margin-top:14px"><article class="card"><h2>Hallazgos prioritarios</h2><ul class="list"><li><span>SKU-104 · Yerba 1 kg</span><strong>Faltan 34 u.</strong></li><li><span>SKU-229 · Café 500 g</span><strong>Faltan 21 u.</strong></li></ul><table><thead><tr><th>SKU</th><th>Producto</th><th class="num">Disponible</th><th class="num">Faltante</th><th>Estado</th></tr></thead><tbody><tr><td>104</td><td>Yerba 1 kg</td><td class="num">8</td><td class="num">34</td><td><span class="badge bad">Crítico</span></td></tr></tbody></table></article><article class="card"><h2>Valorización por ubicación</h2><div class="chart"><div class="bar" style="height:65%"></div><div class="bar alt" style="height:90%"></div><div class="bar" style="height:48%"></div><div class="bar alt" style="height:72%"></div></div></article></div><h2 style="margin:25px 0 10px">Vista del PDF formal</h2><article class="report-paper"><header><strong>STOCKY</strong><span>R1 · Existencias</span></header><p style="margin-top:15px"><strong>¿Qué productos requieren reposición y qué valor representan?</strong></p><p class="micro">Filtros: CD Central · Todas las categorías · Bajo mínimo<br>Emitido: 19 oct 2026, 14:35 ART · Martín Gómez · EXP-20261019-014</p><div class="grid kpis"><div><span class="micro">Críticos</span><h2>18</h2></div><div><span class="micro">Faltante</span><h2>246 u.</h2></div><div><span class="micro">Tránsito</span><h2>430 u.</h2></div><div><span class="micro">Costo</span><h2>ARS 8,4 M</h2></div></div><footer><span>Stocky · Uso interno · EXP-20261019-014</span><span>Página 1 de 4</span></footer></article><section class="card" style="margin-top:20px"><div class="page-head" style="margin-bottom:12px"><div><h2>R2 · Mermas y precintos</h2><p class="muted">¿Dónde, cuándo y por qué se rechazaron bultos, y cuál fue el impacto económico?</p></div><button class="button" data-confirm="pdf">Exportar R2</button></div><div class="grid kpis"><div><span class="micro">Rechazados / evaluados</span><h2>6 / 184</h2></div><div><span class="micro">Tasa del período</span><h2>3,26%</h2></div><div><span class="micro">Unidades perdidas</span><h2>42</h2></div><div><span class="micro">Pérdida a costo</span><h2>ARS 312.450</h2></div></div><div class="validation-note" style="margin-top:12px">Filtros propios: fecha desde/hasta y local destino. El PDF incluye incidentes por bulto, remito, precinto, motivo y línea temporal forense.</div></section></main></div>
+  </section>
+
+  <div class="overlay" id="drawerOverlay" hidden aria-hidden="true">
+    <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+      <div class="drawer-head"><div><h2 id="drawerTitle">Nuevo producto</h2><p class="muted" id="drawerSubtitle">Alta de catálogo</p></div><button class="icon-button overlay-close" aria-label="Cerrar">×</button></div>
+      <div class="drawer-body" id="drawerBody"></div>
+      <div class="drawer-foot"><button class="button overlay-close">Cancelar</button><button class="button primary" id="drawerSave">Revisar y guardar</button></div>
+    </aside>
+  </div>
+
+  <div class="overlay" id="modalOverlay" hidden aria-hidden="true">
+    <section class="modal-wrap" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="drawer-head"><div><h2 id="modalTitle">Confirmar acción</h2><p class="muted" id="modalSubtitle"></p></div><button class="icon-button overlay-close" aria-label="Cerrar">×</button></div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-foot"><button class="button overlay-close">Cancelar</button><button class="button primary" id="modalConfirm">Confirmar y registrar</button></div>
+    </section>
+  </div>
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+  <template id="productDrawerTemplate">
+    <div class="stepper"><div class="step current">Identidad</div><div class="step">Clasificación</div><div class="step">Valores</div><div class="step">Revisar</div></div>
+    <div class="field-grid"><div class="field"><label>SKU</label><input class="input" value=" SKU-307 " maxlength="24" pattern="[A-Za-z0-9-]+"><span class="field-help">Se recortan espacios y se normaliza a mayúsculas.</span></div><div class="field"><label>Nombre</label><input class="input" value="Galletas avena 300 g" maxlength="120"><span class="field-help">Texto plano; no acepta etiquetas HTML.</span></div></div>
+    <div class="field" style="margin-top:14px"><label>Categoría</label><div class="search-select"><input class="input" placeholder="Buscar por nombre o código" value="Almacén"><div class="search-select-results"><button class="option"><span><strong>Almacén</strong><br><span class="micro">CAT-001 · 128 productos</span></span><span>✓</span></button><button class="option"><span><strong>Almacén saludable</strong><br><span class="micro">CAT-014 · 34 productos</span></span></button></div></div><span class="field-help">Con muchas categorías, búsqueda paginada; no se cargan todas de una vez.</span></div>
+    <div class="field" style="margin-top:14px"><label>Proveedor</label><input class="input" list="providerOptions" placeholder="Buscar razón social o CUIT"><datalist id="providerOptions"><option value="Mayorista Sur · 30-71234567-9"><option value="Distribuidora Norte · 30-70987654-2"></datalist></div>
+    <div class="field-grid" style="margin-top:14px"><div class="field"><label>Costo unitario</label><input class="input" inputmode="decimal" value="1250,50"><span class="field-help">Decimal positivo, máximo 2 decimales.</span></div><div class="field"><label>Precio de venta</label><input class="input invalid" inputmode="decimal" value="1000"><span class="field-error">Debe ser igual o mayor que el costo.</span></div><div class="field"><label>Nivel mínimo</label><input class="input" inputmode="numeric" value="20"><span class="field-help">Entero positivo.</span></div></div>
+    <div class="validation-note" style="margin-top:15px"><strong>Doble validación:</strong> el frontend mejora la experiencia y bloquea formatos inválidos; el backend es la autoridad y vuelve a validar unicidad, rangos y permisos.</div>
+  </template>
+  <template id="packageDrawerTemplate">
+    <div class="stepper"><div class="step done">Orden</div><div class="step current">Contenido</div><div class="step">Precinto</div><div class="step">Revisar</div></div><div class="context-strip"><span><span class="micro">Orden</span><br><strong>OR-000118</strong></span><span class="separator"></span><span><span class="micro">Ruta</span><br><strong>CD Central → Local Palermo</strong></span></div><div class="field"><label>Buscar producto pendiente</label><div class="search-wrap"><input class="search-input" placeholder="SKU o nombre" value="Café"></div><div class="search-select-results"><button class="option"><span><strong>SKU-229 · Café 500 g</strong><br><span class="micro">Pendiente 6 · disponible 46</span></span><span>Agregar</span></button></div></div><div class="field-grid" style="margin-top:14px"><div class="field"><label>Cantidad</label><input class="input" inputmode="numeric" value="6"><span class="field-help">Entero entre 1 y 6.</span></div><div class="field"><label>Precinto</label><input class="input" value="PC-883103" maxlength="32"><span class="field-help">Único, no reutilizable; permite letras, números y guion.</span></div></div><div class="validation-note" style="margin-top:15px">Crear el bulto reserva 6 unidades en CD Central. Precintarlo no despacha: el despacho ocurre con el remito completo.</div>
+  </template>
+  <template id="bulkDrawerTemplate">
+    <div class="stepper"><div class="step done">Seleccionar</div><div class="step current">Regla</div><div class="step">Revisar</div><div class="step">Confirmar</div></div>
+    <div class="field-grid"><div class="field"><label>Atributo</label><select class="select"><option>Precio de venta</option></select></div><div class="field"><label>Operación</label><select class="select" id="bulkMode"><option value="increase">Incrementar porcentaje</option><option value="decrease">Reducir porcentaje</option></select></div><div class="field"><label>Porcentaje</label><div class="row" style="justify-content:flex-start"><input class="input" id="bulkPercent" inputmode="decimal" value="12,5" style="max-width:140px"><strong>%</strong></div><span class="field-help">Mayor que 0 y hasta 100; máximo 2 decimales.</span></div></div>
+    <table style="margin-top:14px"><thead><tr><th>Producto</th><th class="num">Anterior</th><th class="num">Variación</th><th class="num">Propuesto</th></tr></thead><tbody><tr><td>SKU-104 · Yerba</td><td class="num">ARS 3.450,00</td><td class="num bulk-delta">+12,5%</td><td class="num bulk-result" data-base="3450">ARS 3.881,25</td></tr><tr><td>SKU-229 · Café</td><td class="num">ARS 7.800,00</td><td class="num bulk-delta">+12,5%</td><td class="num bulk-result" data-base="7800">ARS 8.775,00</td></tr></tbody></table>
+    <div class="validation-note" style="margin-top:14px">La revisión muestra precio anterior, porcentaje y resultado por producto. La operación es atómica: si una fila es inválida, no cambia ninguna.</div>
+  </template>
+  <template id="approvePackagesDrawerTemplate">
+    <div class="stepper"><div class="step done">Orden</div><div class="step current">Bultos</div><div class="step">Evidencia</div><div class="step">Confirmar</div></div>
+    <p>Puede aprobar un bulto desde su fila o confirmar juntos todos los que ya cumplan contenido y precinto. Cada bulto conserva un evento individual.</p>
+    <table><thead><tr><th>Bulto</th><th>Contenido</th><th>Precinto</th><th>Resultado</th></tr></thead><tbody><tr><td>BU-000043</td><td><span class="badge ok">12/12 u.</span></td><td>PC-88103</td><td><button class="button small" data-demo="BU-000043 aprobado para remito">Aprobar bulto</button></td></tr><tr><td>BU-000044</td><td><span class="badge ok">12/12 u.</span></td><td>PC-88104</td><td><button class="button small" data-demo="BU-000044 aprobado para remito">Aprobar bulto</button></td></tr><tr><td>BU-000045</td><td><span class="badge warn">6/12 u.</span></td><td>Sin precinto</td><td><button class="button small" disabled>No elegible</button></td></tr></tbody></table>
+    <div class="validation-note" style="margin-top:14px"><strong>Aprobar listos</strong> incluye sólo BU-000043 y BU-000044. No completa, corrige ni omite el bulto bloqueado.</div>
+  </template>
+  <template id="verifyAllDrawerTemplate">
+    <div class="stepper"><div class="step done">Remito recibido</div><div class="step current">Escanear</div><div class="step">Resultados</div><div class="step">Confirmar</div></div>
+    <p>Control por lote de RM-000078. Cada precinto debe escanearse o ingresarse y conserva su propio resultado.</p>
+    <table style="table-layout:fixed"><thead><tr><th style="width:18%">Bulto</th><th style="width:24%">Precinto esperado</th><th style="width:32%">Lectura</th><th style="width:26%">Resultado</th></tr></thead><tbody><tr><td>BU-000045</td><td>PC-883102</td><td><input class="input" value="PC-883102"></td><td><select class="select"><option>Íntegro</option><option>Violado</option></select></td></tr><tr><td>BU-000046</td><td>PC-883103</td><td><input class="input" value="PC-883103"></td><td><select class="select"><option>Íntegro</option><option>Violado</option></select></td></tr><tr><td>BU-000047</td><td>PC-883104</td><td><input class="input" value="PC-883104"></td><td><select class="select"><option>Íntegro</option><option>Violado</option></select></td></tr></tbody></table>
+    <div class="validation-note" style="margin-top:14px">“Confirmar 3 resultados” no significa aprobar a ciegas: valida cada lectura, exige motivo si se elige Violado y genera tres eventos de trazabilidad.</div>
+  </template>
+
+  <script>
+    const screens = [...document.querySelectorAll('.screen')];
+    const screenButtons = [...document.querySelectorAll('[data-screen]')];
+    const showScreen = (id) => {
+      screens.forEach((screen) => screen.classList.toggle('active', screen.id === id));
+      screenButtons.forEach((button) => button.setAttribute('aria-selected', String(button.dataset.screen === id)));
+      const selectedButton = screenButtons.find((button) => button.dataset.screen === id);
+      if (selectedButton) selectedButton.parentElement.scrollTo({left:selectedButton.offsetLeft - innerWidth / 2 + selectedButton.offsetWidth / 2});
+      history.replaceState(null, '', `#${id}`);
+      window.scrollTo({top:0});
+    };
+    screenButtons.forEach((button) => button.addEventListener('click', () => showScreen(button.dataset.screen)));
+    document.querySelectorAll('[data-go]').forEach((button) => button.addEventListener('click', () => showScreen(button.dataset.go)));
+    if (location.hash && document.querySelector(location.hash)) { showScreen(location.hash.slice(1)); setTimeout(() => window.scrollTo(0,0), 0); }
+
+    const notificationPanels = [...document.querySelectorAll('.notification-panel')];
+    document.querySelectorAll('.notification-trigger').forEach((button) => button.addEventListener('click', () => {
+      const panel = button.parentElement.querySelector('.notification-panel') || document.querySelector('#dashboard .notification-panel');
+      if (panel) panel.hidden = !panel.hidden;
+    }));
+    document.querySelectorAll('.notification-close').forEach((button) => button.addEventListener('click', () => button.closest('.notification-panel').hidden = true));
+
+    const toast = (message) => {
+      const item = document.createElement('div');
+      item.className = 'toast';
+      item.innerHTML = `<span>✓</span><span>${message}</span><button aria-label="Cerrar">×</button>`;
+      item.querySelector('button').addEventListener('click', () => item.remove());
+      document.getElementById('toastStack').append(item);
+      setTimeout(() => item.remove(), 5200);
+    };
+    document.querySelectorAll('[data-demo]').forEach((button) => button.addEventListener('click', () => toast(button.dataset.demo)));
+
+    const trendByLabel = {
+      'Tareas críticas':['↑ 2 desde ayer','down'],
+      'En preparación':['↑ 12% esta semana','up'],
+      'En tránsito':['↓ 8% vs. ayer','up'],
+      'Por verificar':['↑ 3 en la última hora','down'],
+      'Productos críticos':['↓ 6% vs. semana anterior','up'],
+      'Unidades faltantes':['↓ 18% vs. semana anterior','up'],
+      'Valorización a costo':['↑ 4,2% este mes','up']
+    };
+    document.querySelectorAll('.metric').forEach((metric) => {
+      const label = metric.querySelector('.micro')?.textContent.trim();
+      if (!trendByLabel[label]) return;
+      const chip = document.createElement('span');
+      chip.className = `trend-chip ${trendByLabel[label][1]}`;
+      chip.textContent = trendByLabel[label][0];
+      metric.append(chip);
+    });
+
+    document.querySelector('#dashboard .list-actions .primary')?.classList.remove('primary');
+    document.querySelector('#order .page-head > .primary')?.classList.remove('primary');
+    document.querySelector('#remito .page-head > .primary')?.classList.remove('primary');
+    document.querySelector('#operator article:nth-of-type(2) .primary')?.classList.remove('primary');
+    document.querySelector('#reports .page-head > .primary')?.classList.remove('primary');
+
+    const drawerOverlay = document.getElementById('drawerOverlay');
+    const drawerTitle = document.getElementById('drawerTitle');
+    const drawerSubtitle = document.getElementById('drawerSubtitle');
+    const drawerBody = document.getElementById('drawerBody');
+    const drawerMap = {
+      product:['Nuevo producto','Wizard de alta en catálogo','productDrawerTemplate','Revisar y guardar'],
+      package:['Crear o completar bulto','Orden OR-000118 · CD Central → Local Palermo','packageDrawerTemplate','Crear bulto'],
+      bulk:['Actualizar precios por porcentaje','3 productos seleccionados','bulkDrawerTemplate','Revisar 3 cambios'],
+      approvePackages:['Aprobar bultos para remito','Orden OR-000118','approvePackagesDrawerTemplate','Aprobar 2 bultos listos'],
+      verifyAll:['Controlar todos los precintos','RM-000078 · Local Palermo','verifyAllDrawerTemplate','Confirmar 3 resultados']
+    };
+    const openDrawer = (type) => {
+      const [title,subtitle,template,saveLabel] = drawerMap[type];
+      drawerTitle.textContent = title; drawerSubtitle.textContent = subtitle;
+      drawerBody.replaceChildren(document.getElementById(template).content.cloneNode(true));
+      document.getElementById('drawerSave').textContent = saveLabel;
+      document.getElementById('drawerSave').dataset.drawerType = type;
+      drawerOverlay.hidden = false; drawerOverlay.setAttribute('aria-hidden','false');
+      if (type === 'bulk') {
+        const mode = drawerBody.querySelector('#bulkMode');
+        const percent = drawerBody.querySelector('#bulkPercent');
+        const updatePreview = () => {
+          const value = Math.min(100,Math.max(0,Number(percent.value.replace(',','.')) || 0));
+          const multiplier = mode.value === 'increase' ? 1 + value / 100 : 1 - value / 100;
+          drawerBody.querySelectorAll('.bulk-result').forEach((cell) => cell.textContent = new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS'}).format(Number(cell.dataset.base) * multiplier));
+          drawerBody.querySelectorAll('.bulk-delta').forEach((cell) => cell.textContent = `${mode.value === 'increase' ? '+' : '−'}${String(value).replace('.',',')}%`);
+        };
+        mode.addEventListener('change',updatePreview); percent.addEventListener('input',updatePreview);
+      }
+      setTimeout(() => drawerOverlay.querySelector('input,select,button')?.focus(), 0);
+    };
+    document.querySelectorAll('[data-open-drawer]').forEach((button) => button.addEventListener('click', () => openDrawer(button.dataset.openDrawer)));
+    drawerBody.addEventListener('click', (event) => { const action = event.target.closest('[data-demo]'); if (action) toast(action.dataset.demo); });
+
+    const addDrawerAction = (selector,label,type) => {
+      const host = document.querySelector(selector);
+      if (!host) return;
+      const button = document.createElement('button');
+      button.className = 'button'; button.type = 'button'; button.textContent = label;
+      button.addEventListener('click', () => openDrawer(type)); host.append(button);
+    };
+    addDrawerAction('#order .action-panel','Revisar bultos listos','approvePackages');
+    addDrawerAction('#bulto .action-panel','Controlar todos los bultos del remito','verifyAll');
+    addDrawerAction('#operator article:nth-of-type(2)','Controlar todos los bultos','verifyAll');
+    const previewDrawer = new URLSearchParams(location.search).get('drawer');
+    if (previewDrawer && drawerMap[previewDrawer]) setTimeout(() => openDrawer(previewDrawer), 0);
+
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalSubtitle = document.getElementById('modalSubtitle');
+    const modalBody = document.getElementById('modalBody');
+    const modalConfirm = document.getElementById('modalConfirm');
+    let pendingMove = null;
+    const confirmationMap = {
+      dispatch:['Registrar despacho completo','RM-000077 · Emitido → Despachado','Los 4 bultos pasarán juntos a tránsito hacia Local Sur. Se registrarán actor, fecha, origen, destino y 48 unidades en tránsito.'],
+      receive:['Registrar recepción','RM-000078 · En tránsito → Recibido','Confirma el arribo de 3 bultos a Local Palermo. Todavía no se acreditará stock: cada precinto debe verificarse.'],
+      verify:['Verificar precinto intacto','BU-000045 · Recibido → Verificado','Quedarán 12 unidades listas para acreditar en Local Palermo al cerrar el remito y se registrará evidencia del código PC-883102.'],
+      reject:['Registrar incidencia','BU-000045 · Recibido → Rechazado','Debe indicar el motivo. Las 12 unidades se registrarán como merma al cerrar el remito y nunca ingresarán a disponible.'],
+      pdf:['Generar PDF formal','R1 · Snapshot de existencias','El documento conservará filtros, fecha, responsable, KPIs, gráficos y anexo tabular. No imprimirá controles del dashboard.'],
+      pdf2:['Generar PDF formal','R2 · Snapshot de mermas y precintos','El documento conservará período, local, responsable, tasa coherente, incidentes, precintos, pérdidas y anexos forenses.']
+    };
+    const openConfirmation = (type, custom) => {
+      const data = custom || confirmationMap[type];
+      modalTitle.textContent = data[0]; modalSubtitle.textContent = data[1];
+      modalBody.innerHTML = `<div class="validation-note">${data[2]}</div>${type === 'reject' ? '<div class="field" style="margin-top:14px"><label>Motivo obligatorio</label><textarea rows="3" maxlength="250" placeholder="Describa el daño o diferencia observada"></textarea><span class="field-help">Texto plano, máximo 250 caracteres.</span></div>' : ''}<ul class="list"><li><span>Datos actualizados</span><strong>hace 4 s</strong></li><li><span>Evidencia</span><strong>Usuario · sede · fecha · documento</strong></li></ul>`;
+      modalConfirm.textContent = type === 'pdf' || type === 'pdf2' ? 'Generar y descargar' : 'Confirmar y registrar';
+      modalOverlay.hidden = false; modalOverlay.setAttribute('aria-hidden','false');
+      modalConfirm.dataset.action = type || 'transition';
+    };
+    [...document.querySelectorAll('[data-confirm]')].find((button) => button.textContent.trim() === 'Exportar R2')?.setAttribute('data-confirm','pdf2');
+    document.querySelectorAll('[data-confirm]').forEach((button) => button.addEventListener('click', () => openConfirmation(button.dataset.confirm)));
+    document.querySelectorAll('.overlay-close').forEach((button) => button.addEventListener('click', () => { drawerOverlay.hidden = true; modalOverlay.hidden = true; pendingMove = null; }));
+    document.getElementById('drawerSave').addEventListener('click', (event) => {
+      const messages = {
+        product:'Producto revisado. El backend volverá a validar antes de guardar.',
+        package:'Bulto creado y trazabilidad actualizada.',
+        bulk:'3 cambios porcentuales listos para confirmación atómica.',
+        approvePackages:'2 bultos aprobados individualmente; BU-000045 continúa bloqueado.',
+        verifyAll:'3 resultados de precinto registrados con evidencia individual.'
+      };
+      drawerOverlay.hidden = true; toast(messages[event.currentTarget.dataset.drawerType] || 'Acción revisada.');
+    });
+    modalConfirm.addEventListener('click', () => {
+      if (pendingMove) { pendingMove.target.append(pendingMove.card); pendingMove.card.dataset.stage = pendingMove.target.dataset.stage; pendingMove = null; }
+      modalOverlay.hidden = true; toast(modalConfirm.dataset.action === 'pdf' || modalConfirm.dataset.action === 'pdf2' ? 'PDF formal en generación. Se descargará al completar las validaciones.' : 'Acción registrada y añadida a la trazabilidad.');
+    });
+
+    document.querySelectorAll('[data-board-show]').forEach((button) => button.addEventListener('click', () => {
+      document.querySelectorAll('.board').forEach((board) => board.hidden = board.dataset.board !== button.dataset.boardShow);
+      document.querySelectorAll('.board-toggle').forEach((item) => item.classList.toggle('primary', item.dataset.boardShow === button.dataset.boardShow));
+    }));
+
+    document.querySelectorAll('.task[draggable="true"]').forEach((card) => {
+      const button = document.createElement('button');
+      button.className = 'button ghost small task-next';
+      button.type = 'button';
+      button.textContent = 'Acción siguiente';
+      button.addEventListener('click', () => {
+        const board = card.closest('.kanban');
+        const stage = Number(card.dataset.stage);
+        const next = [...board.querySelectorAll('.column')].find((column) => Number(column.dataset.stage) === stage + 1);
+        if (!next) { showScreen(card.querySelector('strong').textContent.startsWith('RM') ? 'remito' : 'order'); return; }
+        const entity = card.querySelector('strong').textContent;
+        const targetName = next.querySelector('.column-head span').textContent;
+        pendingMove = {card,target:next};
+        openConfirmation('transition',[`Completar acción para ${entity}`,`Estado actual → ${targetName}`,`La tarjeta todavía no cambió. Revise los requisitos y confirme para moverla a “${targetName}”.`]);
+      });
+      card.append(button);
+    });
+
+    let dragged = null;
+    document.querySelectorAll('.task[draggable="true"]').forEach((card) => {
+      card.addEventListener('dragstart', () => {
+        dragged = card; requestAnimationFrame(() => card.classList.add('dragging'));
+        const stage = Number(card.dataset.stage);
+        card.closest('.kanban').querySelectorAll('.column').forEach((column) => column.classList.add(Number(column.dataset.stage) === stage + 1 ? 'valid-target' : 'invalid-target'));
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging'); card.closest('.kanban').querySelectorAll('.column').forEach((column) => column.classList.remove('valid-target','invalid-target','drop-target')); dragged = null;
+      });
+    });
+    document.querySelectorAll('.column').forEach((column) => {
+      column.addEventListener('dragover', (event) => { if (dragged && Number(column.dataset.stage) === Number(dragged.dataset.stage) + 1) { event.preventDefault(); column.classList.add('drop-target'); } });
+      column.addEventListener('dragleave', () => column.classList.remove('drop-target'));
+      column.addEventListener('drop', (event) => {
+        event.preventDefault(); column.classList.remove('drop-target');
+        if (!dragged || Number(column.dataset.stage) !== Number(dragged.dataset.stage) + 1) { toast('Transición no válida. Use únicamente la siguiente etapa habilitada.'); return; }
+        const entity = dragged.querySelector('strong').textContent;
+        const targetName = column.querySelector('.column-head span').textContent;
+        pendingMove = {card:dragged,target:column};
+        openConfirmation('transition',[`Completar acción para ${entity}`,`Estado actual → ${targetName}`,`Soltar la tarjeta no cambió el estado. Revise requisitos y confirme para moverla a “${targetName}”.`]);
+      });
+    });
+
+    document.querySelectorAll('.role-card').forEach((button) => button.addEventListener('click', () => {
+      document.querySelectorAll('.role-card').forEach((item) => item.classList.toggle('active', item === button));
+      document.querySelector('#loginForm button[type="submit"]').textContent = `Ingresar como ${button.dataset.role.toLowerCase()}`;
+    }));
+    document.getElementById('loginForm').addEventListener('submit', (event) => { event.preventDefault(); const role = document.querySelector('.role-card.active').dataset.role; showScreen(role === 'Operador' ? 'operator' : 'dashboard'); toast(`Sesión demostrativa iniciada: ${role}.`); });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { drawerOverlay.hidden = true; modalOverlay.hidden = true; notificationPanels.forEach((panel) => panel.hidden = true); } });
+  </script>
+</body>
+</html>

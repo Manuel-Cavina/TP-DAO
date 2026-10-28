@@ -1,10 +1,8 @@
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from config.database.request_session_context import Request_Session_Context
 from modules.ubicaciones_stock.domain import Ubicacion, crear_ubicacion
-from modules.ubicaciones_stock.domain.exceptions import Centro_Distribucion_Duplicado_Exception
 from modules.ubicaciones_stock.infrastructure.models import Ubicacion_Model
 
 
@@ -19,10 +17,7 @@ class Ubicacion_Repository:
         self._copiar(ubicacion, modelo)
         session = self._get_session()
         session.add(modelo)
-        try:
-            session.flush()
-        except IntegrityError as error:
-            raise Centro_Distribucion_Duplicado_Exception("El sistema admite un único Centro de Distribución.") from error
+        session.flush()
         ubicacion.id = modelo.id
         return ubicacion
 
@@ -35,12 +30,15 @@ class Ubicacion_Repository:
         modelo = self._get_session().get(Ubicacion_Model, ubicacion_id)
         return self._a_dominio(modelo) if modelo is not None else None
 
-    def listar(self, tipo: str | None = None, solo_activas: bool = False) -> list[Ubicacion]:
+    def listar(self, tipo: str | None = None, solo_activas: bool = False, q: str | None = None) -> list[Ubicacion]:
         stmt = select(Ubicacion_Model).order_by(Ubicacion_Model.id)
         if tipo is not None:
             stmt = stmt.where(Ubicacion_Model.tipo == tipo)
         if solo_activas:
             stmt = stmt.where(Ubicacion_Model.activo.is_(True))
+        if q and q.strip():
+            patron = f"%{q.strip()}%"
+            stmt = stmt.where(Ubicacion_Model.nombre.ilike(patron))
         return [self._a_dominio(m) for m in self._get_session().scalars(stmt)]
 
     @staticmethod

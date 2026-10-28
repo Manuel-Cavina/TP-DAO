@@ -1,0 +1,21 @@
+/**
+ * ERP AYA · Shared UI Component Library & Arc UI Stylesheet
+ * Imports `tokens.css` (Arc UI Foundation) and implements all shared components:
+ * - Arc rules enforced:
+ *   1. Sentence case everywhere (never all-caps)
+ *   2. Font weights 400 and 500 only (no 600, 700, or bold)
+ *   3. Concentric radii (inner_radius = outer_radius - padding)
+ *   4. Keyboard-only focus rings (`:focus-visible`)
+ *   5. `font-variant-numeric: tabular-nums` on all numeric/stock/currency cells
+ */
+
+@import "./tokens.css";
+@import "./wireframe-tokens.css";
+@import "./layout.css";
+@import "./components-actions.css";
+@import "./components-controls.css";
+@import "./components-data.css";
+@import "./components-domain.css";
+@import "./components-parts.css";
+@import "./motion.css";
+@import "./utilities.css";

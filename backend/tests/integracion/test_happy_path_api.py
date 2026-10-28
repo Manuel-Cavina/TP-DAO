@@ -17,6 +17,8 @@ from fastapi.testclient import TestClient
 
 from bootstrap.application_factory import Application_Factory
 from config.database.database_engine_singleton import Database_Engine_Singleton
+from config.database.request_session_context import Request_Session_Context
+from modules.seguridad.application import Auth_Service
 
 TRANSFERENCIA = {"medio": "TRANSFERENCIA", "cbu_o_alias": "mi.alias.mp", "codigo_transaccion": "TX-1"}
 TARJETA = {"medio": "TARJETA", "numero_tarjeta": "4509953566233704", "cuotas": 3}
@@ -28,6 +30,7 @@ class TestHappyPathAPI(unittest.TestCase):
         self._temp_dir = tempfile.TemporaryDirectory()
         url = f"sqlite:///{(Path(self._temp_dir.name) / 'happy_path.sqlite3').as_posix()}"
         self.client = TestClient(Application_Factory.crear_aplicacion(database_url=url))
+        self._autenticar_admin_demo()
 
     def tearDown(self) -> None:
         Database_Engine_Singleton.reiniciar_para_pruebas()
@@ -37,6 +40,22 @@ class TestHappyPathAPI(unittest.TestCase):
             pass
 
     # --- helpers HTTP ---
+
+    def _autenticar_admin_demo(self) -> None:
+        sesion = Database_Engine_Singleton.obtener_session_factory().crear_sesion()
+        token = Request_Session_Context.establecer_sesion(sesion)
+        try:
+            Auth_Service().sembrar_identidades_defecto()
+            sesion.commit()
+        finally:
+            Request_Session_Context.restablecer(token)
+            sesion.close()
+
+        respuesta = self.client.post(
+            "/api/seguridad/login",
+            json={"login": "admin@stocky.local", "password": "stocky-demo"},
+        )
+        self.assertEqual(respuesta.status_code, 200, respuesta.text)
 
     def _ok(self, metodo: str, url: str, body: dict | None = None, estado: int = 200, **params: object) -> dict | list:
         res = self.client.request(metodo, url, json=body, params=params or None)

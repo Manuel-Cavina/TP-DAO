@@ -1,0 +1,486 @@
+/**
+ * Stocky Detalle de Reportes y Modales Forenses
+ * Sub-hoja de estilos para Stepper, Dictamen y Reglas de Impresion.
+ */
+
+/* -------------------------------------------------------------------------
+ * 6. STEPPER FORENSE INMUTABLE (R2)
+ * ------------------------------------------------------------------------- */
+
+.stocky-stepper-wrap {
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  padding: 16px 20px;
+}
+
+.stocky-stepper-title {
+  font-size: 0.8125rem;
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  letter-spacing: 0.04em;
+}
+
+.stocky-stepper {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  position: relative;
+  gap: 8px;
+}
+
+.stocky-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+}
+
+.stocky-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--border);
+  z-index: 1;
+}
+
+.stocky-step.is-completed:not(:last-child)::after {
+  background: var(--success);
+}
+
+.stocky-step-node {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem;
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  z-index: 2;
+  position: relative;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.stocky-step.is-completed .stocky-step-node {
+  background: var(--success);
+  border-color: var(--success);
+  color: #ffffff;
+}
+
+.stocky-step.is-current .stocky-step-node {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.stocky-step.is-rejected .stocky-step-node {
+  background: var(--danger-subtle);
+  border-color: var(--danger);
+  color: var(--danger);
+  animation: pulse 1.8s infinite;
+}
+
+.stocky-step-label {
+  font-size: 0.75rem;
+  font-weight: var(--font-medium);
+  color: var(--foreground);
+  margin-top: 8px;
+}
+
+.stocky-step-time {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* -------------------------------------------------------------------------
+ * 7. DICTAMEN FORENSE & PRECINTO BOX
+ * ------------------------------------------------------------------------- */
+
+.stocky-dictamen-card {
+  border: 1px solid var(--danger);
+  background: var(--danger-subtle);
+  border-radius: var(--radius-control);
+  padding: 14px 18px;
+}
+
+.stocky-dictamen-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: var(--font-medium);
+  font-size: 0.875rem;
+  color: var(--danger);
+  margin-bottom: 6px;
+}
+
+.stocky-dictamen-text {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--foreground);
+  white-space: pre-wrap;
+  font-family: inherit;
+}
+
+.stocky-precinto-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding: 14px 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+/* -------------------------------------------------------------------------
+ * 8. PROYECCION DE REPOSICION & OBSERVER CARD
+ * ------------------------------------------------------------------------- */
+
+.stocky-formula-banner {
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-control);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stocky-formula-code {
+  font-family: var(--font-mono);
+  font-weight: var(--font-medium);
+  color: var(--accent-strong);
+  font-size: 0.875rem;
+}
+
+.stocky-observer-alert {
+  background: var(--warning-subtle);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-control);
+  padding: 12px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* -------------------------------------------------------------------------
+ * 9. CSS DE IMPRESION Y EXPORTACION FORMAL A PDF (@media print)
+ * ------------------------------------------------------------------------- */
+
+.stocky-print-report {
+  display: none;
+}
+
+strong,
+b {
+  font-weight: var(--font-medium);
+}
+
+/* Vista previa de documento formal en pantalla */
+.stocky-formal-preview-wrap {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.stocky-formal-document {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  padding: 32px 36px;
+  color: var(--foreground);
+}
+
+.stocky-formal-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--border-strong);
+}
+
+.stocky-formal-logo {
+  height: 48px;
+  width: auto;
+  max-width: 140px;
+  object-fit: contain;
+}
+
+.stocky-formal-company {
+  font-size: 1.125rem;
+  font-weight: var(--font-medium);
+  color: var(--foreground);
+}
+
+.stocky-formal-fiscal {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.stocky-formal-meta-box {
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.stocky-formal-meta-box .dictamen-code {
+  font-family: var(--font-mono);
+  font-weight: var(--font-medium);
+  color: var(--foreground);
+}
+
+.stocky-formal-question-banner {
+  margin: 20px 0 16px;
+  padding: 12px 16px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+
+.stocky-formal-question-title {
+  font-size: 1rem;
+  font-weight: var(--font-medium);
+  color: var(--foreground);
+}
+
+.stocky-formal-question-sub {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.stocky-formal-filters-box {
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  font-size: 0.8125rem;
+}
+
+.stocky-formal-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stocky-formal-kpi-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding: 10px 12px;
+  background: var(--surface);
+}
+
+.stocky-formal-kpi-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.stocky-formal-kpi-value {
+  font-size: 1.125rem;
+  font-weight: var(--font-medium);
+  color: var(--foreground);
+  margin-top: 4px;
+}
+
+.stocky-formal-dictamen-panel {
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  padding: 12px 16px;
+  border-radius: var(--radius-control);
+  margin-bottom: 24px;
+}
+
+.stocky-formal-dictamen-title {
+  font-size: 0.875rem;
+  font-weight: var(--font-medium);
+  color: var(--foreground);
+  margin-bottom: 4px;
+}
+
+.stocky-formal-dictamen-body {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.stocky-formal-appendix-intro {
+  margin: 16px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stocky-formal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.stocky-formal-table th,
+.stocky-formal-table td {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.stocky-formal-table th {
+  background: var(--surface-muted);
+  font-weight: var(--font-medium);
+  color: var(--foreground);
+}
+
+.stocky-formal-footer {
+  margin-top: 24px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 10mm;
+  }
+
+  @page landscape-appendix {
+    size: A4 landscape;
+    margin: 10mm 10mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 8.5pt !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  aside,
+  nav,
+  .erp-sidebar,
+  .erp-topbar,
+  .erp-sidebar__backdrop,
+  header.arc-app-header,
+  .no-print,
+  .stocky-export-group,
+  .stocky-filter-controls,
+  .stocky-modal-backdrop,
+  .erp-btn,
+  button,
+  .erp-pagination,
+  .stocky-header-actions,
+  .stocky-toolbar-card,
+  .stocky-filter-row {
+    display: none !important;
+  }
+
+  .erp-app-shell {
+    display: block !important;
+    min-height: auto !important;
+    background: #ffffff !important;
+  }
+
+  .erp-workspace {
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+
+  .stocky-report-screen {
+    display: none !important;
+  }
+
+  .stocky-formal-preview-wrap {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .stocky-formal-document {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Sección vertical A4 (Portada, metadatos y resumen) */
+  .stocky-print-portrait {
+    page: portrait;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  /* Apéndice en orientación apaisada para tabla detallada ancha */
+  .stocky-print-appendix-landscape {
+    page: landscape-appendix;
+    break-before: page;
+    page-break-before: always;
+    width: 100% !important;
+  }
+
+  .stocky-formal-header {
+    border-bottom: 2px solid #0f172a !important;
+  }
+
+  .stocky-formal-kpi-card {
+    border: 1px solid #94a3b8 !important;
+    background: #ffffff !important;
+  }
+
+  .stocky-formal-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  .stocky-formal-table thead {
+    display: table-header-group;
+  }
+
+  .stocky-formal-table tfoot {
+    display: table-footer-group;
+  }
+
+  .stocky-formal-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .stocky-formal-table th,
+  .stocky-formal-table td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 4px 6px !important;
+    font-size: 7.5pt !important;
+  }
+
+  .stocky-formal-table th {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    font-weight: var(--font-medium) !important;
+  }
+
+  .stocky-print-report {
+    display: block !important;
+    color: #172033;
+    font-size: 8.5pt;
+  }
+}

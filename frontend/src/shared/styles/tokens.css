@@ -1,0 +1,366 @@
+/**
+ * ERP AYA · Arc UI + Apple Cupertino Industrial Design Tokens
+ * Single source of truth for all 5 ERP modules (`frontend/src/shared/styles/tokens.css`).
+ *
+ * Directly implements Arc UI (`https://uiarc.dev/r/arc-foundation.json`) token architecture:
+ * - Semantic surfaces: --background, --surface, --surface-raised, --surface-muted
+ * - Text hierarchy: --foreground, --text-secondary, --text-muted
+ * - Hairline borders: --border-subtle, --border, --border-strong
+ * - Concentric radii: --radius-control (10px), --radius-panel (16px), --radius-surface (22px), --radius-pill (999px)
+ * - Weights 400 and 500 only (--font-regular: 400, --font-medium: 500)
+ * - Themes via [data-theme="dark"] and accents via [data-accent="blue|neutral|violet|green|amber"]
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ------------------------------------------------------------------------
+   * 1. ARC NEUTRAL RAMP (Light Mode)
+   * ------------------------------------------------------------------------ */
+  --neutral-0: #ffffff;
+  --neutral-1: #fbfbfa;
+  --neutral-2: #f6f6f4;
+  --neutral-3: #f0f0ed;
+  --neutral-4: #e6e6e2;
+  --neutral-5: #d6d6d1;
+  --neutral-6: #b8b8b1;
+  --neutral-7: #8c8c85;
+  --neutral-8: #65655f;
+  --neutral-9: #464641;
+  --neutral-10: #262623;
+  --neutral-11: #141413;
+
+  /* ------------------------------------------------------------------------
+   * 2. ARC SEMANTIC SURFACES & TEXT
+   * ------------------------------------------------------------------------ */
+  --background: var(--neutral-1);
+  --surface: var(--neutral-0);
+  --surface-raised: var(--neutral-0);
+  --surface-muted: var(--neutral-2);
+  --surface-glass: rgba(255, 255, 255, 0.82);
+
+  --foreground: var(--neutral-11);
+  --text-secondary: var(--neutral-8);
+  --text-muted: var(--neutral-7);
+
+  /* ------------------------------------------------------------------------
+   * 3. ARC BORDERS & HAIRLINES
+   * ------------------------------------------------------------------------ */
+  --border: var(--neutral-4);
+  --border-subtle: var(--neutral-3);
+  --border-strong: var(--neutral-5);
+
+  /* ------------------------------------------------------------------------
+   * 4. ARC ACCENT & INTERACTIVE CONTROLS (Default: operational graphite)
+   *    Switchable via [data-accent="neutral|blue|violet|green|amber"]
+   * ------------------------------------------------------------------------ */
+  --accent: #262623;
+  --accent-strong: #141413;
+  --accent-subtle: rgba(20, 20, 19, 0.08);
+  --accent-foreground: #ffffff;
+  --focus-ring: rgba(20, 20, 19, 0.22);
+
+  /* Control tokens (Switch, Checkbox, Radio, Segmented Pill) */
+  --control-on: var(--neutral-11);
+  --control-glyph: var(--neutral-0);
+  --control-track: var(--neutral-4);
+  --control-thumb: #ffffff;
+
+  /* ------------------------------------------------------------------------
+   * 5. ARC STATUS & ERP DOMAIN SEMANTIC TOKENS
+   * ------------------------------------------------------------------------ */
+  /* Success · Stock saludable, Bulto Verificado, Remito Cerrado */
+  --success: #15803d;
+  --success-subtle: rgba(21, 128, 61, 0.10);
+  --success-border: rgba(21, 128, 61, 0.24);
+
+  /* Warning · Stock bajo mínimo (Observer Alert), Bulto En Tránsito / Precintado */
+  --warning: #b45309;
+  --warning-subtle: rgba(180, 83, 9, 0.10);
+  --warning-border: rgba(180, 83, 9, 0.25);
+
+  /* Danger · Bulto Rechazado (Merma), Sin stock, Error de dominio */
+  --danger: #b91c1c;
+  --danger-subtle: rgba(185, 28, 28, 0.10);
+  --danger-border: rgba(185, 28, 28, 0.24);
+
+  /* Info · Bulto Recibido, Transferencia bancaria */
+  --info: #0284c7;
+  --info-subtle: rgba(2, 132, 199, 0.10);
+  --info-border: rgba(2, 132, 199, 0.24);
+
+  /* ERP Location Scope Badges (Centro de Distribución vs Local Comercial) */
+  --scope-cd: #0369a1;
+  --scope-cd-subtle: rgba(3, 105, 161, 0.10);
+  --scope-cd-border: rgba(3, 105, 161, 0.24);
+
+  --scope-local: #0f766e;
+  --scope-local-subtle: rgba(15, 118, 110, 0.10);
+  --scope-local-border: rgba(15, 118, 110, 0.24);
+
+  /* ------------------------------------------------------------------------
+   * 6. ARC SHADOWS & ELEVATION
+   *    Cards rest on 1px solid var(--border) with --shadow-resting.
+   *    --shadow-floating is reserved strictly for popovers, menus, dialogs.
+   * ------------------------------------------------------------------------ */
+  --shadow-resting: 0 1px 2px rgba(20, 20, 19, 0.04);
+  --shadow-raised: 0 6px 18px rgba(20, 20, 19, 0.06), 0 1px 3px rgba(20, 20, 19, 0.04);
+  --shadow-floating: 0 18px 44px rgba(20, 20, 19, 0.12), 0 2px 6px rgba(20, 20, 19, 0.06);
+
+  /* ------------------------------------------------------------------------
+   * 7. ARC TYPOGRAPHY (Weights 400 and 500 ONLY · Never 600 or 700)
+   * ------------------------------------------------------------------------ */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --font-regular: 400;
+  --font-medium: 500;
+
+  --text-xs: 0.75rem;     /* 12px · Metadata, shortcuts, timestamps */
+  --text-sm: 0.8125rem;   /* 13px · Dense ERP tables, controls, chips, badges */
+  --text-base: 0.875rem;  /* 14px · Standard UI body, inputs, descriptions */
+  --text-md: 0.9375rem;   /* 15px · Card titles, section subheadings */
+  --text-lg: 1.125rem;    /* 18px · Section headings, modal titles */
+  --text-xl: 1.375rem;    /* 22px · Page titles, KPI values */
+  --text-2xl: 1.75rem;    /* 28px · Primary KPI hero metrics */
+
+  /* ------------------------------------------------------------------------
+   * 8. ARC CONCENTRIC RADII, CONTROL HEIGHTS & SPACING
+   *    Rule: inner_radius = outer_radius - padding
+   * ------------------------------------------------------------------------ */
+  --radius-xs: 6px;        /* Inner segmented pills, checkboxes, kbd tags */
+  --radius-control: 10px;  /* Buttons, inputs, selects, menu items */
+  --radius-panel: 16px;    /* Cards, tables, filter bars, alerts, popovers */
+  --radius-surface: 22px;  /* Outer workspace containers, modals, drawers */
+  --radius-pill: 999px;    /* Status badges, filter chips, avatars */
+
+  --control-height-sm: 32px;
+  --control-height-md: 36px;
+  --control-height-lg: 42px;
+
+  --space-1: 0.25rem;  /* 4px */
+  --space-2: 0.5rem;   /* 8px */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-5: 1.25rem;  /* 20px */
+  --space-6: 1.5rem;   /* 24px */
+  --space-8: 2rem;     /* 32px */
+  --space-10: 2.5rem;  /* 40px */
+
+  /* Layout dimensions */
+  --sidebar-width: 248px;
+  --topbar-height: 56px;
+
+  /* ------------------------------------------------------------------------
+   * 9. ARC MOTION & FOCUS TOKENS
+   * ------------------------------------------------------------------------ */
+  --ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --duration-instant: 90ms;
+  --duration-fast: 140ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+
+  --focus-outline: 2px solid var(--focus-ring);
+  --focus-offset: 2px;
+
+  /* ------------------------------------------------------------------------
+   * 10. STOCKY OVERLAY & DIALOG TOKENS
+   * ------------------------------------------------------------------------ */
+  --overlay-backdrop: rgba(13, 13, 12, 0.48);
+  --overlay-blur: 4px;
+  --overlay-z-index: 100;
+  --overlay-surface: var(--surface);
+  --overlay-border: var(--border);
+  --overlay-shadow: var(--shadow-floating);
+
+  /* ------------------------------------------------------------------------
+   * 11. STOCKY FORMAL PRINT TOKENS
+   * ------------------------------------------------------------------------ */
+  --print-bg: #ffffff;
+  --print-fg: #111827;
+  --print-muted: #64748b;
+  --print-border: #cbd5e1;
+  --print-border-strong: #94a3b8;
+  --print-surface-header: #eaf0f8;
+
+  /* Backwards-compatible ERP aliases */
+  --bg-canvas: var(--background);
+  --bg-surface: var(--surface);
+  --bg-elevated: var(--surface-raised);
+  --bg-subtle: var(--surface-muted);
+  --text-primary: var(--foreground);
+  --border-hairline: var(--border-subtle);
+  --border-default: var(--border);
+  --radius-sm: var(--radius-xs);
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-panel);
+  --radius-xl: var(--radius-surface);
+  --radius-full: var(--radius-pill);
+}
+
+/* ==========================================================================
+ * ARC DARK MODE ([data-theme="dark"] or .dark)
+ * ========================================================================== */
+[data-theme="dark"],
+.dark {
+  color-scheme: dark;
+
+  --neutral-0: #0d0d0c;
+  --neutral-1: #121211;
+  --neutral-2: #181816;
+  --neutral-3: #20201d;
+  --neutral-4: #2a2a26;
+  --neutral-5: #3a3a35;
+  --neutral-6: #56564f;
+  --neutral-7: #7c7c74;
+  --neutral-8: #a3a39b;
+  --neutral-9: #c9c9c1;
+  --neutral-10: #e7e7e1;
+  --neutral-11: #f5f5f2;
+
+  --background: var(--neutral-0);
+  --surface: var(--neutral-1);
+  --surface-raised: var(--neutral-2);
+  --surface-muted: var(--neutral-2);
+  --surface-glass: rgba(24, 24, 22, 0.82);
+
+  --foreground: var(--neutral-11);
+  --text-secondary: var(--neutral-8);
+  --text-muted: var(--neutral-7);
+
+  --border: var(--neutral-4);
+  --border-subtle: var(--neutral-3);
+  --border-strong: var(--neutral-5);
+
+  --accent: #e7e7e1;
+  --accent-strong: #f5f5f2;
+  --accent-subtle: rgba(245, 245, 242, 0.12);
+  --accent-foreground: #ffffff;
+  --focus-ring: rgba(245, 245, 242, 0.28);
+
+  --control-on: var(--neutral-11);
+  --control-glyph: var(--neutral-0);
+  --control-track: var(--neutral-4);
+  --control-thumb: #ffffff;
+
+  --success: #22c55e;
+  --success-subtle: rgba(34, 197, 94, 0.14);
+  --success-border: rgba(34, 197, 94, 0.28);
+
+  --warning: #f59e0b;
+  --warning-subtle: rgba(245, 158, 11, 0.14);
+  --warning-border: rgba(245, 158, 11, 0.28);
+
+  --danger: #ef4444;
+  --danger-subtle: rgba(239, 68, 68, 0.14);
+  --danger-border: rgba(239, 68, 68, 0.28);
+
+  --info: #38bdf8;
+  --info-subtle: rgba(56, 189, 248, 0.14);
+  --info-border: rgba(56, 189, 248, 0.28);
+
+  --scope-cd: #7dd3fc;
+  --scope-cd-subtle: rgba(125, 211, 252, 0.15);
+  --scope-cd-border: rgba(125, 211, 252, 0.28);
+
+  --scope-local: #2dd4bf;
+  --scope-local-subtle: rgba(45, 212, 191, 0.15);
+  --scope-local-border: rgba(45, 212, 191, 0.28);
+
+  --shadow-resting: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.30);
+  --shadow-floating: 0 22px 52px rgba(0, 0, 0, 0.62), 0 2px 8px rgba(0, 0, 0, 0.40);
+
+  --overlay-backdrop: rgba(0, 0, 0, 0.65);
+  --overlay-blur: 6px;
+  --overlay-surface: var(--surface-raised);
+  --overlay-border: var(--border-strong);
+}
+
+/* ==========================================================================
+ * ARC ACCENT PRESETS ([data-accent="neutral|blue|violet|green|amber"])
+ * ========================================================================== */
+[data-accent="neutral"] {
+  --accent: var(--neutral-11);
+  --accent-strong: var(--neutral-10);
+  --accent-subtle: var(--neutral-3);
+  --accent-foreground: var(--neutral-0);
+  --focus-ring: rgba(20, 20, 19, 0.16);
+}
+
+[data-theme="dark"][data-accent="neutral"],
+[data-theme="dark"] [data-accent="neutral"] {
+  --focus-ring: rgba(245, 245, 242, 0.22);
+}
+
+[data-accent="blue"] {
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-subtle: rgba(37, 99, 235, 0.10);
+  --accent-foreground: #ffffff;
+  --control-on: #2563eb;
+  --focus-ring: rgba(37, 99, 235, 0.22);
+}
+
+[data-accent="violet"] {
+  --accent: #0369a1;
+  --accent-strong: #075985;
+  --accent-subtle: rgba(3, 105, 161, 0.10);
+  --accent-foreground: #ffffff;
+  --control-on: #0369a1;
+  --focus-ring: rgba(3, 105, 161, 0.22);
+}
+
+[data-accent="green"] {
+  --accent: #15803d;
+  --accent-strong: #166534;
+  --accent-subtle: rgba(21, 128, 61, 0.10);
+  --accent-foreground: #ffffff;
+  --control-on: #15803d;
+  --focus-ring: rgba(21, 128, 61, 0.22);
+}
+
+[data-accent="amber"] {
+  --accent: #d97706;
+  --accent-strong: #b45309;
+  --accent-subtle: rgba(217, 119, 6, 0.12);
+  --accent-foreground: #ffffff;
+  --control-on: #d97706;
+  --focus-ring: rgba(217, 119, 6, 0.22);
+}
+
+/* ==========================================================================
+ * ARC FOCUS & REDUCED MOTION FOUNDATION
+ * Pointer clicks never leave a focus ring; keyboard navigation gets --focus-outline.
+ * ========================================================================== */
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 1ms;
+    --duration-fast: 1ms;
+    --duration-normal: 1ms;
+    --duration-slow: 1ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

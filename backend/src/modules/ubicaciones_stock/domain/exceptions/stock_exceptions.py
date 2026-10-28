@@ -19,7 +19,3 @@ class Cantidad_Invalida_Exception(BusinessError):
 
 class Ingreso_No_Permitido_Exception(BusinessError):
     """La mercadería del proveedor solo ingresa al Centro de Distribución, nunca a un local."""
-
-
-class Centro_Distribucion_Duplicado_Exception(BusinessError):
-    """El sistema admite un único Centro de Distribución."""

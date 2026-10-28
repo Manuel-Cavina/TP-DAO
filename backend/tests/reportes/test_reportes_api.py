@@ -17,6 +17,8 @@ from fastapi.testclient import TestClient
 
 from bootstrap.application_factory import Application_Factory
 from config.database.database_engine_singleton import Database_Engine_Singleton
+from config.database.request_session_context import Request_Session_Context
+from modules.seguridad.application import Auth_Service
 
 HOY = date.today().isoformat()
 PERIODO = {"desde": HOY, "hasta": HOY}
@@ -29,6 +31,7 @@ class TestReportesAPI(unittest.TestCase):
         cls._temp_dir = tempfile.TemporaryDirectory()
         url = f"sqlite:///{(Path(cls._temp_dir.name) / 'reportes.sqlite3').as_posix()}"
         cls.client = TestClient(Application_Factory.crear_aplicacion(database_url=url))
+        cls._autenticar_admin_demo()
         cls._armar_escenario()
 
     @classmethod
@@ -44,6 +47,23 @@ class TestReportesAPI(unittest.TestCase):
         res = cls.client.post(url, json=body, params=params or None)
         assert res.status_code in (200, 201), f"{url}: {res.text}"
         return res.json()
+
+    @classmethod
+    def _autenticar_admin_demo(cls) -> None:
+        sesion = Database_Engine_Singleton.obtener_session_factory().crear_sesion()
+        token = Request_Session_Context.establecer_sesion(sesion)
+        try:
+            Auth_Service().sembrar_identidades_defecto()
+            sesion.commit()
+        finally:
+            Request_Session_Context.restablecer(token)
+            sesion.close()
+
+        respuesta = cls.client.post(
+            "/api/seguridad/login",
+            json={"login": "admin@stocky.local", "password": "stocky-demo"},
+        )
+        assert respuesta.status_code == 200, respuesta.text
 
     @classmethod
     def _armar_escenario(cls) -> None:

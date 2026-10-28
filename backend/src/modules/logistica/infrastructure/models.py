@@ -62,12 +62,22 @@ class Remito_Model(Base):
     __tablename__ = "remitos"
 
     numero = Column(String(50), primary_key=True)
+    orden_id = Column(Integer, ForeignKey("ordenes_reposicion.id"), nullable=True, index=True)
     origen_id = Column(Integer, nullable=False, index=True)
     destino_id = Column(Integer, nullable=False, index=True)
     fecha_emision = Column(DateTime, nullable=False, default=datetime.now)
     estado = Column(String(20), nullable=False, default="EMITIDO")
 
     bultos = relationship("Bulto_Model", back_populates="remito", lazy="select")
+
+
+class Numerador_Logistica_Model(Base):
+    """Secuencias persistentes de documentos operativos generados por el sistema."""
+
+    __tablename__ = "numeradores_logistica"
+
+    clave = Column(String(20), primary_key=True)
+    ultimo_numero = Column(Integer, nullable=False, default=0)
 
 
 class Bulto_Model(Base):
@@ -97,6 +107,26 @@ class Bulto_Model(Base):
         order_by="Historial_Bulto_Model.id",
         lazy="joined",
     )
+    aprobacion = relationship(
+        "Aprobacion_Bulto_Model",
+        back_populates="bulto",
+        uselist=False,
+        lazy="joined",
+    )
+
+
+class Aprobacion_Bulto_Model(Base):
+    """Modelo ORM para la tabla aprobaciones_bulto (evidencia inmutable de aprobación US4 / T042)."""
+
+    __tablename__ = "aprobaciones_bulto"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    bulto_id = Column(Integer, ForeignKey("bultos.id"), nullable=False, unique=True, index=True)
+    actor = Column(String(100), nullable=True)
+    fecha_hora = Column(DateTime, nullable=False, default=datetime.now)
+    observacion = Column(String(255), nullable=False, default="")
+
+    bulto = relationship("Bulto_Model", back_populates="aprobacion")
 
 
 class Detalle_Bulto_Model(Base):
@@ -139,3 +169,39 @@ class Necesidad_Reposicion_Model(Base):
     estado = Column(String(20), nullable=False, default="PENDIENTE")
     orden_id = Column(Integer, ForeignKey("ordenes_reposicion.id"), nullable=True)
     fecha_registro = Column(DateTime, nullable=False, default=datetime.now)
+
+
+class Evento_Trazabilidad_Model(Base):
+    """Modelo ORM para la tabla eventos_trazabilidad (auditoria inmutable transversal)."""
+
+    __tablename__ = "eventos_trazabilidad"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tipo_entidad = Column(String(50), nullable=False, index=True)
+    entidad_id = Column(Integer, nullable=False, index=True)
+    accion = Column(String(50), nullable=False)
+    estado_anterior = Column(String(50), nullable=True)
+    estado_nuevo = Column(String(50), nullable=False)
+    actor = Column(String(100), nullable=True)
+    origen_id = Column(Integer, nullable=True)
+    destino_id = Column(Integer, nullable=True)
+    registros_asociados = Column(String(500), nullable=True)
+    motivo_o_evidencia = Column(String(500), nullable=True)
+    fecha_hora = Column(DateTime, nullable=False, default=datetime.now)
+
+
+class Control_Precinto_Model(Base):
+    """Modelo ORM para la tabla controles_precintos (evidencia de control físico - US5 / T056)."""
+
+    __tablename__ = "controles_precintos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    bulto_id = Column(Integer, ForeignKey("bultos.id"), nullable=False, index=True)
+    codigo_esperado = Column(String(50), nullable=False)
+    codigo_leido = Column(String(50), nullable=False)
+    resultado = Column(String(20), nullable=False)  # "VERIFICADO" | "RECHAZADO"
+    motivo_rechazo = Column(String(255), nullable=False, default="")
+    actor = Column(String(100), nullable=False, default="Operador")
+    ubicacion_id = Column(Integer, nullable=True)
+    fecha_hora = Column(DateTime, nullable=False, default=datetime.now)
+    version_bulto = Column(Integer, nullable=False, default=1)

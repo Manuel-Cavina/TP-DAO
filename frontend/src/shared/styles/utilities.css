@@ -1,0 +1,113 @@
+/**
+ * Shared UI utilities. Use these classes instead of inline styles.
+ * Loaded last from shared-ui.css so they override component defaults.
+ *
+ * Layout
+ *   .stack            flex column
+ *   .inline-stack     inline-flex column
+ *   .row              flex row, items centered
+ *   .inline-row       inline-flex row, items centered
+ *   .grid-auto        responsive grid, columns of at least 180px
+ *   .wrap / .nowrap   flex-wrap on / off
+ *   .flex-1           flex: 1 1 0 with min-width 0
+ *   .shrink-0         flex-shrink: 0
+ *   .w-full           width: 100%
+ *   .relative         position: relative
+ *   .block / .truncate
+ * Alignment
+ *   .justify-between  .justify-end  .justify-center
+ *   .align-center     .align-start  .align-end
+ * Spacing (4px scale: 1=4 2=8 3=12 4=16 5=20 6=24 7=28 8=32)
+ *   .gap-1 .. .gap-8, .gap-half (2px)
+ *   .p-1 .. .p-6, .mt-1 .. .mt-6, .mb-1 .. .mb-6
+ * Typography
+ *   .text-2xs (11px) .text-xs .text-sm .text-base .text-md .text-lg
+ *   .text-muted .text-secondary .text-foreground
+ *   .text-danger .text-success .text-warning
+ *   .font-regular (400) .font-medium (500)
+ *   .tabular-nums and .font-mono live in layout.css
+ */
+
+.stack { display: flex; flex-direction: column; }
+.inline-stack { display: inline-flex; flex-direction: column; }
+.row { display: flex; align-items: center; }
+.inline-row { display: inline-flex; align-items: center; }
+.grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.grid-2, .grid-3, .grid-4 { display: grid; }
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+@media (max-width: 960px) {
+  .grid-3, .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}
+.wrap { flex-wrap: wrap; }
+.nowrap { flex-wrap: nowrap; }
+.flex-1 { flex: 1 1 0; min-width: 0; }
+.shrink-0 { flex-shrink: 0; }
+.w-full { width: 100%; }
+.relative { position: relative; }
+.block { display: block; }
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.justify-between { justify-content: space-between; }
+.justify-end { justify-content: flex-end; }
+.justify-center { justify-content: center; }
+.align-center { align-items: center; }
+.align-start { align-items: flex-start; }
+.align-end { align-items: flex-end; }
+
+.gap-half { gap: 2px; }
+.gap-1 { gap: 0.25rem; }
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+.gap-4 { gap: 1rem; }
+.gap-5 { gap: 1.25rem; }
+.gap-6 { gap: 1.5rem; }
+.gap-7 { gap: 1.75rem; }
+.gap-8 { gap: 2rem; }
+
+.p-1 { padding: 0.25rem; }
+.p-2 { padding: 0.5rem; }
+.p-3 { padding: 0.75rem; }
+.p-4 { padding: 1rem; }
+.p-5 { padding: 1.25rem; }
+.p-6 { padding: 1.5rem; }
+.mt-1 { margin-top: 0.25rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-3 { margin-top: 0.75rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-5 { margin-top: 1.25rem; }
+.mt-6 { margin-top: 1.5rem; }
+.mb-1 { margin-bottom: 0.25rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-3 { margin-bottom: 0.75rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-5 { margin-bottom: 1.25rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+
+.text-2xs { font-size: 11px; }
+.text-xs { font-size: var(--text-xs); }
+.text-sm { font-size: var(--text-sm); }
+.text-base { font-size: var(--text-base); }
+.text-md { font-size: var(--text-md); }
+.text-lg { font-size: var(--text-lg); }
+.text-muted { color: var(--text-muted); }
+.text-secondary { color: var(--text-secondary); }
+.text-foreground { color: var(--foreground); }
+.text-danger { color: var(--danger); }
+.text-success { color: var(--success); }
+.text-warning { color: var(--warning); }
+.font-regular { font-weight: var(--font-regular); }
+.font-medium { font-weight: var(--font-medium); }

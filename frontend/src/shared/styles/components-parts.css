@@ -1,0 +1,163 @@
+/* Shared UI: sub-element classes for shared components (replace former inline styles). */
+
+/* Avatar and user chip */
+.erp-avatar__img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+.erp-avatar__status { background: var(--text-muted); }
+.erp-avatar__status--online { background: var(--success); }
+
+/* Button loading spinner */
+.erp-btn__spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  border: 1.75px solid currentColor;
+  border-right-color: transparent;
+}
+
+/* Domain widgets */
+.erp-stepper-wrap { display: flex; flex-direction: column; gap: 10px; }
+.erp-stepper__label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--foreground);
+}
+.erp-radio-card__title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--foreground);
+}
+.erp-stock-wrap { display: inline-flex; flex-direction: column; gap: 4px; }
+.erp-stock-bar__available,
+.erp-stock-bar__transit { width: var(--pct, 0%); }
+.erp-report-card { padding: var(--space-5); }
+.erp-card-title {
+  font-size: var(--text-md);
+  font-weight: var(--font-medium);
+}
+
+/* Feedback */
+.erp-alert__main { display: flex; align-items: flex-start; gap: 10px; }
+.erp-alert__icon { margin-top: 2px; flex-shrink: 0; }
+.erp-alert__text { display: flex; flex-direction: column; gap: 2px; }
+.erp-empty-state__title {
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+}
+.erp-empty-state__desc { font-size: var(--text-xs); max-width: 380px; }
+.erp-empty-state__action { margin-top: 6px; }
+.erp-skeleton {
+  width: var(--skeleton-w, 100%);
+  height: var(--skeleton-h, 14px);
+}
+
+/* Filter toolbar */
+.erp-select-popover--filter { min-width: 210px; }
+.erp-filter-toolbar__field-label {
+  padding: 4px 8px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* Form controls */
+.erp-field { display: flex; flex-direction: column; gap: 5px; }
+.erp-field-label--split { display: flex; justify-content: space-between; }
+.erp-input.is-invalid,
+.erp-input.is-invalid:focus-visible,
+.erp-textarea.is-invalid,
+.erp-textarea.is-invalid:focus-visible { border-color: var(--danger); }
+.erp-kv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.erp-kv-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+}
+.erp-kv-item__value {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--foreground);
+}
+.erp-endpoint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  font-size: 11px;
+}
+.erp-story-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+/* Select option content */
+.erp-select-option__content { display: inline-flex; align-items: center; gap: 8px; }
+
+/* Switch */
+.erp-switch-label { cursor: pointer; }
+.erp-switch-label.is-disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Table */
+.erp-table th { width: var(--col-w, auto); }
+.erp-table th.erp-table__col-check { width: 40px; }
+.erp-table td.is-sorted-col { background: var(--accent-subtle); }
+
+/* Motion containers */
+.arc-screen-flow { display: flex; flex-direction: column; gap: var(--space-5); }
+.arc-drawer__titles { display: flex; flex-direction: column; gap: 3px; }
+.arc-drawer__title { font-size: var(--text-lg); }
+.arc-modal__body { max-height: 70vh; }
+.arc-toast__main { display: flex; align-items: flex-start; gap: 10px; }
+.arc-toast__icon { margin-top: 2px; color: var(--success); }
+.arc-toast__icon--danger { color: var(--danger); }
+.arc-toast__icon--warning { color: var(--warning); }
+
+/* Notifications and KPI trends */
+.notification-item.is-read { opacity: 0.72; }
+.notification-item.is-read .dot { background: var(--line-strong); }
+.notification-list { max-height: 380px; overflow-y: auto; }
+.erp-activity-drawer .notification-panel { position: static; width: 100%; padding: 0; border: 0; box-shadow: none; }
+.erp-activity-drawer .notification-panel > .row:first-child { padding-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
+.erp-activity-drawer .notification-panel > .row:nth-child(2) { padding: var(--space-3) 0; }
+.erp-activity-drawer .notification-panel .button { display: inline-flex; align-items: center; justify-content: center; min-height: var(--control-height-sm); padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--surface); color: var(--text-primary); font: inherit; font-size: var(--text-xs); font-weight: var(--font-medium); cursor: pointer; }
+.erp-activity-drawer .notification-panel .button.primary,
+.erp-activity-drawer .notification-panel .button.secondary { border-color: var(--primary); background: var(--primary); color: #fff; }
+.erp-activity-drawer .notification-panel .button.ghost { border-color: transparent; background: transparent; color: var(--text-secondary); }
+.erp-activity-drawer .notification-panel .button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.notification-panel__toolbar,
+.notification-panel__filters,
+.notification-item__meta,
+.notification-item__entity,
+.notification-item__actions { display: flex; align-items: center; gap: 8px; }
+.notification-panel__toolbar { justify-content: space-between; padding-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
+.notification-panel__summary { display: flex; align-items: center; gap: 7px; padding: var(--space-3) 0; color: var(--text-secondary); font-size: var(--text-sm); }
+.notification-panel__empty { display: grid; gap: 4px; padding: var(--space-5) 0; color: var(--text-secondary); }
+.notification-item { grid-template-columns: 8px minmax(0, 1fr); gap: 10px; padding: 14px 0; }
+.notification-item__content { display: grid; gap: 7px; min-width: 0; }
+.notification-item__meta { justify-content: space-between; }
+.notification-item__entity { flex-wrap: wrap; }
+.notification-item__actions { justify-content: space-between; padding-top: 2px; }
+.trend-meaning { opacity: 0.88; margin-left: 2px; }
+

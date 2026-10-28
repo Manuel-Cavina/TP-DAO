@@ -13,6 +13,12 @@ from errors.persistence_error import Persistencia_Exception
 _logger = logging.getLogger(__name__)
 # Convención de nombres: el sufijo de la excepción de negocio define el código HTTP.
 _ESTADOS_POR_SUFIJO = (
+    ("Credenciales_Invalidas_Exception", 401),
+    ("Sesion_Invalida_Exception", 401),
+    ("Sesion_Expirada_Exception", 401),
+    ("Usuario_Inactivo_Exception", 403),
+    ("Csrf_Invalido_Exception", 403),
+    ("Permiso_Insuficiente_Exception", 403),
     ("_No_Encontrada_Exception", 404),
     ("_No_Encontrado_Exception", 404),
     ("_Duplicada_Exception", 409),

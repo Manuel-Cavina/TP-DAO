@@ -257,7 +257,7 @@ POST /api/catalogo/productos
 **Propietario:** `database-bootstrap`.  
 **Dependencias:** Fase 0 integrada.
 
-**Archivos permitidos:** `backend/requirements.txt`, `backend/src/main.py`, `backend/src/bootstrap/`, `backend/src/config/`, `backend/tests/config/` y documentación global.  
+**Archivos permitidos:** `backend/requirements.txt`, `backend/src/main.py`, `backend/src/bootstrap/`, `backend/src/config/`, `backend/tests/configuracion/` y documentación global.
 **Archivos prohibidos:** `backend/src/modules/`, `backend/tests/modules/`, `frontend/` y specs funcionales.
 **Orquestación obligatoria:** `goal-loop` invoca `architect`, `backend`, `security-auditor`, `reviewer` y `test`.
 
@@ -276,7 +276,7 @@ POST /api/catalogo/productos
 **Commit / PR:** `feat(database): add ORM bootstrap and request transaction lifecycle`
 
 **Implementación de esta fase:** `bootstrap/`, `config/database/`, `config/api/` y
-`tests/config/test_database_lifecycle.py`. El adaptador
+`tests/configuracion/test_database_lifecycle.py`. El adaptador
 `config/database/legacy_sqlite.py` reutiliza la conexión de la sesión activa y
 no hace `commit`, `rollback` ni `close` durante HTTP. `legacy_schema_initializer`
 aplica el DDL heredado solamente hasta que las fases 2A y 2B registren las

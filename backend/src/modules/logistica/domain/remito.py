@@ -5,9 +5,13 @@ from modules.logistica.domain.exceptions import Remito_Incompleto_Exception
 
 
 class Remito:
-    """Documento de remito que agrupa los bultos de un despacho entre el CD y un local."""
+    """Documento de remito que agrupa los bultos de un despacho entre el CD y un local.
 
-    ESTADOS_VALIDOS: tuple[str, ...] = ("EMITIDO", "DESPACHADO", "CERRADO")
+    Estados canónicos: EMITIDO -> DESPACHADO -> RECIBIDO -> CERRADO (US4 / T049).
+    Por compatibilidad con datos legacy, el estado EN_TRANSITO se interpreta como DESPACHADO.
+    """
+
+    ESTADOS_VALIDOS: tuple[str, ...] = ("EMITIDO", "DESPACHADO", "RECIBIDO", "CERRADO")
 
     def __init__(
         self,
@@ -17,6 +21,7 @@ class Remito:
         bultos: list[Bulto] | None = None,
         fecha_emision: datetime | None = None,
         estado: str = "EMITIDO",
+        orden_id: int | None = None,
     ) -> None:
         if not numero or not numero.strip():
             raise Remito_Incompleto_Exception("El numero de remito no puede estar vacio.")
@@ -26,6 +31,9 @@ class Remito:
             raise Remito_Incompleto_Exception("El destino del remito es obligatorio.")
 
         estado_normalizado = estado.strip().upper()
+        if estado_normalizado == "EN_TRANSITO":
+            estado_normalizado = "DESPACHADO"
+
         if estado_normalizado not in self.ESTADOS_VALIDOS:
             raise Remito_Incompleto_Exception(f"Estado de remito invalido: {estado}.")
 
@@ -35,6 +43,9 @@ class Remito:
         self._fecha_emision: datetime = fecha_emision if fecha_emision is not None else datetime.now()
         self._estado: str = estado_normalizado
         self._bultos: list[Bulto] = list(bultos) if bultos else []
+        self._orden_id: int | None = (
+            orden_id if orden_id is not None else (self._bultos[0].orden_id if self._bultos else None)
+        )
 
     @property
     def numero(self) -> str:
@@ -47,6 +58,10 @@ class Remito:
     @property
     def destino_id(self) -> int:
         return self._destino_id
+
+    @property
+    def orden_id(self) -> int | None:
+        return self._orden_id
 
     @property
     def fecha_emision(self) -> datetime:
@@ -71,6 +86,8 @@ class Remito:
                 f"No se puede agregar al remito el bulto '{bulto.id}': debe estar PRECINTADO (estado actual: {bulto.estado.nombre})."
             )
         self._bultos.append(bulto)
+        if self._orden_id is None:
+            self._orden_id = bulto.orden_id
 
     def despachar(self) -> None:
         """Despacha el remito completo validando que todos sus bultos esten precintados."""
@@ -101,9 +118,11 @@ class Remito:
         for b in self._bultos:
             b.recibir()
 
+        self._estado = "RECIBIDO"
+
     def cerrar(self) -> None:
         """Cierra el remito unicamente cuando todos sus bultos fueron verificados o rechazados."""
-        if self._estado != "DESPACHADO":
+        if self._estado not in ("DESPACHADO", "RECIBIDO"):
             raise Remito_Incompleto_Exception(
                 f"No se puede cerrar un remito en estado '{self._estado}'."
             )

@@ -14,8 +14,14 @@ from modules.ventas_caja.dto import (
 )
 from modules.ventas_caja.infrastructure import Catalogo_Venta_Adapter, Stock_Venta_Adapter
 from modules.ventas_caja.mappers import Devolucion_Mapper, Pago_Mapper, Venta_Mapper
+from modules.seguridad.api import requerir_rol
+from modules.seguridad.domain import ROL_ADMIN
 
-router = APIRouter(prefix="/api/ventas", tags=["Ventas, Cobros y Devoluciones"])
+router = APIRouter(
+    prefix="/api/ventas",
+    tags=["Ventas, Cobros y Devoluciones"],
+    dependencies=[Depends(requerir_rol(ROL_ADMIN))],
+)
 
 Venta_Id = Annotated[int, Path(gt=0, le=MAX_ID, description="ID de la venta")]
 

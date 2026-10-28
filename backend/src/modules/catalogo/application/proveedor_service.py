@@ -33,5 +33,5 @@ class Proveedor_Service:
             raise Entidad_No_Encontrada_Exception(f"No existe el proveedor {proveedor_id}.")
         return proveedor
 
-    def listar(self, solo_activos: bool = False) -> list[Proveedor]:
-        return self._repository.listar(solo_activos)
+    def listar(self, solo_activos: bool = False, q: str | None = None) -> list[Proveedor]:
+        return self._repository.listar(solo_activos, q=q)

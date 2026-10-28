@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from config.database.request_session_context import Request_Session_Context
+from modules.logistica.domain.aprobacion_bulto import Aprobacion_Bulto
 from modules.logistica.domain.bulto import Bulto
 from modules.logistica.domain.detalle_bulto import Detalle_Bulto
 from modules.logistica.domain.estado_bulto import crear_estado_bulto_desde_string
@@ -136,6 +137,15 @@ class Bulto_Repository:
             )
             for h in modelo.historial
         ]
+        aprobacion = None
+        if modelo.aprobacion is not None:
+            aprobacion = Aprobacion_Bulto(
+                id=modelo.aprobacion.id,
+                bulto_id=modelo.aprobacion.bulto_id,
+                actor=modelo.aprobacion.actor,
+                fecha_hora=modelo.aprobacion.fecha_hora,
+                observacion=modelo.aprobacion.observacion,
+            )
 
         return Bulto(
             id=modelo.id,
@@ -144,4 +154,5 @@ class Bulto_Repository:
             precinto=precinto,
             detalles=detalles,
             historial=historial,
+            aprobacion=aprobacion,
         )

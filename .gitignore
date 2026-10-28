@@ -9,3 +9,7 @@ __pycache__/
 node_modules/
 dist/
 .venv/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
+.playwright/
+.taste-skill/

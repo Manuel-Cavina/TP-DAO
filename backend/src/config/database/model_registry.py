@@ -10,4 +10,5 @@ def cargar_modelos() -> None:
     import modules.catalogo.infrastructure.models  # noqa: F401
     import modules.ubicaciones_stock.infrastructure.models  # noqa: F401
     import modules.logistica.infrastructure.models  # noqa: F401
+    import modules.seguridad.infrastructure.models  # noqa: F401
     import modules.ventas_caja.infrastructure.models  # noqa: F401

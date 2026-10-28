@@ -1,0 +1,36 @@
+{
+  "name": "ERP AYA · Arc UI + Apple Cupertino Design System",
+  "version": "2.0.0",
+  "direction": "Apple Cupertino Industrial Precision + Arc UI (https://uiarc.dev)",
+  "mcp_server": "https://uiarc.dev/api/mcp",
+  "foundations": {
+    "css": "frontend/src/shared/styles/tokens.css",
+    "shared_ui": "frontend/src/shared/styles/shared-ui.css",
+    "motion": "frontend/src/shared/lib/motion-tokens.js",
+    "barrel": "frontend/src/shared/index.js"
+  },
+  "rules": {
+    "case": "sentence-case-only",
+    "font_weights": [400, 500],
+    "allow_eyebrows": false,
+    "allow_em_dashes": false,
+    "concentric_radii": {
+      "xs": "6px",
+      "control": "10px",
+      "panel": "16px",
+      "surface": "22px",
+      "pill": "999px"
+    },
+    "numeric_alignment": "tabular-nums",
+    "focus_strategy": "keyboard-only-focus-visible"
+  },
+  "themes": ["light", "dark"],
+  "accents": ["blue", "neutral", "violet", "green", "amber"],
+  "modules": [
+    "catalogo",
+    "ubicaciones_stock",
+    "logistica",
+    "ventas_caja",
+    "reportes"
+  ]
+}

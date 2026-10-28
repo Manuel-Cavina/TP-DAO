@@ -19,9 +19,10 @@ def get_ubicacion_service() -> Ubicacion_Service:
 def listar_ubicaciones(
     tipo: Literal["CD", "LOCAL"] | None = Query(None),
     solo_activas: bool = Query(False),
+    q: str | None = Query(None),
     service: Ubicacion_Service = Depends(get_ubicacion_service),
 ) -> list[Ubicacion_DTO]:
-    return [Stock_Mapper.ubicacion_a_dto(u) for u in service.listar(tipo, solo_activas)]
+    return [Stock_Mapper.ubicacion_a_dto(u) for u in service.listar(tipo, solo_activas, q=q)]
 
 
 @router.post(
@@ -41,7 +42,7 @@ def crear_local(
     "/centros-distribucion",
     response_model=Ubicacion_DTO,
     status_code=status.HTTP_201_CREATED,
-    summary="Alta del Centro de Distribución (único en el sistema)",
+    summary="Alta de Centro de Distribución",
 )
 def crear_centro_distribucion(
     req: Ubicacion_Request_DTO,

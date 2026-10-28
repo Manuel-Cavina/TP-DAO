@@ -29,7 +29,6 @@ from modules.ubicaciones_stock.application import (
     Ubicacion_Service,
 )
 from modules.ubicaciones_stock.domain.exceptions import (
-    Centro_Distribucion_Duplicado_Exception,
     Entidad_No_Encontrada_Exception,
     Ingreso_No_Permitido_Exception,
     Stock_Insuficiente_Exception,
@@ -99,6 +98,15 @@ class TestCatalogoYStockServices(unittest.TestCase):
             with self.subTest(), self.assertRaises(Entidad_Duplicada_Exception):
                 operacion()
 
+    def test_producto_sin_codigo_recibe_sku_consecutivo(self) -> None:
+        primero = self.productos.crear(
+            None, "Agua", Decimal("100.00"), Decimal("60.00"), self.categoria.id, self.proveedor.id, 3
+        )
+        segundo = self.productos.crear(
+            None, "Gaseosa", Decimal("120.00"), Decimal("70.00"), self.categoria.id, self.proveedor.id, 3
+        )
+        self.assertEqual((primero.codigo, segundo.codigo), ("SKU-000001", "SKU-000002"))
+
     def test_producto_exige_categoria_y_proveedor_activos_y_minimo_positivo(self) -> None:
         self.proveedores.desactivar(self.proveedor.id)
         with self.assertRaises(Catalogo_No_Encontrado_Exception):
@@ -116,9 +124,9 @@ class TestCatalogoYStockServices(unittest.TestCase):
 
     # --- Ubicaciones ---
 
-    def test_un_solo_cd_y_baja_logica_de_local(self) -> None:
-        with self.assertRaises(Centro_Distribucion_Duplicado_Exception):
-            self.ubicaciones.crear_centro_distribucion("Otro CD", "Ruta 8")
+    def test_varios_cd_y_baja_logica_de_local(self) -> None:
+        otro_cd = self.ubicaciones.crear_centro_distribucion("Otro CD", "Ruta 8")
+        self.assertTrue(otro_cd.activo)
 
         self.ubicaciones.desactivar(self.local.id)
         with self.assertRaises(Entidad_No_Encontrada_Exception):
@@ -193,6 +201,34 @@ class TestCatalogoYStockServices(unittest.TestCase):
 
         self.assertEqual(len(Alerta_Stock_Service().listar(ubicacion_id=self.cd.id)), 1)
         self.assertEqual(self.registro.necesidades, [])
+
+    def test_busqueda_con_parametro_q(self) -> None:
+        self._producto(codigo="AGUA-1", nivel_minimo=2)
+        self.productos.crear(
+            "COCA-1", "Gaseosa Cola", Decimal("200.00"), Decimal("120.00"), self.categoria.id, self.proveedor.id, 2
+        )
+        self.categorias.crear("Snacks")
+        self.proveedores.crear("30-99999999-9", "Golosinas SA", "222", "golo@prov.com")
+
+        # Categorías por nombre
+        self.assertEqual([c.nombre for c in self.categorias.listar(q="Beb")], ["Bebidas"])
+        self.assertEqual([c.nombre for c in self.categorias.listar(q="ack")], ["Snacks"])
+        self.assertEqual(self.categorias.listar(q="Inexistente"), [])
+
+        # Proveedores por razón social o CUIT
+        self.assertEqual([p.razon_social for p in self.proveedores.listar(q="Prov")], ["Prov SA"])
+        self.assertEqual([p.razon_social for p in self.proveedores.listar(q="99999999")], ["Golosinas SA"])
+        self.assertEqual(self.proveedores.listar(q="Inexistente"), [])
+
+        # Productos por código o nombre
+        self.assertEqual([p.codigo for p in self.productos.listar(q="AGUA")], ["AGUA-1"])
+        self.assertEqual([p.codigo for p in self.productos.listar(q="Cola")], ["COCA-1"])
+        self.assertEqual(self.productos.listar(q="Inexistente"), [])
+
+        # Ubicaciones por nombre
+        self.assertEqual([u.nombre for u in self.ubicaciones.listar(q="Central")], ["CD Central"])
+        self.assertEqual([u.nombre for u in self.ubicaciones.listar(q="Centro")], ["Local Centro"])
+        self.assertEqual(self.ubicaciones.listar(q="Inexistente"), [])
 
 
 if __name__ == "__main__":

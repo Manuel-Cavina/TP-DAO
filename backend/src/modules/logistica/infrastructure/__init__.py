@@ -1,13 +1,22 @@
 """Repositorios e infraestructura ORM del modulo de logistica."""
 
+from modules.logistica.infrastructure.aprobacion_bulto_repository import (
+    Aprobacion_Bulto_Repository,
+)
+from modules.logistica.infrastructure.control_precinto_repository import (
+    Control_Precinto_Repository,
+)
 from modules.logistica.infrastructure.bulto_repository import Bulto_Repository
 from modules.logistica.infrastructure.historial_bulto_repository import (
     Historial_Bulto_Repository,
 )
 from modules.logistica.infrastructure.models import (
+    Aprobacion_Bulto_Model,
     Bulto_Model,
+    Control_Precinto_Model,
     Detalle_Bulto_Model,
     Detalle_Orden_Reposicion_Model,
+    Evento_Trazabilidad_Model,
     Historial_Bulto_Model,
     Necesidad_Reposicion_Model,
     Orden_Reposicion_Model,
@@ -23,18 +32,25 @@ from modules.logistica.infrastructure.orden_reposicion_repository import (
 from modules.logistica.infrastructure.precinto_repository import Precinto_Repository
 from modules.logistica.infrastructure.remito_repository import Remito_Repository
 from modules.logistica.infrastructure.stock_logistica_adapter import Stock_Logistica_Adapter
+from modules.logistica.infrastructure.trazabilidad_repository import Trazabilidad_Repository
 
 __all__ = [
+    "Aprobacion_Bulto_Repository",
     "Bulto_Repository",
+    "Control_Precinto_Repository",
     "Historial_Bulto_Repository",
     "Necesidad_Reposicion_Repository",
     "Orden_Reposicion_Repository",
     "Precinto_Repository",
     "Remito_Repository",
     "Stock_Logistica_Adapter",
+    "Trazabilidad_Repository",
+    "Aprobacion_Bulto_Model",
     "Bulto_Model",
+    "Control_Precinto_Model",
     "Detalle_Bulto_Model",
     "Detalle_Orden_Reposicion_Model",
+    "Evento_Trazabilidad_Model",
     "Historial_Bulto_Model",
     "Necesidad_Reposicion_Model",
     "Orden_Reposicion_Model",

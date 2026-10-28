@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, Path, Query, status
 
 from modules.catalogo.application import Categoria_Service, Producto_Service, Proveedor_Service
 from modules.catalogo.dto import (
+    Actualizacion_Masiva_Request_DTO,
+    Actualizacion_Masiva_Response_DTO,
     Actualizar_Producto_Request_DTO,
     Actualizar_Proveedor_Request_DTO,
     Categoria_DTO,
@@ -42,9 +44,10 @@ def get_producto_service() -> Producto_Service:
 @router.get("/categorias", response_model=list[Categoria_DTO], summary="Listar categorías")
 def listar_categorias(
     solo_activas: bool = Query(False),
+    q: str | None = Query(None, description="Término de búsqueda"),
     service: Categoria_Service = Depends(get_categoria_service),
 ) -> list[Categoria_DTO]:
-    return [Catalogo_Mapper.categoria_a_dto(c) for c in service.listar(solo_activas)]
+    return [Catalogo_Mapper.categoria_a_dto(c) for c in service.listar(solo_activas, q=q)]
 
 
 @router.post("/categorias", response_model=Categoria_DTO, status_code=status.HTTP_201_CREATED, summary="Alta de categoría")
@@ -88,9 +91,10 @@ def desactivar_categoria(
 @router.get("/proveedores", response_model=list[Proveedor_DTO], summary="Listar proveedores")
 def listar_proveedores(
     solo_activos: bool = Query(False),
+    q: str | None = Query(None, description="Término de búsqueda"),
     service: Proveedor_Service = Depends(get_proveedor_service),
 ) -> list[Proveedor_DTO]:
-    return [Catalogo_Mapper.proveedor_a_dto(p) for p in service.listar(solo_activos)]
+    return [Catalogo_Mapper.proveedor_a_dto(p) for p in service.listar(solo_activos, q=q)]
 
 
 @router.post(
@@ -141,10 +145,11 @@ def desactivar_proveedor(
 @router.get("/productos", response_model=list[Producto_DTO], summary="Listar productos")
 def listar_productos(
     solo_activos: bool = Query(False),
+    q: str | None = Query(None, description="Término de búsqueda"),
     categoria_id: int | None = Query(None, gt=0, le=2**63 - 1),
     service: Producto_Service = Depends(get_producto_service),
 ) -> list[Producto_DTO]:
-    return [Catalogo_Mapper.producto_a_dto(p) for p in service.listar(solo_activos, categoria_id)]
+    return [Catalogo_Mapper.producto_a_dto(p) for p in service.listar(solo_activos, categoria_id, q=q)]
 
 
 @router.post(
@@ -167,6 +172,23 @@ def crear_producto(
         nivel_minimo_existencia=req.nivel_minimo_existencia,
     )
     return Catalogo_Mapper.producto_a_dto(producto)
+
+
+@router.post(
+    "/productos/actualizacion-masiva",
+    response_model=Actualizacion_Masiva_Response_DTO,
+    status_code=status.HTTP_200_OK,
+    summary="Actualización masiva atómica de productos y stocks mínimos",
+)
+def actualizacion_masiva_productos(
+    req: Actualizacion_Masiva_Request_DTO,
+    service: Producto_Service = Depends(get_producto_service),
+) -> Actualizacion_Masiva_Response_DTO:
+    actualizados = service.actualizar_masivo(req.actualizaciones)
+    return Actualizacion_Masiva_Response_DTO(
+        actualizados=len(actualizados),
+        productos=[Catalogo_Mapper.producto_a_dto(p) for p in actualizados],
+    )
 
 
 @router.get("/productos/{producto_id}", response_model=Producto_DTO, summary="Obtener producto")

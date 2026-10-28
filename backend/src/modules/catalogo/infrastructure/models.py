@@ -50,3 +50,12 @@ class Producto_Model(Base):
     categoria_id = Column(Integer, ForeignKey("categorias.id"), nullable=False, index=True)
     proveedor_id = Column(Integer, ForeignKey("proveedores.id"), nullable=False, index=True)
     activo = Column(Boolean, nullable=False, default=True, server_default=text("1"))
+
+
+class Numerador_Producto_Model(Base):
+    """Secuencia persistente para los SKU generados por el sistema."""
+
+    __tablename__ = "numeradores_producto"
+
+    clave = Column(String(20), primary_key=True)
+    ultimo_numero = Column(Integer, nullable=False, default=0, server_default=text("0"))

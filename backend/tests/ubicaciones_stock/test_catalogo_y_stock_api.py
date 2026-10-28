@@ -12,6 +12,8 @@ from fastapi.testclient import TestClient
 
 from bootstrap.application_factory import Application_Factory
 from config.database.database_engine_singleton import Database_Engine_Singleton
+from config.database.request_session_context import Request_Session_Context
+from modules.seguridad.application import Auth_Service
 
 
 class TestCatalogoYStockAPI(unittest.TestCase):
@@ -20,6 +22,7 @@ class TestCatalogoYStockAPI(unittest.TestCase):
         self._temp_dir = tempfile.TemporaryDirectory()
         self.db_path = Path(self._temp_dir.name) / "catalogo_stock.sqlite3"
         self.client = TestClient(Application_Factory.crear_aplicacion(database_url=f"sqlite:///{self.db_path.as_posix()}"))
+        self._autenticar_admin_demo()
 
         self.cd = self._post("/api/ubicaciones/centros-distribucion", {"nombre": "CD", "direccion": "Ruta 9"})
         self.local = self._post("/api/ubicaciones/locales", {"nombre": "Centro", "direccion": "San Martín 1"})
@@ -46,6 +49,22 @@ class TestCatalogoYStockAPI(unittest.TestCase):
         self.assertEqual(res.status_code, estado, res.text)
         return res.json()
 
+    def _autenticar_admin_demo(self) -> None:
+        sesion = Database_Engine_Singleton.obtener_session_factory().crear_sesion()
+        token = Request_Session_Context.establecer_sesion(sesion)
+        try:
+            Auth_Service().sembrar_identidades_defecto()
+            sesion.commit()
+        finally:
+            Request_Session_Context.restablecer(token)
+            sesion.close()
+
+        respuesta = self.client.post(
+            "/api/seguridad/login",
+            json={"login": "admin@stocky.local", "password": "stocky-demo"},
+        )
+        self.assertEqual(respuesta.status_code, 200, respuesta.text)
+
     def test_codigos_http(self) -> None:
         p = self.producto["id"]
         casos = [
@@ -56,7 +75,6 @@ class TestCatalogoYStockAPI(unittest.TestCase):
             ("POST", "/api/catalogo/productos", {**self.producto_body, "codigo": "OTRO", "precio_venta": "0"}, 400),
             ("POST", "/api/catalogo/productos", {**self.producto_body, "codigo": "OTRO", "categoria_id": 999}, 404),
             ("GET", "/api/catalogo/productos/999", None, 404),
-            ("POST", "/api/ubicaciones/centros-distribucion", {"nombre": "CD2", "direccion": "X"}, 409),
             ("DELETE", f"/api/ubicaciones/{self.cd['id']}", None, 400),
             ("GET", "/api/ubicaciones/999", None, 404),
             ("POST", "/api/stock/ingresos", {"producto_id": p, "cd_id": self.local["id"], "cantidad": 5}, 400),
@@ -117,14 +135,28 @@ class TestCatalogoYStockAPI(unittest.TestCase):
         )
         self.assertEqual(venta.status_code, 404)
 
-    def test_la_base_impide_un_segundo_cd_y_cuit_no_numerico(self) -> None:
+    def test_la_base_admite_varios_cd_y_cuit_no_numerico(self) -> None:
         with sqlite3.connect(self.db_path) as conexion:
-            for sql in (
-                "INSERT INTO ubicaciones (tipo, nombre, direccion) VALUES ('CD', 'Otro', 'X')",
-                "INSERT INTO proveedores (cuit, razon_social, telefono, email) VALUES ('2012345678X', 'X', '1', 'x@x.com')",
-            ):
-                with self.subTest(sql=sql), self.assertRaises(sqlite3.IntegrityError):
-                    conexion.execute(sql)
+            conexion.execute("INSERT INTO ubicaciones (tipo, nombre, direccion) VALUES ('CD', 'Otro', 'X')")
+            with self.assertRaises(sqlite3.IntegrityError):
+                conexion.execute("INSERT INTO proveedores (cuit, razon_social, telefono, email) VALUES ('2012345678X', 'X', '1', 'x@x.com')")
+
+    def test_busqueda_por_q_en_endpoints_api(self) -> None:
+        cat_res = self.client.get("/api/catalogo/categorias", params={"q": "Beb"}).json()
+        self.assertEqual([c["nombre"] for c in cat_res], ["Bebidas"])
+        self.assertEqual(self.client.get("/api/catalogo/categorias", params={"q": "inexistente"}).json(), [])
+
+        prov_res = self.client.get("/api/catalogo/proveedores", params={"q": "12345"}).json()
+        self.assertEqual([p["cuit"] for p in prov_res], ["20123456789"])
+        self.assertEqual(self.client.get("/api/catalogo/proveedores", params={"q": "inexistente"}).json(), [])
+
+        prod_res = self.client.get("/api/catalogo/productos", params={"q": "AGUA"}).json()
+        self.assertEqual([p["codigo"] for p in prod_res], ["AGUA"])
+        self.assertEqual(self.client.get("/api/catalogo/productos", params={"q": "inexistente"}).json(), [])
+
+        ub_res = self.client.get("/api/ubicaciones", params={"q": "Centro"}).json()
+        self.assertEqual([u["nombre"] for u in ub_res], ["Centro"])
+        self.assertEqual(self.client.get("/api/ubicaciones", params={"q": "inexistente"}).json(), [])
 
 
 if __name__ == "__main__":

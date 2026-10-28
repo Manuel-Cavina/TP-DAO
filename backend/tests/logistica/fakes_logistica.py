@@ -38,6 +38,11 @@ class Fake_Stock_Logistica(Stock_Service_Contract):
         if producto_id not in self._productos:
             raise Producto_No_Encontrado_Exception(f"No existe el producto {producto_id}.")
 
+    def validar_stock_disponible(self, producto_id: int, cd_id: int, cantidad: int) -> None:
+        disponible = self._stock_cd.get((producto_id, cd_id), 0)
+        if cantidad > disponible:
+            raise Stock_Insuficiente_Exception(f"Stock insuficiente del producto {producto_id} en CD {cd_id}.")
+
     def reservar_para_despacho(self, producto_id: int, cd_id: int, cantidad: int) -> None:
         disponible = self._stock_cd.get((producto_id, cd_id), 0)
         if cantidad > disponible:

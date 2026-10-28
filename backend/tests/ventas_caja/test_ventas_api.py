@@ -13,6 +13,8 @@ from fastapi.testclient import TestClient
 
 from bootstrap.application_factory import Application_Factory
 from config.database.database_engine_singleton import Database_Engine_Singleton
+from config.database.request_session_context import Request_Session_Context
+from modules.seguridad.application import Auth_Service
 
 LOCAL_ID = 2
 OTRO_LOCAL_ID = 3
@@ -27,6 +29,7 @@ class TestVentasAPI(unittest.TestCase):
         self.db_path = Path(self._temp_dir.name) / "test_ventas.sqlite3"
         self.app = Application_Factory.crear_aplicacion(database_url=f"sqlite:///{self.db_path.as_posix()}")
         self.client = TestClient(self.app)
+        self._autenticar_admin_demo()
         self._cargar_datos_integrante_1()
 
     def tearDown(self) -> None:
@@ -53,6 +56,22 @@ class TestVentasAPI(unittest.TestCase):
                     (1, 2, 10), (2, 2, 2), (1, 3, 5);
                 """
             )
+
+    def _autenticar_admin_demo(self) -> None:
+        sesion = Database_Engine_Singleton.obtener_session_factory().crear_sesion()
+        token = Request_Session_Context.establecer_sesion(sesion)
+        try:
+            Auth_Service().sembrar_identidades_defecto()
+            sesion.commit()
+        finally:
+            Request_Session_Context.restablecer(token)
+            sesion.close()
+
+        respuesta = self.client.post(
+            "/api/seguridad/login",
+            json={"login": "admin@stocky.local", "password": "stocky-demo"},
+        )
+        self.assertEqual(respuesta.status_code, 200, respuesta.text)
 
     def _disponible(self, producto_id: int, local_id: int) -> int:
         with sqlite3.connect(self.db_path) as conexion:
