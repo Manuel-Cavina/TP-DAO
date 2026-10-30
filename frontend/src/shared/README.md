@@ -33,7 +33,6 @@ import {
   PaymentStrategySelector,
   StockSplitBar,
   PlotlyReportCard,
-  apiClient,
   motionTokens,
 } from "../../shared";
 ```
@@ -43,5 +42,5 @@ import {
 - `styles/tokens.css` y `styles/foundation.css`: Tokens oficiales de Arc UI (`--background`, `--surface`, `--surface-raised`, `--surface-muted`, `--foreground`, `--text-secondary`, `--text-muted`, `--border`, `--border-subtle`, `--border-strong`, `--accent`, `--control-*`, `--radius-control`, `--radius-panel`, `--radius-surface`, `--radius-pill`, `--shadow-*`) + tokens semánticos del dominio ERP.
 - `styles/shared-ui.css`: Clases base y estilos de todos los componentes compartidos.
 - `lib/motion-tokens.js`: Tokens de animación y springs de Arc UI (`snappy`, `smooth`, `morph`).
-- `http/api_client.js`: Cliente HTTP centralizado hacia FastAPI (`/api/v1/...`) con mapeo automático de `BusinessError` (`400`, `404`, `409`, `500`) a `Alert`.
+- El cliente HTTP vive en `src/core/http/httpClient.js` (no en `shared/`): llama a FastAPI en `/api/...`, envía el token CSRF y mapea los errores de negocio (`400`, `404`, `409`, `500`) a `AppError`.
 - `components/`: Componentes React listos para usar en los 5 módulos.

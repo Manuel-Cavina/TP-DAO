@@ -8,8 +8,8 @@
 
 **Goal**: make the approved scope and its automated checks executable before feature work.
 
-- [x] T001 Add ReportLab runtime and pypdf test dependencies with bounded versions in `backend/requirements.txt`
-- [x] T002 Add non-secret Administrator/Operator seed identities and environment-supplied password handling in `backend/scripts/seed_demo.py` and `frontend/.env.example`
+- [ ] T001 Add ReportLab runtime and pypdf test dependencies with bounded versions in `backend/requirements.txt` _(auditoría 2026-10-30: no se agregaron; solo hacen falta si se hace la fase 9)_
+- [x] T002 Add non-secret Administrator/Operator seed identities and environment-supplied password handling in `backend/src/modules/seguridad/application/auth_service.py` and `frontend/.env.example`
 - [x] T003 Extend the frontend architecture guard for role routes, no inline styles, supported semantic button variants, and the approved report/export entry points in `frontend/scripts/check_frontend.mjs`
 - [x] T004 Add a requirements-to-tests acceptance manifest covering FR-001 through FR-044 and SC-001 through SC-022 in `specs/001-stocky-operational-ux/checklists/implementation.md`
 
@@ -22,7 +22,7 @@
 - [x] T005 Define `ADMIN`/`OPERADOR` users, assignments, and opaque server sessions in `backend/src/modules/seguridad/domain/usuario.py` and `backend/src/modules/seguridad/infrastructure/models.py`
 - [x] T006 Implement PBKDF2-HMAC password verification, hashed session tokens, expiry, revocation, and inactive-user rejection in `backend/src/modules/seguridad/application/auth_service.py`
 - [x] T007 Implement login, current-session, logout, session-bound CSRF validation, and role/location-scope dependencies in `backend/src/modules/seguridad/api/seguridad_router.py` and `backend/src/modules/seguridad/api/dependencies.py`
-- [x] T008 Register security models/routes and add additive SQLite schema initialization without destructive resets in `backend/src/config/database/model_registry.py`, `backend/src/config/database/legacy_schema_initializer.py`, and `backend/src/config/api/router_registry.py`
+- [x] T008 Register security models/routes and add additive SQLite schema initialization without destructive resets in `backend/src/config/database/model_registry.py`, `backend/src/config/database/schema_migrations.py`, and `backend/src/config/api/router_registry.py`
 - [x] T009 [P] Verify valid/invalid login, revocation, expiry, inactive users, missing/wrong CSRF tokens, Administrator inheritance, and Operator scope rejection in `backend/tests/modules/seguridad/test_auth_api.py`
 - [x] T010 Create session restoration, CSRF-aware mutations, login/logout actions, and authenticated user/scope state in `frontend/src/app/auth/AuthProvider.jsx` and `frontend/src/core/http/httpClient.js`
 - [x] T011 Create the accessible Stocky login screen with specific field validation and generic credential failure in `frontend/src/app/auth/LoginPage.jsx`
@@ -129,6 +129,8 @@
 
 ## Phase 9: User Story 7 - Operational reports and professional PDF (P1)
 
+> **Fuera del alcance de la entrega (auditoría 2026-10-30).** La consigna no pide PDF de servidor ni exportaciones CSV/JSON; la impresión desde el navegador ya existe. Lo que sí pedía la consigna (los 5 reportes visibles) se resolvió con `frontend/src/modules/reportes/pages/ReportesAnaliticosPage.jsx` (reportes 1, 2 y 5).
+
 **Goal**: answer R1/R2 operational questions and produce deterministic, machine-readable professional exports from the same snapshot.
 
 **Independent test**: filter R1/R2, act on a finding, export PDF/CSV/JSON with matching totals, extract metadata/boundary rows, and render long portrait/wide landscape documents without clipping.
@@ -155,6 +157,8 @@
 - [ ] T082 Re-run cross-artifact analysis and confirm zero unmapped FR/SC items and no unresolved clarification markers in `specs/001-stocky-operational-ux/`
 
 ## Phase 11: Sales/Cash production hardening (release blocker)
+
+> **Fuera del alcance de la entrega (auditoría 2026-10-30).** Son requisitos de un sistema en producción (idempotencia, enmascarado de tarjetas, confirmación externa de pagos); la consigna no los pide.
 
 **Goal**: preserve the integrated business behavior while closing the security and accounting gaps inherited from the upstream implementation. This phase is required for production, not for proving that the local merge works.
 

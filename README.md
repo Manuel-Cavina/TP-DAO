@@ -19,7 +19,7 @@ con distintos medios de pago, devoluciones, caja y reportes.
 
 ## Cómo correrlo
 
-Requiere **Python 3.12+**. Todos los comandos se ejecutan desde `backend/`.
+Requiere **Python 3.10+** y **Node.js 18+** para el frontend. Los comandos del backend se ejecutan desde `backend/`.
 
 ```bash
 cd backend
@@ -41,6 +41,22 @@ pip install -r requirements.txt pytest
 - El esquema sale de los modelos ORM con `create_all`, que **no modifica tablas existentes**: si
   cambian los modelos, borrar `runtime/erp.sqlite3` y volver a cargar el seed.
 - El seed es idempotente: si la base ya tiene un CD, no carga nada.
+
+### Frontend (React + Vite)
+
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:5173 (la API tiene que estar levantada en :8000)
+```
+
+| Qué | Comando (desde `frontend/`) |
+|---|---|
+| Chequeos de arquitectura y regresión | `npm run check` |
+| Build de producción | `npm run build` |
+
+Usuarios de demo (los crea el backend al arrancar): `admin@stocky.local` y `operador@stocky.local`,
+contraseña `stocky-demo` (se puede cambiar con `STOCKY_ADMIN_PASSWORD` / `STOCKY_OPERADOR_PASSWORD`).
 
 ## Qué carga el seed de demo
 
@@ -102,7 +118,8 @@ backend/src/
 ## Reportes
 
 Los cinco cruzan varias entidades, agrupan y calculan; devuelven filas, totales y un gráfico Plotly
-serializado para que el frontend lo dibuje.
+serializado para que el frontend lo dibuje. En la UI: **Control → Stock y mermas** (3 y 4) y
+**Control → Ventas y márgenes** (1, 2 y 5).
 
 1. **Ventas e ingresos** por período, local y medio de pago: bruto, devoluciones y neto.
 2. **Productos más vendidos** con margen estimado en $ y %, marcando los que dan pérdida.

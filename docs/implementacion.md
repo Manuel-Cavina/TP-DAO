@@ -32,7 +32,8 @@ backend/src/
     ├── ubicaciones_stock/   # Integrante 1
     ├── logistica/           # Integrante 2
     ├── ventas_caja/         # Integrante 3
-    └── reportes/            # Integrante 4
+    ├── reportes/            # Integrante 4
+    └── seguridad/           # Extra: login y roles ADMIN/OPERADOR (no lo pide la consigna)
 frontend/src/
 ├── shared/                  # Componentes, cliente HTTP y estilos reutilizables
 └── modules/                 # Una carpeta por módulo del backend
@@ -73,7 +74,8 @@ Trazabilidad entre lo que pide la cátedra y quién lo resuelve. **Si algo de la
 | V3. No vender más que el stock disponible y verificado | `ventas_caja` + `ubicaciones_stock` | 3 y 1 |
 | V4. Sin productos ni proveedores duplicados | `catalogo` | 1 |
 | V5. Devoluciones solo de ventas registradas y que cumplan las reglas | `ventas_caja` | 3 |
-| Al menos 4 reportes no triviales | `reportes` | 4 |
+| Al menos 4 reportes no triviales (se implementaron 5, todos visibles en el front) | `reportes` | 4 |
+| _Extra:_ login y roles ADMIN/OPERADOR | `seguridad` | — |
 
 ---
 
