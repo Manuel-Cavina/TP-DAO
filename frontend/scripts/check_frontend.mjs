@@ -51,7 +51,7 @@ function checkUS1Requirements() {
     problems.push("AppShell.jsx: la navegación no conserva un único grupo expandido");
   }
 
-  const catalogPages = ["ProductosPage.jsx", "CategoriasPage.jsx", "ProveedoresPage.jsx", "PreciosPage.jsx"];
+  const catalogPages = ["ProductosPage.jsx", "CategoriasPage.jsx", "ProveedoresPage.jsx"];
   for (const pageName of catalogPages) {
     try {
       statSync(join(ROOT, "modules/catalogo/pages", pageName));

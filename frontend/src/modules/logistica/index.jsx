@@ -7,7 +7,6 @@ import { EmpaquetadoPage } from "./pages/EmpaquetadoPage";
 import { RemitoDetallePage } from "./pages/RemitoDetallePage";
 import { RecepcionPage } from "./pages/RecepcionPage";
 import { OperacionesPage } from "./pages/OperacionesPage";
-import { KanbanPage } from "./pages/KanbanPage";
 import { BultoDetallePage } from "./pages/BultoDetallePage";
 import { TrazabilidadPage } from "./pages/TrazabilidadPage";
 
@@ -48,7 +47,6 @@ export {
   RemitoDetallePage,
   RecepcionPage,
   OperacionesPage,
-  KanbanPage,
   BultoDetallePage,
   TrazabilidadPage,
 };
