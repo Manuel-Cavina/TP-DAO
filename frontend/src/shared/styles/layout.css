@@ -70,6 +70,9 @@ p {
   background: var(--background);
 }
 
+.erp-sidebar__close { display: none !important; }
+.operator-workspace { padding: var(--space-4); max-width: 1440px; margin: 0 auto; }
+
 .erp-sidebar {
   position: sticky;
   top: 0;
@@ -379,13 +382,17 @@ p {
     max-width: calc(100vw - 48px);
     z-index: 100;
     transform: translateX(-100%);
+    visibility: hidden;
     transition: transform var(--duration-fast) var(--ease-standard);
   }
 
   .erp-sidebar.is-open {
     transform: translateX(0);
+    visibility: visible;
     box-shadow: var(--shadow-floating);
   }
+
+  .erp-sidebar__close { display: inline-flex !important; min-height: 44px; }
 
   .erp-sidebar__backdrop {
     position: fixed;

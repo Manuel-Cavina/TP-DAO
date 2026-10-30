@@ -15,6 +15,7 @@ import { useCategorias } from "../hooks/useCategorias";
 import { useProveedores } from "../hooks/useProveedores";
 import { ProductoDrawer } from "../components/ProductoDrawer";
 import { ActualizacionMasivaModal } from "../components/ActualizacionMasivaModal";
+import { filterProducts } from "../mappers/productFilters";
 
 export function ProductosPage() {
   const [search, setSearch] = useState("");
@@ -35,7 +36,7 @@ export function ProductosPage() {
     actualizarMasivo,
     actualizarMasivoPending,
     darDeBaja: darDeBajaProd,
-  } = useProductos({ activos: filterEstado !== "inactivos" });
+  } = useProductos({ activos: false });
 
   const { categorias } = useCategorias();
   const { proveedores } = useProveedores({ activos: true });
@@ -54,28 +55,7 @@ export function ProductosPage() {
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   const filteredProductos = useMemo(() => {
-    let result = productos;
-
-    if (filterEstado === "inactivos") {
-      result = result.filter((p) => !p.activo);
-    } else if (filterEstado === "activos") {
-      result = result.filter((p) => p.activo);
-    }
-
-    if (selectedCategoria !== "todas") {
-      result = result.filter((p) => String(p.categoriaId) === String(selectedCategoria));
-    }
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (p) =>
-          p.codigo.toLowerCase().includes(q) ||
-          p.nombre.toLowerCase().includes(q)
-      );
-    }
-
-    return result;
+    return filterProducts(productos, { estado: filterEstado, categoriaId: selectedCategoria, search });
   }, [productos, filterEstado, selectedCategoria, search]);
 
   const selectedProductsData = useMemo(() => {

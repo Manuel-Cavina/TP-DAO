@@ -15,6 +15,7 @@ export function EmpaquetadoForm({
   onChangeCantidad,
   onSubmit,
   loading = false,
+  disabled = false,
   error = "",
   isPrimaryAction = false,
 }) {
@@ -89,7 +90,7 @@ export function EmpaquetadoForm({
           type="submit"
           loading={loading}
           loadingLabel="Armando bulto..."
-          disabled={todosCompletos}
+          disabled={todosCompletos || disabled}
         >
           Crear bulto en preparación
         </Button>

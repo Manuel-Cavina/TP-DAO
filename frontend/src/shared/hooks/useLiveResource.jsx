@@ -1,104 +1,72 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
-/**
- * useLiveResource (`frontend/src/shared/hooks/useLiveResource.jsx`)
- * Contrato de frescura operativo (FR-028, SC-014):
- * - Refresco automatico cada 15 segundos mientras la ventana este visible.
- * - Conserva los ultimos datos conocidos ante fallo de red (sin limpiar la pantalla).
- * - Calcula la antiguedad de los datos (`freshnessSeconds`) y marca `isStale` si supera 15 s.
- * - Permite forzar refresco inmediato con `refresh()`.
- */
+/** Poll visible resources, retaining same-resource data on network failures. */
 export function useLiveResource(fetcher, options = {}) {
-  const {
-    intervalMs = 15000,
-    enabled = true,
-    initialData = null,
-    onSuccess,
-    onError,
-  } = options;
-
-  const [data, setData] = useState(initialData);
-  const [error, setError] = useState(null);
-  const [isLoading, setIsLoading] = useState(initialData === null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const { intervalMs = 15000, enabled = true, initialData = null, resourceKey = "default", onSuccess, onError } = options;
+  const [state, setState] = useState(() => ({ key: resourceKey, data: initialData, error: null, lastUpdated: null, isLoading: enabled, isRefreshing: false }));
   const [now, setNow] = useState(Date.now());
-
   const fetcherRef = useRef(fetcher);
+  const callbacksRef = useRef({ onSuccess, onError });
+  const currentKeyRef = useRef(resourceKey);
+  const requestRef = useRef({ sequence: 0, controller: null, active: false });
   fetcherRef.current = fetcher;
+  callbacksRef.current = { onSuccess, onError };
+  currentKeyRef.current = resourceKey;
 
-  const executeFetch = useCallback(
-    async (isBackground = false) => {
-      if (!enabled) return;
-      if (isBackground) {
-        setIsRefreshing(true);
-      } else {
-        setIsLoading(true);
-      }
-      try {
-        const result = await fetcherRef.current();
-        setData(result);
-        setError(null);
-        const timestamp = Date.now();
-        setLastUpdated(timestamp);
-        setNow(timestamp);
-        if (onSuccess) onSuccess(result);
-      } catch (err) {
-        // En fallo, preservamos la ultima version conocida de 'data' sin resetearla
-        setError(err);
-        if (onError) onError(err);
-      } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
-      }
-    },
-    [enabled, onSuccess, onError]
-  );
+  const executeFetch = useCallback(async (isBackground = false) => {
+    if (!enabled || !requestRef.current.active) return { ok: false };
+    requestRef.current.controller?.abort();
+    const controller = new AbortController();
+    const sequence = ++requestRef.current.sequence;
+    requestRef.current.controller = controller;
+    const isCurrent = () => requestRef.current.active && !controller.signal.aborted && sequence === requestRef.current.sequence && Object.is(currentKeyRef.current, resourceKey);
+    setState((previous) => ({
+      ...(Object.is(previous.key, resourceKey) ? previous : { key: resourceKey, data: initialData, error: null, lastUpdated: null }),
+      isLoading: !isBackground, isRefreshing: isBackground,
+    }));
+    try {
+      const result = await fetcherRef.current({ signal: controller.signal });
+      if (!isCurrent()) return { ok: false, cancelled: true };
+      const timestamp = Date.now();
+      setState({ key: resourceKey, data: result, error: null, lastUpdated: timestamp, isLoading: false, isRefreshing: false });
+      setNow(timestamp);
+      callbacksRef.current.onSuccess?.(result);
+      return { ok: true, data: result };
+    } catch (error) {
+      if (!isCurrent()) return { ok: false, cancelled: true };
+      setState((previous) => ({ ...previous, error, isLoading: false, isRefreshing: false }));
+      callbacksRef.current.onError?.(error);
+      return { ok: false, error };
+    }
+  }, [enabled, resourceKey]);
 
-  // Intervalo de recarga de 15 segundos
   useEffect(() => {
-    if (!enabled) return;
-
-    // Carga inicial
+    requestRef.current.active = enabled;
+    if (!enabled) return undefined;
     executeFetch(false);
-
-    const intervalTimer = setInterval(() => {
-      // Solo refresca si la pestana esta activa/visible
+    const timer = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       executeFetch(true);
     }, intervalMs);
+    return () => {
+      clearInterval(timer);
+      requestRef.current.active = false;
+      ++requestRef.current.sequence;
+      requestRef.current.controller?.abort();
+    };
+  }, [enabled, resourceKey, intervalMs, executeFetch]);
 
-    return () => clearInterval(intervalTimer);
-  }, [enabled, intervalMs, executeFetch]);
-
-  // Timer local para calcular los segundos transcurridos
   useEffect(() => {
-    if (!lastUpdated) return;
-    const ticker = setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
+    const ticker = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(ticker);
-  }, [lastUpdated]);
+  }, []);
 
-  const freshnessSeconds = lastUpdated
-    ? Math.max(0, Math.floor((now - lastUpdated) / 1000))
-    : 0;
-
-  // Stale si paso mas de 15 segundos o si la ultima peticion dio error
-  const isStale = Boolean(error) || freshnessSeconds > 15;
-
+  const current = Object.is(state.key, resourceKey)
+    ? state
+    : { data: initialData, error: null, lastUpdated: null, isLoading: enabled, isRefreshing: false };
+  const freshnessSeconds = current.lastUpdated ? Math.max(0, Math.floor((now - current.lastUpdated) / 1000)) : 0;
   const refresh = useCallback(() => executeFetch(false), [executeFetch]);
-
-  return {
-    data,
-    error,
-    isLoading,
-    isRefreshing,
-    lastUpdated,
-    freshnessSeconds,
-    isStale,
-    refresh,
-  };
+  return { ...current, isLoading: enabled && current.isLoading, freshnessSeconds, isStale: Boolean(current.error) || freshnessSeconds > 15, refresh };
 }
 
 /**

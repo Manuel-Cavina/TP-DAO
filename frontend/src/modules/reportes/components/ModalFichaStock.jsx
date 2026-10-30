@@ -4,8 +4,9 @@ import { Button } from "../../../shared/components/Button";
 import { Icon } from "../../../shared/components/Icon";
 import { Modal } from "../../../shared/components/Motion";
 import { PlotlyRenderer } from "./PlotlyRenderer";
+import { Alert } from "../../../shared/components/Feedback";
 
-export function ModalFichaStock({ open, onClose, productoId, data, loading }) {
+export function ModalFichaStock({ open, onClose, productoId, data, loading, error, onRetry }) {
   const [activeTab, setActiveTab] = useState("multisede"); // "multisede" | "reposicion" | "alertas"
 
   const desglose = data?.desglose_por_ubicacion || [];
@@ -159,7 +160,7 @@ export function ModalFichaStock({ open, onClose, productoId, data, loading }) {
             <div className="stack align-center justify-center p-8 gap-3">
               <span className="text-secondary">Consultando estado multisede en tiempo real...</span>
             </div>
-          ) : (
+          ) : error ? <Alert tone="danger" title="No se pudo consultar la ficha de stock" description={error.message} action={<Button onClick={onRetry}>Reintentar</Button>} /> : !data ? null : (
             <>
               {/* Tira de KPIs resumidos */}
               <div className="stocky-kpi-grid">

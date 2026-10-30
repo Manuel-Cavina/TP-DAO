@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Button,
+  Alert,
   Select,
   Modal,
   useLiveResource,
@@ -12,6 +13,7 @@ import { logisticaService } from "../services";
 import { mapOrdenToUI, mapRemitoToUI, mapBultoToUI } from "../mappers/logisticaMappers";
 import { OrdenKanban, ORDEN_STAGES } from "../components/OrdenKanban";
 import { RemitoKanban, REMITO_STAGES } from "../components/RemitoKanban";
+import { useAuth } from "../../../app/auth/AuthProvider";
 
 /**
  * OperacionesPage (T051 / US4 / FR-031):
@@ -24,6 +26,7 @@ import { RemitoKanban, REMITO_STAGES } from "../components/RemitoKanban";
  */
 export function OperacionesPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { ubicaciones } = useUbicaciones();
 
   // Tablero activo: "ordenes" | "remitos"
@@ -52,10 +55,10 @@ export function OperacionesPage() {
   }, [ubicaciones]);
 
   // Carga reactiva de datos operacionales (15s polling - FR-028)
-  const fetchOperacionesData = useCallback(async () => {
+  const fetchOperacionesData = useCallback(async ({ signal }) => {
     const [ordRes, remRes] = await Promise.all([
-      logisticaService.listarOrdenes(),
-      logisticaService.listarRemitos(),
+      logisticaService.listarOrdenes({}, { signal }),
+      logisticaService.listarRemitos({ signal }),
     ]);
 
     const ordList = Array.isArray(ordRes) ? ordRes : ordRes?.data || [];
@@ -68,7 +71,7 @@ export function OperacionesPage() {
     const bultosMap = {};
     await Promise.all(
       ordenesMapped.map(async (o) => {
-        const res = await logisticaService.listarBultosPorOrden(o.id);
+        const res = await logisticaService.listarBultosPorOrden(o.id, { signal });
         const list = Array.isArray(res) ? res : res?.data || [];
         bultosMap[o.id] = list.map(mapBultoToUI);
       })
@@ -83,11 +86,13 @@ export function OperacionesPage() {
 
   const {
     data,
+    error,
     isLoading,
     freshnessSeconds,
     isStale,
     refresh,
   } = useLiveResource(fetchOperacionesData, {
+    resourceKey: "operations",
     enabled: true,
     intervalMs: 15000,
   });
@@ -136,6 +141,7 @@ export function OperacionesPage() {
 
   return (
     <div className="stack gap-5">
+      {error && <Alert tone="danger" title="No se pudieron actualizar las operaciones" description={error.message || "Las acciones permanecen bloqueadas hasta actualizar los datos."} action={<Button variant="secondary" size="sm" onClick={refresh}>Reintentar</Button>} />}
       {/* Header con breadcrumb y frescura */}
       <div className="erp-flow-header">
         <div>
@@ -154,13 +160,13 @@ export function OperacionesPage() {
 
         {/* FR-043: Una unica accion primaria contextually */}
         <div>
-          <Button
+          {user?.role === "ADMIN" && <Button
             variant="primary"
             iconLeft="plus"
             onClick={() => navigate("/logistica/ordenes/nueva")}
           >
             Nueva orden de reposición
-          </Button>
+          </Button>}
         </div>
       </div>
 

@@ -2,7 +2,7 @@
 // y verificación de requisitos de arquitectura US1 (IDs numéricos de sede, páginas dedicadas de catálogo y red).
 // Uso: node scripts/check_frontend.mjs [--report]  (--report no falla, solo lista)
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative } from "node:path";import { buildPrintUrl } from "../src/modules/reportes/services/reportSnapshot.js";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../src", import.meta.url));
@@ -83,7 +83,7 @@ function checkUS7Requirements() {
   }
 
   const exportToolbarText = readFileSync(join(ROOT, "modules/reportes/components/ReporteExportToolbar.jsx"), "utf8");
-  if (!exportToolbarText.includes("/reportes/imprimible")) {
+  const printUrlHelper = { buildPrintUrl };  const printParams = new URLSearchParams({ reporte: "stock", snapshot: "guard" });  const printDestination = new URL(printUrlHelper.buildPrintUrl("https://stocky.test/erp/index.html#/reportes/stock", printParams));  if (!exportToolbarText.includes("buildPrintUrl(window.location.href, params)") ||      printDestination.pathname !== "/erp/index.html" ||      printDestination.hash !== "#/reportes/imprimible?reporte=stock&snapshot=guard") {
     problems.push("ReporteExportToolbar.jsx: no redirige la exportación PDF a /reportes/imprimible");
   }
 

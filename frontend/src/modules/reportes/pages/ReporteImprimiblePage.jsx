@@ -3,7 +3,9 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { reportesService } from "../services/reportesService";
 import { Button } from "../../../shared/components/Button";
 import { SegmentedControl } from "../../../shared/components/SegmentedControl";
-import { Skeleton } from "../../../shared/components/Feedback";
+import { Skeleton, Alert } from "../../../shared/components/Feedback";
+import { useAuth } from "../../../app/auth/AuthProvider";
+import { actorLabel, readReportSnapshot, sealLabel } from "../services/reportSnapshot.js";
 import "../reportes.css";
 import "../reportes-details.css";
 
@@ -12,6 +14,11 @@ const money = (val) => val == null ? "No disponible" : `$${Number(val).toLocaleS
 export function ReporteImprimiblePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [error, setError] = useState(null);
+  const [attempt, setAttempt] = useState(0);
+  const [snapshot, setSnapshot] = useState(null);
+  const snapshotId = searchParams.get("snapshot");
 
   const reportParam = searchParams.get("reporte") || "stock";
   const activeReport = reportParam === "mermas" || reportParam === "r2" ? "r2" : "r1";
@@ -20,7 +27,8 @@ export function ReporteImprimiblePage() {
   const [categorias, setCategorias] = useState([]);
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [emittedDate] = useState(() => new Date().toLocaleString("es-AR"));
+  const [loadedAt, setLoadedAt] = useState(null);
+  const emittedDate = loadedAt ? new Date(loadedAt).toLocaleString("es-AR") : "Pendiente";
 
   const ubicacionId = searchParams.get("ubicacion_id") || "";
   const categoriaId = searchParams.get("categoria_id") || "";
@@ -30,66 +38,44 @@ export function ReporteImprimiblePage() {
   const localDestinoId = searchParams.get("local_destino_id") || "";
   const autoPrint = searchParams.get("autoPrint") === "1" || searchParams.get("autoPrint") === "true";
 
-  // Cargar metadatos
   useEffect(() => {
     let active = true;
-    Promise.all([reportesService.getUbicaciones(), reportesService.getCategorias()]).then(
-      ([ubics, cats]) => {
-        if (!active) return;
-        setUbicaciones(ubics || []);
-        setCategorias(cats || []);
-      }
-    );
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  // Cargar datos del reporte seleccionado
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-
-    if (activeReport === "r1") {
-      const params = {};
-      if (ubicacionId) params.ubicacion_id = Number(ubicacionId);
-      if (categoriaId) params.categoria_id = Number(categoriaId);
-      if (soloBajoMinimo) params.solo_bajo_minimo = true;
-
-      reportesService.getR1StockValorizacion(params).then((data) => {
-        if (!active) return;
-        setReportData(data);
-        setLoading(false);
-      });
-    } else {
-      const params = {};
-      if (fechaInicio) params.fecha_inicio = fechaInicio;
-      if (fechaFin) params.fecha_fin = fechaFin;
-      if (localDestinoId) params.local_destino_id = Number(localDestinoId);
-
-      reportesService.getR2MermasPrecinto(params).then((data) => {
-        if (!active) return;
-        setReportData(data);
-        setLoading(false);
-      });
+    setLoading(true); setError(null); setReportData(null); setSnapshot(null);
+    async function load() {
+      try {
+        if (snapshotId) {
+          const saved = readReportSnapshot(window.sessionStorage, snapshotId, user?.id);
+          if (saved.reportKey !== activeReport) throw new Error("La captura no corresponde al reporte seleccionado.");
+          if (active) { setSnapshot(saved); setReportData(saved.data); setLoadedAt(saved.generatedAt); }
+        } else {
+          const params = activeReport === "r1"
+            ? { ubicacion_id: ubicacionId ? Number(ubicacionId) : undefined, categoria_id: categoriaId ? Number(categoriaId) : undefined, solo_bajo_minimo: soloBajoMinimo }
+            : { fecha_inicio: fechaInicio, fecha_fin: fechaFin, local_destino_id: localDestinoId ? Number(localDestinoId) : undefined };
+          const [data, locations, categories] = await Promise.all([
+            activeReport === "r1" ? reportesService.getR1StockValorizacion(params) : reportesService.getR2MermasPrecinto(params),
+            reportesService.getUbicaciones(), reportesService.getCategorias(),
+          ]);
+          if (active) { setReportData(data); setUbicaciones(locations); setCategorias(categories); setLoadedAt(new Date().toISOString()); }
+        }
+      } catch (failure) { if (active) setError(failure); }
+      finally { if (active) setLoading(false); }
     }
-
-    return () => {
-      active = false;
-    };
-  }, [activeReport, ubicacionId, categoriaId, soloBajoMinimo, fechaInicio, fechaFin, localDestinoId]);
+    load();
+    return () => { active = false; };
+  }, [snapshotId, user?.id, activeReport, ubicacionId, categoriaId, soloBajoMinimo, fechaInicio, fechaFin, localDestinoId, attempt]);
 
   // Autoprint si fue solicitado por la barra de exportación
   useEffect(() => {
-    if (!loading && reportData && autoPrint) {
+    if (!loading && !error && reportData && autoPrint) {
       const timer = setTimeout(() => {
         window.print();
       }, 400);
       return () => clearTimeout(timer);
     }
-  }, [loading, reportData, autoPrint]);
+  }, [loading, error, reportData, autoPrint]);
 
   const filterSummary = useMemo(() => {
+    if (snapshot) return snapshot.filterDescription;
     if (activeReport === "r1") {
       const ub = ubicaciones.find((u) => String(u.id) === String(ubicacionId))?.nombre || "Todas las sedes";
       const cat = categorias.find((c) => String(c.id) === String(categoriaId))?.nombre || "Todas las categorías";
@@ -100,10 +86,12 @@ export function ReporteImprimiblePage() {
     const fIni = fechaInicio || "Sin límite inferior";
     const fFin = fechaFin || "Sin límite superior";
     return `Período: ${fIni} al ${fFin} | Destino auditado: ${loc} | Tipificación: Regla V1 (Rechazo por merma)`;
-  }, [activeReport, ubicaciones, categorias, ubicacionId, categoriaId, soloBajoMinimo, fechaInicio, fechaFin, localDestinoId]);
+  }, [snapshot, activeReport, ubicaciones, categorias, ubicacionId, categoriaId, soloBajoMinimo, fechaInicio, fechaFin, localDestinoId]);
 
   const handleSwitchReport = (val) => {
     const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("snapshot");
+    nextParams.delete("autoPrint");
     nextParams.set("reporte", val === "r2" ? "mermas" : "stock");
     setSearchParams(nextParams);
   };
@@ -138,14 +126,15 @@ export function ReporteImprimiblePage() {
         </div>
 
         <div className="row align-center gap-2">
-          <Button variant="primary" size="sm" onClick={() => window.print()}>
+          <Button variant="primary" size="sm" disabled={loading || Boolean(error) || !reportData} onClick={() => window.print()}>
             Imprimir o guardar PDF
           </Button>
         </div>
       </div>
 
+      {error && <Alert tone="danger" title="No se pudo preparar el reporte" description={error.message} action={<Button onClick={() => setAttempt((value) => value + 1)}>Reintentar</Button>} />}
       {/* Documento formal de auditoria */}
-      <article className="stocky-formal-document">
+      {!error && <article className="stocky-formal-document">
         {/* Seccion 1: Portada y Resumen Ejecutivo en formato Vertical (Portrait) */}
         <section className="stocky-print-portrait">
           <header className="stocky-formal-header">
@@ -167,7 +156,7 @@ export function ReporteImprimiblePage() {
                 {isR1 ? "AUD-STK-2026-R1" : "AUD-MRM-2026-R2"}
               </div>
               <div>Fecha de emisión: {emittedDate}</div>
-              <div>Auditor responsable: Martín Gómez</div>
+              <div>Responsable: {snapshot?.actor.label || actorLabel(user)}</div>
             </div>
           </header>
 
@@ -185,7 +174,7 @@ export function ReporteImprimiblePage() {
           </div>
 
           <div className="stocky-formal-filters-box">
-            <span className="font-medium">Snapshot inmutable de filtros aplicados: </span>
+            <span className="font-medium">Captura de los datos consultados (no certificada por servidor): </span>
             <span>{filterSummary}</span>
           </div>
 
@@ -256,7 +245,7 @@ export function ReporteImprimiblePage() {
                 <div className="stocky-formal-dictamen-body">
                   {(r2Resumen?.total_bultos_rechazados || 0) > 0
                     ? `Se registraron ${r2Resumen?.total_bultos_rechazados} bulto(s) con merma. Este informe conserva únicamente los valores y relaciones que entrega el endpoint; no infiere ranking de sucursales, tasa de rechazo ni valor de venta.`
-                    : "No se registraron incidentes de rotura de precinto ni mermas en los despachos analizados durante el intervalo temporal auditado. La cadena de custodia se mantuvo intacta."}
+                    : "No se registraron incidentes de rotura de precinto ni mermas en los despachos analizados durante el intervalo temporal auditado. La ausencia de mermas no certifica todos los despachos."}
                 </div>
               </div>
             </>
@@ -338,8 +327,8 @@ export function ReporteImprimiblePage() {
                     <tr key={bulto.bulto_id}>
                       <td className="font-mono font-medium">#{bulto.bulto_id}</td>
                       <td className="font-mono">{bulto.remito_numero || "N/A"}</td>
-                      <td className="font-mono">{bulto.codigo_precinto || "SIN_PRECINTO"}</td>
-                      <td>{bulto.precinto_intacto ? "Intacto" : "Violado (Regla V1)"}</td>
+                      <td className="font-mono">{bulto.codigo_precinto ?? "No informado"}</td>
+                      <td>{sealLabel(bulto.precinto_intacto)}</td>
                       <td>{bulto.origen_nombre}</td>
                       <td className="font-medium">{bulto.destino_nombre}</td>
                       <td className="tabular-nums">
@@ -360,7 +349,7 @@ export function ReporteImprimiblePage() {
             </footer>
           </section>
         )}
-      </article>
+      </article>}
     </div>
   );
 }

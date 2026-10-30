@@ -15,6 +15,8 @@ import { ConsolidarModal } from "../components/ConsolidarModal";
 import { PrecintadoPanel } from "../components/PrecintadoPanel";
 import { AprobacionRevisionModal } from "../components/AprobacionRevisionModal";
 import { EmpaquetadoForm } from "../components/EmpaquetadoForm";
+import { useLiveResource } from "../../../shared";
+import { readApprovalOutcome } from "../mappers/sealControl";
 
 /**
  * EmpaquetadoPage (T045 / US4):
@@ -30,10 +32,9 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
   const queryOrdenId = searchParams.get("ordenId");
   const effectiveOrdenId = ordenId ? String(ordenId) : queryOrdenId;
   const returnTo = searchParams.get("returnTo");
-  const [selectedOrdenId, setSelectedOrdenId] = useState(effectiveOrdenId || "");
+  const [selectedOrdenFallback, setSelectedOrdenId] = useState(effectiveOrdenId || "");
+  const selectedOrdenId = effectiveOrdenId || selectedOrdenFallback;
   const [listScope, setListScope] = useState("activas");
-  const [bultos, setBultos] = useState([]);
-  const [loadingBultos, setLoadingBultos] = useState(false);
 
   // Armado de bultos
   const [selectedProdId, setSelectedProdId] = useState("");
@@ -42,7 +43,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
   const [errorBulto, setErrorBulto] = useState("");
 
   // Aprobacion de bultos (FR-041)
-  const [aprobadosSet, setAprobadosSet] = useState(new Set());
+  const [approvalOutcome, setApprovalOutcome] = useState(null);
   const [aprobandoId, setAprobandoId] = useState(null);
   const [aprobandoLote, setAprobandoLote] = useState(false);
   const [errorAprobacion, setErrorAprobacion] = useState("");
@@ -73,30 +74,24 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
     return ordenes.find((o) => String(o.id) === String(selectedOrdenId)) || null;
   }, [ordenes, selectedOrdenId]);
 
-  const loadBultos = useCallback(async () => {
-    if (!selectedOrdenId) return;
-    setLoadingBultos(true);
-    try {
-      const res = await logisticaService.listarBultosPorOrden(selectedOrdenId);
-      const list = Array.isArray(res) ? res : res?.data || [];
-      const mapped = list.map(mapBultoToUI);
-      setBultos(mapped);
-      const setAprob = new Set();
-      mapped.forEach((b) => {
-        if (b.aprobado) setAprob.add(b.id);
-      });
-      if (setAprob.size > 0) setAprobadosSet((prev) => new Set([...prev, ...setAprob]));
-      setErrorOperacion("");
-    } catch (error) {
-      setErrorOperacion(error?.message || "No se pudieron consultar los bultos de la orden.");
-    } finally {
-      setLoadingBultos(false);
-    }
+  const fetchBultos = useCallback(async ({ signal }) => {
+    const res = await logisticaService.listarBultosPorOrden(selectedOrdenId, { signal });
+    const list = Array.isArray(res) ? res : res?.data || [];
+    return list.map(mapBultoToUI);
   }, [selectedOrdenId]);
-
+  const { data: bultosData, isLoading: loadingBultos, isStale, error: bultosError, refresh: loadBultos } = useLiveResource(fetchBultos, {
+    resourceKey: `packaging:${selectedOrdenId}`,
+    enabled: Boolean(selectedOrdenId),
+  });
+  const bultos = bultosData || [];
+  const aprobadosSet = useMemo(() => new Set(bultos.filter((bulto) => bulto.aprobado).map((bulto) => bulto.id)), [bultosData]);
   useEffect(() => {
-    loadBultos();
-  }, [loadBultos]);
+    setApprovalOutcome(null);
+    setErrorOperacion("");
+    setErrorAprobacion("");
+    aprobacionModal.onClose();
+    remitoModal.onClose();
+  }, [selectedOrdenId]);
 
   // Articulos solicitados y pendientes
   const itemsPendientes = useMemo(() => {
@@ -125,11 +120,12 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
   const todosBultosAprobados =
     bultos.length > 0 && todosBultosPrecintados && bultos.every((b) => aprobadosSet.has(b.id) || b.aprobado);
 
-  const puedeEmitirRemito = empaquetadoCompleto && todosBultosAprobados;
+  const puedeEmitirRemito = empaquetadoCompleto && todosBultosAprobados && !isStale && !loadingBultos;
 
   // Crear bulto
   const handleCrearBulto = async (e) => {
     e.preventDefault();
+    if (isStale || loadingBultos) return;
     setErrorBulto("");
     const pid = Number(selectedProdId || itemsPendientes.find((i) => i.restante > 0)?.productoId);
     const cant = Number(cantidadBulto);
@@ -160,6 +156,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
 
   // Precintado individual y por lote
   const handlePrecintarIndividual = async (bultoId, codigo) => {
+    if (isStale || loadingBultos) throw new Error("Actualice la orden antes de precintar.");
     setErrorOperacion("");
     try {
       try { await logisticaService.registrarPrecinto(codigo); } catch (error) { if (error?.status !== 409) throw error; }
@@ -173,12 +170,10 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
   };
 
   const handlePrecintarLote = async (asignaciones) => {
+    if (isStale || loadingBultos) throw new Error("Actualice la orden antes de precintar.");
     setErrorOperacion("");
     try {
-      for (const asig of asignaciones) {
-        try { await logisticaService.registrarPrecinto(asig.codigoPrecinto); } catch (error) { if (error?.status !== 409) throw error; }
-        await logisticaService.precintarBulto(asig.bultoId, asig.codigoPrecinto);
-      }
+      await logisticaService.precintarLoteRevisado(selectedOrdenId, asignaciones);
       await loadBultos();
       onChange?.();
     } catch (err) {
@@ -189,11 +184,12 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
 
   // Aprobacion
   const handleAprobarIndividual = async (bultoId) => {
+    if (isStale || loadingBultos) return;
     setErrorAprobacion("");
     setAprobandoId(bultoId);
     try {
       await logisticaService.aprobarBulto(bultoId);
-      setAprobadosSet((prev) => new Set([...prev, bultoId]));
+      await loadBultos();
       onChange?.();
     } catch (err) {
       setErrorAprobacion(err.message || "Error al registrar aprobacion de bulto.");
@@ -202,13 +198,15 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
     }
   };
 
-  const handleConfirmarAprobacionLote = async (bultoIds) => {
+  const handleConfirmarAprobacionLote = async () => {
+    if (isStale || loadingBultos) return;
     setErrorAprobacion("");
     setAprobandoLote(true);
     try {
-      await logisticaService.aprobarBultosLote(selectedOrdenId, bultoIds);
-      setAprobadosSet((prev) => new Set([...prev, ...bultoIds]));
-      aprobacionModal.onClose();
+      const result = readApprovalOutcome(await logisticaService.aprobarBultosLote(selectedOrdenId));
+      setApprovalOutcome(result);
+      await loadBultos();
+      if (!result.blocked.length) aprobacionModal.onClose();
       onChange?.();
     } catch (err) {
       setErrorAprobacion(err.message || "Error al aprobar bultos en lote.");
@@ -219,6 +217,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
 
   // Emitir remito
   const handleEmitirRemito = async ({ numero, bultosIds }) => {
+    if (!puedeEmitirRemito) return { ok: false };
     setGenerandoRemito(true);
     try {
       const res = await logisticaService.generarRemito(selectedOrdenId, { numero, bultosIds });
@@ -385,7 +384,9 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
       </div>}
 
       {errorOperacion && <div className="p-3 rounded bg-danger-subtle text-danger text-sm">{errorOperacion}</div>}
+      {bultosError && <div role="alert" className="erp-callout">No se pudieron actualizar los bultos. Las acciones están bloqueadas. <Button variant="secondary" size="sm" onClick={loadBultos}>Reintentar</Button></div>}
       {errorAprobacion && <div className="p-3 rounded bg-danger-subtle text-danger text-sm">{errorAprobacion}</div>}
+      {approvalOutcome && <div role="status" className="erp-callout">Resultado del servidor: {approvalOutcome.approved.length} bulto(s) aprobado(s), {approvalOutcome.blocked.length} excluido(s).{approvalOutcome.blocked.length > 0 && <ul>{approvalOutcome.blocked.map((item) => <li key={item.id}>Bulto #{item.id}: {item.motivo}</li>)}</ul>}</div>}
 
       {/* Armado y tabla de bultos */}
       {activeOrden && (
@@ -398,6 +399,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
             onChangeCantidad={(e) => setCantidadBulto(e.target.value)}
             onSubmit={handleCrearBulto}
             loading={creandoBulto}
+            disabled={isStale || loadingBultos}
             error={errorBulto}
             isPrimaryAction={!puedeEmitirRemito && bultosElegiblesParaAprobar.length === 0}
           />
@@ -448,6 +450,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
           orden={activeOrden}
           bultos={bultos}
           aprobadosSet={aprobadosSet}
+          serverOutcome={approvalOutcome}
           onConfirmarAprobacion={handleConfirmarAprobacionLote}
           pending={aprobandoLote}
         />

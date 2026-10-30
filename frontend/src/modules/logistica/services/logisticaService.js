@@ -27,6 +27,24 @@ export const logisticaService = {
   crearBulto: (ordenId, items) => http.post(`${BASE}/ordenes/${encodeURIComponent(ordenId)}/bultos`, { items }),
   precintarBulto: (bultoId, codigoPrecinto) =>
     http.post(`${BASE}/bultos/${encodeURIComponent(bultoId)}/precintar`, { codigo_precinto: codigoPrecinto }),
+  precintarBultosLote: (ordenId, asignaciones) =>
+    http.post(`${BASE}/ordenes/${encodeURIComponent(ordenId)}/bultos/precintar`, {
+      items: asignaciones.map(({ bultoId, codigoPrecinto }) => ({
+        bulto_id: bultoId,
+        codigo_precinto: codigoPrecinto,
+      })),
+    }),
+  precintarLoteRevisado: async (ordenId, asignaciones) => {
+    // Seal registration is reusable; package assignments share one atomic request.
+    for (const { codigoPrecinto } of asignaciones) {
+      try {
+        await logisticaService.registrarPrecinto(codigoPrecinto);
+      } catch (error) {
+        if (error?.status !== 409) throw error;
+      }
+    }
+    return logisticaService.precintarBultosLote(ordenId, asignaciones);
+  },
   obtenerBulto: (bultoId, options) =>
     http.get(`${BASE}/bultos/${encodeURIComponent(bultoId)}`, options),
 

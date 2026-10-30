@@ -16,6 +16,7 @@ export function AprobacionRevisionModal({
   aprobadosSet = new Set(),
   onConfirmarAprobacion,
   pending = false,
+  serverOutcome = null,
 }) {
   // Clasificar bultos en elegibles vs bloqueados
   const { elegibles, bloqueados } = React.useMemo(() => {
@@ -83,6 +84,7 @@ export function AprobacionRevisionModal({
       }
     >
       <div className="stack gap-4">
+        {serverOutcome && <div role="status" className="erp-callout">El servidor aprobó {serverOutcome.approved.length} bulto(s).{serverOutcome.blocked.length > 0 && <ul>{serverOutcome.blocked.map((item) => <li key={item.id}>Bulto #{item.id}: {item.motivo}</li>)}</ul>}</div>}
         <div className="erp-callout">
           <span className="text-sm text-secondary">
             Regla FR-041: La aprobación verifica que cada bulto esté completamente

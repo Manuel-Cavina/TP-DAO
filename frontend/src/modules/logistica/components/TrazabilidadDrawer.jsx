@@ -6,9 +6,9 @@ import { Badge } from "../../../shared/components/Badge";
 import { useBultoTrazabilidad } from "../hooks/useBultoTrazabilidad";
 
 export function TrazabilidadDrawer({ open, onClose, bultoId, bultoEstado, precintoCodigo }) {
-  const { trazabilidad, loading } = useBultoTrazabilidad(bultoId);
+  const { trazabilidad, loading, error, reload } = useBultoTrazabilidad(bultoId);
 
-  const historial = trazabilidad?.historial || [];
+  const historial = trazabilidad?.eventos || trazabilidad?.historial || [];
 
   return (
     <Drawer
@@ -26,13 +26,14 @@ export function TrazabilidadDrawer({ open, onClose, bultoId, bultoEstado, precin
       <div className="stack gap-5">
         <BultoStepper
           currentState={bultoEstado || "En_Transito"}
-          precintoCode={precintoCodigo || "PRC-2026-0001"}
+          precintoCode={precintoCodigo || trazabilidad?.codigo_precinto || "Sin precinto informado"}
         />
 
         <div className="erp-section-card stack gap-3">
           <h3 className="text-md font-medium">Línea de tiempo auditada</h3>
           {loading && <p className="text-xs text-muted">Cargando bitácora de eventos...</p>}
-          {!loading && historial.length === 0 && (
+          {error && <div role="alert">No se pudo actualizar la trazabilidad. <Button variant="secondary" size="sm" onClick={reload}>Reintentar</Button></div>}
+          {!loading && !error && historial.length === 0 && (
             <p className="text-xs text-muted">No se registraron transiciones previas.</p>
           )}
           <div className="stack gap-2">

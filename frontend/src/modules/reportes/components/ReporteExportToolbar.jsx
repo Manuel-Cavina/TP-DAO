@@ -1,5 +1,8 @@
 import React from "react";
 import { Button } from "../../../shared/components/Button";
+import { useAuth } from "../../../app/auth/AuthProvider";
+import { useToast } from "../../../shared/feedback/ToastContext";
+import { buildPrintUrl, createReportSnapshot, saveReportSnapshot } from "../services/reportSnapshot.js";
 
 function escapeCSV(val) {
   if (val === null || val === undefined) return '""';
@@ -14,8 +17,13 @@ export function ReporteExportToolbar({
   rawReportData = null,
   activeFiltersDesc = "Sin filtros adicionales",
   filters = {},
+  disabled = false,
 }) {
+  const { user } = useAuth();
+  const { notifyError } = useToast();
+  const snapshot = () => createReportSnapshot({ reportKey, data: rawReportData, filters, filterDescription: activeFiltersDesc, user, generatedAt: rawReportData?.fetched_at || new Date().toISOString() });
   const handlePrintPDF = () => {
+    try {
     const params = new URLSearchParams();
     params.set("reporte", reportKey === "r2" ? "mermas" : "stock");
     if (filters && typeof filters === "object") {
@@ -26,11 +34,15 @@ export function ReporteExportToolbar({
       });
     }
     params.set("autoPrint", "1");
-    const printUrl = `/reportes/imprimible?${params.toString()}`;
+    const snapshotId = crypto.randomUUID();
+    saveReportSnapshot(window.sessionStorage, snapshot(), snapshotId);
+    params.set("snapshot", snapshotId);
+    const printUrl = buildPrintUrl(window.location.href, params);
     const win = window.open(printUrl, "_blank");
     if (!win) {
       window.location.assign(printUrl);
     }
+    } catch (error) { notifyError(error); }
   };
 
   const handleExportCSV = () => {
@@ -104,8 +116,8 @@ export function ReporteExportToolbar({
         b.bulto_id,
         b.orden_id,
         b.remito_numero || "N/A",
-        b.codigo_precinto || "SIN_PRECINTO",
-        b.precinto_intacto ? "SI" : "NO_VIOLADO",
+        b.codigo_precinto ?? "No informado",
+        b.precinto_intacto == null ? "No informado" : b.precinto_intacto ? "SI" : "NO",
         b.origen_nombre,
         b.destino_nombre,
         b.fecha_rechazo ? new Date(b.fecha_rechazo).toLocaleString("es-AR") : "N/A",
@@ -167,13 +179,14 @@ export function ReporteExportToolbar({
       denominacion_oficial:
         "Stocky · Sistema de Ventas e Inventario: Centro de Distribución a Locales",
       emision: {
-        fecha_hora: new Date().toISOString(),
-        operador: "Martín Gómez (Control Central de Inventario)",
+        fecha_hora: rawReportData?.fetched_at,
+        operador: user?.displayName || user?.name || user?.login,
         reporte: reportTitle,
         clave_reporte: reportKey,
         filtros_activos: activeFiltersDesc,
       },
       datos: rawReportData || dataRows,
+      snapshot: snapshot(),
     };
 
     const jsonString = JSON.stringify(payload, null, 2);
@@ -194,7 +207,8 @@ export function ReporteExportToolbar({
         variant="secondary"
         size="sm"
         onClick={handlePrintPDF}
-        title="Imprimir o guardar como PDF con membrete oficial Stocky"
+        disabled={disabled || !rawReportData}
+        title="Abrir una captura de los datos consultados para imprimir desde el navegador"
       >
         <span className="row align-center gap-1">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -202,7 +216,7 @@ export function ReporteExportToolbar({
             <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
             <rect x="6" y="14" width="12" height="8" />
           </svg>
-          Exportar PDF
+          Vista previa / PDF
         </span>
       </Button>
 
@@ -210,6 +224,7 @@ export function ReporteExportToolbar({
         variant="secondary"
         size="sm"
         onClick={handleExportCSV}
+        disabled={disabled || !rawReportData}
         title="Descargar tabla en formato CSV (UTF-8 con BOM para Excel)"
       >
         <span className="row align-center gap-1">
@@ -226,6 +241,7 @@ export function ReporteExportToolbar({
         variant="secondary"
         size="sm"
         onClick={handleExportJSON}
+        disabled={disabled || !rawReportData}
         title="Descargar estructura de datos crudos en formato JSON"
       >
         <span className="row align-center gap-1">

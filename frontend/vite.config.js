@@ -11,17 +11,6 @@ export default defineConfig({
       "@modules": path.resolve(__dirname, "./src/modules"),
     },
   },
-  build: {
-    rollupOptions: {
-      input: path.resolve(__dirname, "./src/main.jsx"),
-      output: {
-        format: "iife",
-        name: "ErpAyaApp",
-        entryFileNames: "assets/app.js",
-        assetFileNames: "assets/[name][extname]",
-      },
-    },
-  },
   server: {
     port: 5173,
     open: false,

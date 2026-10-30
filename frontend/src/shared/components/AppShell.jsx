@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
 import { Button } from "./Button";
 import { UserChip } from "./Avatar";
 import { Select } from "./Select";
 import { Drawer } from "./Motion";
 import { NotificationPanel } from "./NotificationPanel";
+import { navigationFocusTarget } from "../lib/navigationFocus";
 
 export const TASK_GROUPS = [
   {
@@ -145,9 +146,46 @@ export function AppShell({
   children,
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches);
+  const sidebarRef = useRef(null);
+  const mainRef = useRef(null);
+  const menuTriggerRef = useRef(null);
   const [search, setSearch] = useState("");
   const [expandedGroups, setExpandedGroups] = useState(() => new Set([getActiveGroupId(currentPath, activeModule)].filter(Boolean)));
   const [activityOpen, setActivityOpen] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 768px)");
+    const update = () => { setIsMobile(media.matches); if (!media.matches) setMobileOpen(false); };
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (sidebarRef.current) sidebarRef.current.inert = isMobile && !mobileOpen;
+    if (!isMobile || !mobileOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    mainRef.current.inert = true;
+    const panel = sidebarRef.current;
+    const focusables = () => [...panel.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), [tabindex="0"]')];
+    focusables()[0]?.focus();
+    const handleKey = (event) => {
+      if (event.key === "Escape") { event.preventDefault(); setMobileOpen(false); }
+      if (event.key !== "Tab") return;
+      const items = focusables();
+      if (!items.length) { event.preventDefault(); return; }
+      const target = navigationFocusTarget(items, document.activeElement, event.shiftKey);
+      if (target) { event.preventDefault(); target.focus(); }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = previousOverflow;
+      if (mainRef.current) mainRef.current.inert = false;
+      menuTriggerRef.current?.focus();
+    };
+  }, [isMobile, mobileOpen]);
 
   useEffect(() => {
     const activeGroup = getActiveGroupId(currentPath, activeModule);
@@ -177,7 +215,8 @@ export function AppShell({
   return (
     <div className="erp-app-shell">
       {mobileOpen && <div className="erp-sidebar__backdrop" onClick={() => setMobileOpen(false)} aria-hidden="true" />}
-      <aside className={`erp-sidebar ${mobileOpen ? "is-open" : ""}`.trim()} aria-label="Navegación principal de Stocky">
+      <aside id="stocky-navigation" ref={sidebarRef} className={`erp-sidebar ${mobileOpen ? "is-open" : ""}`.trim()} aria-hidden={isMobile && !mobileOpen ? true : undefined} role={isMobile && mobileOpen ? "dialog" : undefined} aria-modal={isMobile && mobileOpen ? true : undefined} aria-label="Navegación principal de Stocky">
+        <Button variant="ghost" className="erp-sidebar__close" onClick={() => setMobileOpen(false)}>Cerrar navegación</Button>
         <div className="erp-sidebar__brand">
           <img className="erp-sidebar__brand-image" src="/brand/stocky-logo.png" alt="Stocky" />
           <div><div className="erp-sidebar__brand-title">Stocky</div><div className="erp-sidebar__brand-sub">Operación y distribución</div></div>
@@ -212,10 +251,10 @@ export function AppShell({
         </nav>
         <div className="erp-sidebar__footer"><UserChip name={operatorName} role={operatorRole} /></div>
       </aside>
-      <div className="erp-main">
+      <div className="erp-main" ref={mainRef}>
         <header className="erp-topbar">
           <div className="erp-topbar__left">
-            <Button variant="ghost" size="sm" iconLeft="menu" aria-label="Abrir navegación" onClick={() => setMobileOpen(true)} className="erp-topbar__menu-btn" />
+            <Button variant="ghost" size="sm" iconLeft="menu" aria-label="Abrir navegación" aria-expanded={mobileOpen} aria-controls="stocky-navigation" onClick={(event) => { menuTriggerRef.current = event.currentTarget; setMobileOpen(true); }} className="erp-topbar__menu-btn" />
             <form className="erp-topbar__search" onSubmit={submitSearch}>
               <Icon name="search" size={16} />
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar orden, remito, bulto, precinto o SKU" aria-label="Búsqueda global" />
