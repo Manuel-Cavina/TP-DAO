@@ -81,7 +81,8 @@ export const TASK_GROUPS = [
     defaultPath: "/reportes/stock",
     items: [
       { id: "control-trazabilidad", label: "Trazabilidad", path: "/logistica/trazabilidad" },
-      { id: "control-reportes", label: "Reportes", path: "/reportes/stock" },
+      { id: "control-reportes", label: "Stock y mermas", path: "/reportes/stock" },
+      { id: "control-ventas", label: "Ventas y márgenes", path: "/reportes/ventas" },
       { id: "control-exportaciones", label: "Exportaciones PDF", path: "/reportes/imprimible" },
     ],
   },
