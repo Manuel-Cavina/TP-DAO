@@ -36,9 +36,9 @@ export function RemitoDetallePage() {
     [ubicaciones]
   );
 
-  const fetchRemitoData = useCallback(async () => {
+  const fetchRemitoData = useCallback(async ({ signal }) => {
     if (!numero) return null;
-    const res = await logisticaService.obtenerRemito(numero);
+    const res = await logisticaService.obtenerRemito(numero, { signal });
     return mapRemitoToUI(res);
   }, [numero]);
 
@@ -51,6 +51,7 @@ export function RemitoDetallePage() {
     isStale,
     refresh,
   } = useLiveResource(fetchRemitoData, {
+    resourceKey: `remittance:${numero}`,
     enabled: Boolean(numero),
     intervalMs: 15000,
   });

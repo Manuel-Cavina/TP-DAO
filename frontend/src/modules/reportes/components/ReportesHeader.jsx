@@ -1,8 +1,11 @@
 import React from "react";
 import { Button } from "../../../shared/components/Button";
 import { Icon } from "../../../shared/components/Icon";
+import { useAuth } from "../../../app/auth/AuthProvider";
+import { actorLabel } from "../services/reportSnapshot.js";
 
 export function ReportesHeader({ loading, onRefresh }) {
+  const { user } = useAuth();
   return (
     <header className="stocky-report-header">
       <div className="stocky-brand-block">
@@ -24,7 +27,7 @@ export function ReportesHeader({ loading, onRefresh }) {
       <div className="stocky-header-actions no-print">
         <div className="stocky-operator-pill" title="Sesión activa verificada">
           <span className="stocky-operator-dot" />
-          <span>Operador: <strong>Martín Gómez</strong> (Control de Stock)</span>
+          <span>Usuario: <strong>{actorLabel(user)}</strong> ({user?.role || "Sin rol"})</span>
         </div>
 
         <Button

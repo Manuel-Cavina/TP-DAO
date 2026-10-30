@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173",
-    "build": "vite build",
+    "build": "vite build && node scripts/check_core_regressions.mjs --build",
     "preview": "vite preview --port 4173",
-    "check": "node scripts/check_frontend.mjs && node scripts/check_ventas_caja.mjs && node scripts/check_auth.mjs && node scripts/check_shared_controls.mjs"
+    "check": "node scripts/check_frontend.mjs && node scripts/check_ventas_caja.mjs && node scripts/check_auth.mjs && node scripts/check_shared_controls.mjs && node scripts/check_core_regressions.mjs && node scripts/check_operational_regressions.mjs && node scripts/check_reportes_regressions.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

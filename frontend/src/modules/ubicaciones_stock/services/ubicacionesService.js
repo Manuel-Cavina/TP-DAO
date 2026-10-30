@@ -10,4 +10,5 @@ export const ubicacionesService = {
   crearLocal: (dto) => http.post(`${BASE}/locales`, dto),
   actualizar: (id, dto) => http.put(`${BASE}/${encodeURIComponent(id)}`, dto),
   darDeBaja: (id) => http.del(`${BASE}/${encodeURIComponent(id)}`),
+  reactivar: (id) => http.post(`${BASE}/${encodeURIComponent(id)}/reactivar`, {}),
 };

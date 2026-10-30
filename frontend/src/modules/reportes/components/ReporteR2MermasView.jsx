@@ -17,7 +17,7 @@ export function ReporteR2MermasView({
   setR2LocalDestinoId,
 }) {
   const tieneMermas = (r2Resumen?.total_bultos_rechazados ?? 0) > 0;
-  const bultosVioladosCount = r2Bultos.filter((b) => !b.precinto_intacto).length;
+  const bultosVioladosCount = r2Bultos.filter((b) => b.precinto_intacto === false).length;
 
   return (
     <div className="stack gap-4">
@@ -179,10 +179,10 @@ export function ReporteR2MermasView({
                       {bulto.remito_numero || "N/A"}
                     </td>
                     <td className="font-mono text-xs font-medium">
-                      {bulto.codigo_precinto || "SIN_PRECINTO"}
+                      {bulto.codigo_precinto ?? "No informado"}
                     </td>
                     <td>
-                      {bulto.precinto_intacto ? (
+                      {bulto.precinto_intacto == null ? <span>No informado</span> : bulto.precinto_intacto ? (
                         <Badge tone="success">Intacto</Badge>
                       ) : (
                         <Badge tone="danger">VIOLADO</Badge>

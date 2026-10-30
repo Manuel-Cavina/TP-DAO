@@ -4,6 +4,9 @@ import { Button } from "../../../shared/components/Button";
 import { Icon } from "../../../shared/components/Icon";
 import { Modal } from "../../../shared/components/Motion";
 import { PlotlyRenderer } from "./PlotlyRenderer";
+import { Alert } from "../../../shared/components/Feedback";
+import { useAuth } from "../../../app/auth/AuthProvider";
+import { actorLabel, reportMoney } from "../services/reportSnapshot.js";
 
 const ESTADOS_STEPPER = [
   { key: "PREPARADO", label: "Preparado (CD)", icon: "package" },
@@ -13,7 +16,8 @@ const ESTADOS_STEPPER = [
   { key: "RECHAZADO", label: "Rechazado (Merma)", icon: "shield-off" },
 ];
 
-export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading }) {
+export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading, error, onRetry }) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("dictamen"); // "dictamen" | "patrimonial" | "trazabilidad"
 
   const lineaTiempo = data?.linea_de_tiempo || [];
@@ -74,8 +78,8 @@ export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading }) {
               </div>
               <p className="stocky-modal-subtitle">
                 Orden de Reposición: <strong>#{data?.orden_id || "N/A"}</strong> · Origen:{" "}
-                 <strong>{data?.origen?.nombre || "CD Central"}</strong> → Destino:{" "}
-                <strong>{data?.destino?.nombre || "Local Comercial"}</strong>
+                 <strong>{data?.origen?.nombre || "No informado"}</strong> → Destino:{" "}
+                <strong>{data?.destino?.nombre || "No informado"}</strong>
               </p>
             </div>
           </div>
@@ -85,7 +89,7 @@ export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading }) {
           </Button>
         </header>
       }
-      nav={
+      nav={error || loading || !data ? null :
         <>
           <div className="p-4 bg-muted border-b border-subtle">
             <div className="stocky-stepper-wrap">
@@ -94,7 +98,7 @@ export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading }) {
                   Cadena de Custodia Inmutable (Historial_Bulto)
                 </span>
                 <span className="text-xs text-muted">
-                  Auditado por: <strong>Martín Gómez (Perito Logístico)</strong>
+                  Consultado por: <strong>{actorLabel(user)}</strong>
                 </span>
               </div>
 
@@ -176,7 +180,7 @@ export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading }) {
       footer={
         <div className="row justify-between align-center w-full">
           <span className="text-xs text-secondary">
-            Peritaje cerrado y registrado en base forense Stocky · Acta Nº {data?.bulto_id || bultoId}-2026
+            Consulta de trazabilidad registrada del bulto #{data?.bulto_id || bultoId}
           </span>
           <Button variant="secondary" size="sm" onClick={onClose}>
             Cerrar Peritaje
@@ -188,7 +192,7 @@ export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading }) {
             <div className="stack align-center justify-center p-8 gap-3">
               <span className="text-secondary">Extrayendo evidencia pericial y trazabilidad...</span>
             </div>
-          ) : (
+          ) : error ? <Alert tone="danger" title="No se pudo consultar la trazabilidad" description={error.message} action={<Button onClick={onRetry}>Reintentar</Button>} /> : !data ? null : (
             <>
               {/* KPIs de la Pérdida */}
               <div className="stocky-kpi-grid">
@@ -204,7 +208,7 @@ export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading }) {
                 <div className="erp-metric-card">
                   <span className="text-xs text-muted">Pérdida a Costo (Patrimonial)</span>
                   <div className="erp-metric-card__value text-danger">
-                    ${(data?.costo_total_merma ?? 0).toLocaleString("es-AR")}
+                    {reportMoney(data?.costo_total_merma)}
                   </div>
                   <span className="text-xs text-secondary">
                     Impacto directo en inventario
@@ -213,7 +217,7 @@ export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading }) {
                 <div className="erp-metric-card">
                   <span className="text-xs text-muted">Pérdida a Precio de Venta</span>
                   <div className="erp-metric-card__value">
-                    ${(data?.valor_venta_merma ?? 0).toLocaleString("es-AR")}
+                    {reportMoney(data?.valor_venta_merma)}
                   </div>
                   <span className="text-xs text-secondary">
                     Ingreso frustrado en caja
@@ -245,7 +249,7 @@ export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading }) {
                     <div>
                       <span className="text-xs text-muted">Código de Precinto</span>
                       <div className="font-mono font-medium text-sm text-foreground">
-                        {data?.codigo_precinto || "SIN_PRECINTO"}
+                        {data?.codigo_precinto ?? "No informado"}
                       </div>
                       <span className="text-xs text-secondary">Faja numerada en CD</span>
                     </div>
@@ -253,7 +257,7 @@ export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading }) {
                     <div>
                       <span className="text-xs text-muted">Integridad Física</span>
                       <div>
-                        {data?.precinto_intacto ? (
+                        {data?.precinto_intacto == null ? <span>No informado</span> : data.precinto_intacto ? (
                           <Badge tone="success">Precinto Intacto</Badge>
                         ) : (
                           <Badge tone="danger">VIOLADO / ADULTERADO</Badge>
@@ -351,16 +355,16 @@ export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading }) {
                                 -{p.cantidad} un.
                               </td>
                               <td className="text-right tabular-nums">
-                                ${p.costo_unitario?.toLocaleString("es-AR")}
+                                {reportMoney(p.costo_unitario)}
                               </td>
                               <td className="text-right tabular-nums font-medium text-danger">
-                                ${p.perdida_costo?.toLocaleString("es-AR")}
+                                {reportMoney(p.perdida_costo)}
                               </td>
                               <td className="text-right tabular-nums">
-                                ${p.precio_venta?.toLocaleString("es-AR")}
+                                {reportMoney(p.precio_venta)}
                               </td>
                               <td className="text-right tabular-nums font-medium">
-                                ${p.perdida_venta?.toLocaleString("es-AR")}
+                                {reportMoney(p.perdida_venta)}
                               </td>
                             </tr>
                           ))
@@ -376,11 +380,11 @@ export function ModalAuditoriaMerma({ open, onClose, bultoId, data, loading }) {
                           </td>
                           <td className="text-right text-muted">-</td>
                           <td className="text-right font-medium text-danger tabular-nums">
-                            ${(data?.costo_total_merma ?? 0).toLocaleString("es-AR")}
+                            {reportMoney(data?.costo_total_merma)}
                           </td>
                           <td className="text-right text-muted">-</td>
                           <td className="text-right font-medium tabular-nums">
-                            ${(data?.valor_venta_merma ?? 0).toLocaleString("es-AR")}
+                            {reportMoney(data?.valor_venta_merma)}
                           </td>
                         </tr>
                       </tfoot>

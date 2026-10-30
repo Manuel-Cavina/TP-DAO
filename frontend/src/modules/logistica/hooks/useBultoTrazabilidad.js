@@ -1,19 +1,20 @@
-import { useAsync } from "../../../shared/hooks";
+import { useLiveResource } from "../../../shared/hooks";
 import { logisticaService } from "../services";
 
 export function useBultoTrazabilidad(bultoId) {
-  const { data, status, error, reload, loading } = useAsync(
+  const { data, error, refresh: reload, isLoading: loading, isStale, freshnessSeconds } = useLiveResource(
     async ({ signal }) => {
       if (!bultoId) return null;
       return logisticaService.consultarTrazabilidad(bultoId, { signal });
     },
-    [bultoId],
-    { enabled: Boolean(bultoId) }
+    { resourceKey: `trace:${bultoId}`, enabled: Boolean(bultoId) }
   );
 
   return {
     trazabilidad: data,
-    status,
+    status: loading ? "loading" : error ? "error" : "success",
+    isStale,
+    freshnessSeconds,
     loading,
     error,
     reload,

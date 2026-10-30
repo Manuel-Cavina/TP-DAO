@@ -13,3 +13,6 @@ dist/
 .playwright-cli/
 .playwright/
 .taste-skill/
+
+# Base SQLite local
+backend/runtime/

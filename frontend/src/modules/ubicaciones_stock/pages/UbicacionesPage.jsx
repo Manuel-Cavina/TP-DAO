@@ -92,7 +92,7 @@ export function UbicacionesPage() {
       res = await crearLocal(dto);
     }
     if (res?.ok !== false) {
-      reloadSedes();
+      await reloadSedes();
     }
     return res;
   };
@@ -100,7 +100,7 @@ export function UbicacionesPage() {
   const handleDeactivate = async (id) => {
     const res = await darDeBaja(id);
     if (res?.ok !== false) {
-      reloadSedes();
+      await reloadSedes();
     }
     return res;
   };
@@ -108,7 +108,7 @@ export function UbicacionesPage() {
   const handleReactivar = async (id) => {
     const res = await reactivar(id);
     if (res?.ok !== false) {
-      reloadSedes();
+      await reloadSedes();
     }
   };
 
@@ -175,7 +175,7 @@ export function UbicacionesPage() {
           >
             Editar
           </Button>
-          {row.tipo === "LOCAL" && row.activo && (
+          {row.activo && (
             <Button
               variant="danger"
               size="sm"

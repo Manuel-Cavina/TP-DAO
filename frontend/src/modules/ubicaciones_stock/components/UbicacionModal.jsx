@@ -38,13 +38,11 @@ export function UbicacionModal({
   }, [ubicacion, isEdit, isDeactivate, open]);
 
   const isCD = (ubicacion?.tipo || tipo) === "CD";
-  const isCDDeactivate = isDeactivate && isCD;
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
 
     if (isDeactivate) {
-      if (isCDDeactivate) return;
       if (onDeactivate && ubicacion?.id) {
         const res = await onDeactivate(ubicacion.id);
         if (res?.ok !== false) onClose();
@@ -85,15 +83,6 @@ export function UbicacionModal({
 
   const renderFooter = () => {
     if (isDeactivate) {
-      if (isCDDeactivate) {
-        return (
-          <div className="row justify-end w-full align-center">
-            <Button variant="ghost" onClick={onClose}>
-              Entendido
-            </Button>
-          </div>
-        );
-      }
       return (
         <div className="row justify-between w-full align-center">
           <Button variant="ghost" onClick={onClose} disabled={pending}>
@@ -138,18 +127,11 @@ export function UbicacionModal({
     >
       {isDeactivate ? (
         <div className="stack gap-4">
-          {isCDDeactivate ? (
-            <Alert
-              tone="danger"
-              title="Operación restringida por diseño del sistema"
-              description="La baja de un centro de distribución se administra fuera de este flujo para no afectar ingresos y despachos en curso."
-            />
-          ) : (
             <>
               <Alert
                 tone="warning"
                 title="Impacto de la baja en registros históricos"
-                description="La desactivación de una sede es irreversible para operaciones en curso y preserva la integridad del sistema:"
+                description="La baja lógica bloquea nuevas operaciones y conserva los registros históricos. La sede puede reactivarse desde este listado."
               />
               <ul className="text-sm text-secondary stack gap-2 pl-4 list-disc">
                 <li>
@@ -159,14 +141,13 @@ export function UbicacionModal({
                   <strong>Restricción operativa:</strong> La sede ya no podrá ser seleccionada como origen ni destino en nuevos despachos, compras ni puntos de venta.
                 </li>
                 <li>
-                  <strong>Validación de stock:</strong> El sistema rechazará la baja si la sede posee unidades disponibles en existencia o bultos en tránsito pendientes de recepción.
+                  <strong>Revisión previa:</strong> Revise existencias y traslados pendientes antes de desactivar. Esta operación no elimina ni traslada mercadería.
                 </li>
               </ul>
               <div className="p-3 bg-subtle rounded-md border text-xs">
                 <span className="font-medium">Sede a desactivar:</span> {ubicacion?.nombre} ({ubicacion?.direccion})
               </div>
             </>
-          )}
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="stack gap-4">

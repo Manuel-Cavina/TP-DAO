@@ -18,9 +18,11 @@ import { useProductos } from "../../catalogo/hooks/useProductos";
 import { ConsolidarModal } from "../components/ConsolidarModal";
 import { TrazabilidadDrawer } from "../components/TrazabilidadDrawer";
 import { NecesidadesTab } from "../components/NecesidadesTab";
+import { useAuth } from "../../../app/auth/AuthProvider";
 
 export function LogisticaPage({ initialTab = "remitos" }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { sedeId } = useSede();
   const [activeTab, setActiveTab] = useState(initialTab);
   const [listScope, setListScope] = useState("activos");
@@ -230,13 +232,13 @@ export function LogisticaPage({ initialTab = "remitos" }) {
           <h1 className="text-xl">{pageTitle}</h1>
         </div>
         <div className="row gap-2">
-          <Button
+          {user?.role === "ADMIN" && <Button
             variant="primary"
             iconLeft="plus"
             onClick={() => navigate("/logistica/ordenes/nueva")}
           >
             Nueva orden
-          </Button>
+          </Button>}
         </div>
       </div>
 
@@ -272,7 +274,7 @@ export function LogisticaPage({ initialTab = "remitos" }) {
           options={[
             { value: "remitos", label: "Remitos y despacho", count: remitos.length },
             { value: "ordenes", label: "Órdenes de reposición", count: ordenes.length },
-            { value: "necesidades", label: "Necesidades pendientes", count: necesidades.length },
+            ...(user?.role === "ADMIN" ? [{ value: "necesidades", label: "Necesidades pendientes", count: necesidades.length }] : []),
           ]}
         />
         {activeTab === "remitos" && (

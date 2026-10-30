@@ -49,7 +49,7 @@ export function ReportesPage({ initialReport = "r1" }) {
 
     // Opciones
     ubicaciones,
-    categorias,
+    categorias, mastersError, mastersLoading, reloadMasters, errorR1DrillDown, errorR2DrillDown,
 
     // Drill downs
     isR1ModalOpen,
@@ -120,6 +120,7 @@ export function ReportesPage({ initialReport = "r1" }) {
         items={activeReport === "r1" ? r1Items : r2Bultos}
         summary={activeReport === "r1" ? r1Resumen : r2Resumen}
         filters={getFiltrosDescripcion()}
+        generatedAt={(activeReport === "r1" ? r1Data : r2Data)?.fetched_at}
       />
 
       <div className="stocky-report-screen stack gap-4">
@@ -185,16 +186,20 @@ export function ReportesPage({ initialReport = "r1" }) {
               rawReportData={activeReport === "r1" ? r1Data : r2Data}
               activeFiltersDesc={getFiltrosDescripcion()}
               filters={activeFiltersObj}
+              disabled={mastersLoading || Boolean(mastersError) || (activeReport === "r1" ? loadingR1 || Boolean(errorR1) : loadingR2 || Boolean(errorR2))}
             />
           </div>
 
-          {/* Filtros para R1 */}
+          {mastersError && <Alert tone="danger" title="No se pudieron cargar los filtros" description={mastersError.message} action={<Button onClick={reloadMasters}>Reintentar</Button>} />}
+        {/* Filtros para R1 */}
           {activeReport === "r1" && (
             <div className="stocky-filter-row pt-2 border-t border-subtle mt-3">
               <div className="stocky-filter-controls">
                 <label className="text-xs text-secondary font-medium">Filtros de stock:</label>
                 <select
                   className="erp-input erp-input--sm stocky-filter-select"
+                  aria-label="Ubicación de stock"
+                  disabled={mastersLoading || Boolean(mastersError)}
                   value={r1UbicacionId}
                   onChange={(e) => setR1UbicacionId(e.target.value)}
                 >
@@ -208,6 +213,8 @@ export function ReportesPage({ initialReport = "r1" }) {
 
                 <select
                   className="erp-input erp-input--sm stocky-filter-select"
+                  aria-label="Categoría del producto"
+                  disabled={mastersLoading || Boolean(mastersError)}
                   value={r1CategoriaId}
                   onChange={(e) => setR1CategoriaId(e.target.value)}
                 >
@@ -257,6 +264,7 @@ export function ReportesPage({ initialReport = "r1" }) {
                   <span className="text-xs text-muted">Desde:</span>
                   <input
                     type="date"
+                    aria-label="Fecha del período"
                     className="erp-input erp-input--sm"
                     value={r2FechaInicio}
                     onChange={(e) => setR2FechaInicio(e.target.value)}
@@ -267,6 +275,7 @@ export function ReportesPage({ initialReport = "r1" }) {
                   <span className="text-xs text-muted">Hasta:</span>
                   <input
                     type="date"
+                    aria-label="Fecha del período"
                     className="erp-input erp-input--sm"
                     value={r2FechaFin}
                     onChange={(e) => setR2FechaFin(e.target.value)}
@@ -275,6 +284,8 @@ export function ReportesPage({ initialReport = "r1" }) {
 
                 <select
                   className="erp-input erp-input--sm stocky-filter-select"
+                  aria-label="Local de destino"
+                  disabled={mastersLoading || Boolean(mastersError)}
                   value={r2LocalDestinoId}
                   onChange={(e) => setR2LocalDestinoId(e.target.value)}
                 >
@@ -331,6 +342,7 @@ export function ReportesPage({ initialReport = "r1" }) {
           <Alert
             tone="danger"
             title="Error al consultar Salud de Stock"
+            description={errorR1.message}
             action={
               <Button variant="secondary" size="sm" onClick={reloadAll}>
                 Reintentar
@@ -345,6 +357,7 @@ export function ReportesPage({ initialReport = "r1" }) {
           <Alert
             tone="danger"
             title="Error al consultar Mermas y Precintos"
+            description={errorR2.message}
             action={
               <Button variant="secondary" size="sm" onClick={reloadAll}>
                 Reintentar
@@ -355,7 +368,7 @@ export function ReportesPage({ initialReport = "r1" }) {
           </Alert>
         )}
 
-        {activeReport === "r1" && (
+        {activeReport === "r1" && !errorR1 && (
           <ReporteR1StockView
             r1Data={r1Data}
             loadingR1={loadingR1}
@@ -368,7 +381,7 @@ export function ReportesPage({ initialReport = "r1" }) {
           />
         )}
 
-        {activeReport === "r2" && (
+        {activeReport === "r2" && !errorR2 && (
           <ReporteR2MermasView
             r2Data={r2Data}
             loadingR2={loadingR2}
@@ -387,6 +400,8 @@ export function ReportesPage({ initialReport = "r1" }) {
           productoId={selectedProductoId}
           data={r1DrillDownData}
           loading={loadingR1DrillDown}
+          error={errorR1DrillDown}
+          onRetry={() => openR1DrillDown(selectedProductoId)}
         />
 
         <ModalAuditoriaMerma
@@ -395,6 +410,8 @@ export function ReportesPage({ initialReport = "r1" }) {
           bultoId={selectedBultoId}
           data={r2DrillDownData}
           loading={loadingR2DrillDown}
+          error={errorR2DrillDown}
+          onRetry={() => openR2DrillDown(selectedBultoId)}
         />
       </div>
     </div>

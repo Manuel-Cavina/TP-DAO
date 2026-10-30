@@ -6,7 +6,7 @@ import { SedeProvider } from "./providers/SedeProvider";
 import { ErrorBoundary } from "./providers/ErrorBoundary";
 import { AppRoutes } from "./router";
 
-/** HashRouter: funciona igual en `npm run dev` y abriendo index.html por file://. */
+/** Hash routes work on static hosting without server-side route rewrites. */
 export function App() {
   return (
     <ErrorBoundary>

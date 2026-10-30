@@ -75,7 +75,7 @@ class TestCatalogoYStockAPI(unittest.TestCase):
             ("POST", "/api/catalogo/productos", {**self.producto_body, "codigo": "OTRO", "precio_venta": "0"}, 400),
             ("POST", "/api/catalogo/productos", {**self.producto_body, "codigo": "OTRO", "categoria_id": 999}, 404),
             ("GET", "/api/catalogo/productos/999", None, 404),
-            ("DELETE", f"/api/ubicaciones/{self.cd['id']}", None, 400),
+            ("DELETE", f"/api/ubicaciones/{self.cd['id']}", None, 204),
             ("GET", "/api/ubicaciones/999", None, 404),
             ("POST", "/api/stock/ingresos", {"producto_id": p, "cd_id": self.local["id"], "cantidad": 5}, 400),
             ("POST", "/api/stock/ingresos", {"producto_id": p, "cd_id": 999, "cantidad": 5}, 404),

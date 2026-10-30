@@ -1,7 +1,8 @@
 import React from "react";
+import { useAuth } from "../../../app/auth/AuthProvider";
+import { actorLabel } from "../services/reportSnapshot.js";
 
 const money = (value) => value == null ? "No disponible" : `$${Number(value).toLocaleString("es-AR")}`;
-const dateTime = () => new Date().toLocaleString("es-AR");
 
 function Summary({ reportKey, summary = {} }) {
   const items = reportKey === "r1"
@@ -48,7 +49,7 @@ function MermaTable({ items }) {
     <table className="stocky-print-table">
       <thead><tr><th>Bulto</th><th>Remito</th><th>Precinto</th><th>Origen</th><th>Destino</th><th>Fecha de rechazo</th><th>Unidades</th><th>Pérdida a costo</th></tr></thead>
       <tbody>{items.map((item) => <tr key={item.bulto_id}>
-        <td>#{item.bulto_id}</td><td>{item.remito_numero || "-"}</td><td>{item.codigo_precinto || "Sin precinto"}</td>
+        <td>#{item.bulto_id}</td><td>{item.remito_numero || "-"}</td><td>{item.codigo_precinto ?? "No informado"}</td>
         <td>{item.origen_nombre}</td><td>{item.destino_nombre}</td>
         <td>{item.fecha_rechazo ? new Date(item.fecha_rechazo).toLocaleString("es-AR") : "-"}</td>
         <td>{item.total_unidades}</td><td>{money(item.total_perdida_costo)}</td>
@@ -57,7 +58,8 @@ function MermaTable({ items }) {
   );
 }
 
-export function PrintReport({ reportKey, items, summary, filters }) {
+export function PrintReport({ reportKey, items, summary, filters, generatedAt }) {
+  const { user } = useAuth();
   const isR1 = reportKey === "r1";
   const title = isR1
     ? "Salud de Existencias y Valorización Integral"
@@ -82,8 +84,8 @@ export function PrintReport({ reportKey, items, summary, filters }) {
           <div className="stocky-formal-meta-box">
             <div>Informe oficial de auditoría</div>
             <div className="dictamen-code">AUD-2026-STK-0842</div>
-            <div>Emitido: {dateTime()}</div>
-            <div>Responsable: Martín Gómez (Auditoría Central)</div>
+            <div>Consulta: {generatedAt ? new Date(generatedAt).toLocaleString("es-AR") : "No informada"}</div>
+            <div>Responsable: {actorLabel(user)}</div>
           </div>
         </header>
 

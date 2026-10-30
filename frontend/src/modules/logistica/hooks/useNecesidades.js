@@ -1,15 +1,15 @@
-import { useAsync, useMutation } from "../../../shared/hooks";
+import { useLiveResource, useMutation } from "../../../shared/hooks";
 import { logisticaService } from "../services";
 import { mapNecesidadToUI } from "../mappers/logisticaMappers";
 
 export function useNecesidades({ localId } = {}) {
-  const { data, status, error, reload, loading } = useAsync(
+  const { data, error, refresh: reload, isLoading: loading, isStale, freshnessSeconds } = useLiveResource(
     async ({ signal }) => {
       const resp = await logisticaService.listarNecesidades({ localId }, { signal });
       const items = Array.isArray(resp) ? resp : resp?.data || [];
       return items.map(mapNecesidadToUI);
     },
-    [localId]
+    { resourceKey: `needs:${localId || "all"}` }
   );
 
   const consolidarMutation = useMutation(
@@ -20,7 +20,9 @@ export function useNecesidades({ localId } = {}) {
 
   return {
     necesidades: data || [],
-    status,
+    status: loading ? "loading" : error ? "error" : "success",
+    isStale,
+    freshnessSeconds,
     loading,
     error,
     reload,

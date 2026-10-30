@@ -37,12 +37,12 @@ export function OrdenDetallePage() {
     [productos]
   );
 
-  const fetchOrderData = useCallback(async () => {
+  const fetchOrderData = useCallback(async ({ signal }) => {
     if (!id) return null;
     const [ordRes, bultosRes, remitosRes] = await Promise.all([
-      logisticaService.obtenerOrden(id),
-      logisticaService.listarBultosPorOrden(id).catch(() => []),
-      logisticaService.listarRemitos().catch(() => []),
+      logisticaService.obtenerOrden(id, { signal }),
+      logisticaService.listarBultosPorOrden(id, { signal }),
+      logisticaService.listarRemitos({ signal }),
     ]);
 
     const ordenMapped = mapOrdenToUI(ordRes);
@@ -75,6 +75,7 @@ export function OrdenDetallePage() {
     isStale,
     refresh,
   } = useLiveResource(fetchOrderData, {
+    resourceKey: `order:${id}`,
     enabled: Boolean(id),
     intervalMs: 15000,
   });
@@ -222,7 +223,7 @@ export function OrdenDetallePage() {
   const currentGuidance = guidanceByTab[activeTab] || guidanceByTab.resumen;
 
   const handleDespachar = async () => {
-    if (!remito) return;
+    if (!remito || isStale || isLoading) return;
     setDespachando(true);
     setAccionError("");
     try {

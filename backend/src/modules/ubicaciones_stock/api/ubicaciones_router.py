@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, Path, Query, status
 from modules.ubicaciones_stock.application import Ubicacion_Service
 from modules.ubicaciones_stock.dto import Ubicacion_DTO, Ubicacion_Request_DTO
 from modules.ubicaciones_stock.mappers import Stock_Mapper
+from modules.seguridad.api.dependencies import requerir_rol, validar_csrf
+from modules.seguridad.domain.usuario import ROL_ADMIN
 
 router = APIRouter(prefix="/api/ubicaciones", tags=["Ubicaciones (CD y Locales)"])
 
@@ -72,9 +74,23 @@ def actualizar_ubicacion(
     "/{ubicacion_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Baja lógica: la ubicación conserva su historial de stock, ventas y bultos",
+    dependencies=[Depends(requerir_rol(ROL_ADMIN))],
 )
 def desactivar_ubicacion(
     ubicacion_id: Ubicacion_Id,
     service: Ubicacion_Service = Depends(get_ubicacion_service),
 ) -> None:
     service.desactivar(ubicacion_id)
+
+
+@router.post(
+    "/{ubicacion_id}/reactivar",
+    response_model=Ubicacion_DTO,
+    summary="Reactivar un centro o local conservando su identidad e historial",
+    dependencies=[Depends(requerir_rol(ROL_ADMIN)), Depends(validar_csrf)],
+)
+def reactivar_ubicacion(
+    ubicacion_id: Ubicacion_Id,
+    service: Ubicacion_Service = Depends(get_ubicacion_service),
+) -> Ubicacion_DTO:
+    return Stock_Mapper.ubicacion_a_dto(service.reactivar(ubicacion_id))

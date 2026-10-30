@@ -1,15 +1,15 @@
-import { useAsync, useMutation } from "../../../shared/hooks";
+import { useLiveResource, useMutation } from "../../../shared/hooks";
 import { logisticaService } from "../services";
 import { mapRemitoToUI } from "../mappers/logisticaMappers";
 
 export function useRemitos() {
-  const { data, status, error, reload, loading } = useAsync(
+  const { data, error, refresh: reload, isLoading: loading, isStale, freshnessSeconds } = useLiveResource(
     async ({ signal }) => {
       const resp = await logisticaService.listarRemitos({ signal });
       const items = Array.isArray(resp) ? resp : resp?.data || [];
       return items.map(mapRemitoToUI);
     },
-    []
+    { resourceKey: "remittances" }
   );
 
   const despacharMutation = useMutation(
@@ -28,17 +28,20 @@ export function useRemitos() {
   );
 
   const verificarMutation = useMutation(
-    ({ bultoId, codigoPrecinto, estaIntacto }) =>
+    ({ bultoId, codigoPrecinto, estaIntacto, motivoRechazo }) =>
       logisticaService.verificarBulto(bultoId, {
         codigoPrecintoRecibido: codigoPrecinto,
         estaIntacto,
+        motivoRechazo,
       }),
     { successMessage: "Verificación de bulto registrada", onSuccess: reload }
   );
 
   return {
     remitos: data || [],
-    status,
+    status: loading ? "loading" : error ? "error" : "success",
+    isStale,
+    freshnessSeconds,
     loading,
     error,
     reload,

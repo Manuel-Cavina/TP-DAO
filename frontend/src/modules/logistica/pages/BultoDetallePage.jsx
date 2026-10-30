@@ -1,8 +1,9 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Alert, Button, Modal, StatusBadge, TextInput, TextareaField, useLiveResource } from "../../../shared";
 import { useProductos } from "../../catalogo";
 import { logisticaService } from "../services";
+import { validateSealControl } from "../mappers/sealControl";
 
 const code = (id) => `BLT-${String(id).padStart(6, "0")}`;
 const dateTime = (value) => value ? new Date(value).toLocaleString("es-AR") : "Sin fecha registrada";
@@ -17,36 +18,38 @@ export function BultoDetallePage() {
   const [mutationError, setMutationError] = useState("");
   const { productos } = useProductos();
   const productById = useMemo(() => new Map(productos.map((producto) => [String(producto.id), producto])), [productos]);
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ signal }) => {
     const [bulto, trazabilidad, remitosResponse] = await Promise.all([
-      logisticaService.obtenerBulto(id),
-      logisticaService.consultarTrazabilidad(id),
-      logisticaService.listarRemitos(),
+      logisticaService.obtenerBulto(id, { signal }),
+      logisticaService.consultarTrazabilidad(id, { signal }),
+      logisticaService.listarRemitos({ signal }),
     ]);
     const remitos = Array.isArray(remitosResponse) ? remitosResponse : remitosResponse?.data || [];
     return { bulto, trazabilidad, remito: remitos.find((remito) => (remito.bultos || remito.bultos_resumen || []).some((item) => String(item.id) === String(id))) };
   }, [id]);
-  const { data, error, isLoading, refresh } = useLiveResource(load, { intervalMs: 15000 });
+  const { data, error, isLoading, isStale, refresh } = useLiveResource(load, { resourceKey: `package:${id}`, intervalMs: 15000 });
   const bulto = data?.bulto;
   const precinto = bulto?.precinto?.codigo || bulto?.codigo_precinto || data?.trazabilidad?.codigo_precinto;
-  const canVerify = bulto?.estado === "RECIBIDO";
+  const canVerify = bulto?.estado === "RECIBIDO" && !isStale && !isLoading;
   const eventos = data?.trazabilidad?.eventos || data?.trazabilidad?.historial || bulto?.historial || [];
 
   const openVerification = (type) => {
     setMutationError("");
-    setLectura(precinto || "");
+    setLectura("");
     setMotivo("");
     setModal(type);
   };
   const confirmVerification = async () => {
-    if (modal === "incidencia" && !motivo.trim()) {
-      setMutationError("Indicá el motivo de la incidencia para continuar.");
+    if (!canVerify || String(bulto?.id) !== String(id)) return;
+    const decision = validateSealControl({ precintoEsperado: precinto, precintoLeido: lectura, resultado: modal === "intacto" ? "INTACTO" : "VIOLADO", motivoRechazo: motivo });
+    if (decision.error) {
+      setMutationError(decision.error);
       return;
     }
     setMutating(true);
     setMutationError("");
     try {
-      await logisticaService.verificarBulto(bulto.id, { codigoPrecintoRecibido: lectura, estaIntacto: modal === "intacto", motivoRechazo: motivo.trim() });
+      await logisticaService.verificarBulto(bulto.id, { codigoPrecintoRecibido: decision.read, estaIntacto: !decision.rejected, motivoRechazo: decision.reason });
       setModal("");
       await refresh();
     } catch (requestError) {
@@ -55,6 +58,7 @@ export function BultoDetallePage() {
       setMutating(false);
     }
   };
+  useEffect(() => { setModal(""); setLectura(""); setMotivo(""); setMutationError(""); }, [id]);
 
   if (isLoading && !data) return <div className="erp-section-card" aria-live="polite">Cargando bulto y trazabilidad…</div>;
   if (error && !data) return <Alert tone="danger" title="No se pudo cargar el bulto" description={error.message} action={<Button variant="secondary" size="sm" onClick={refresh}>Reintentar</Button>} />;
@@ -73,8 +77,8 @@ export function BultoDetallePage() {
       </div>
       <aside className="erp-section-card stack gap-3"><h2 className="erp-card-title">Verificar precinto</h2><p className="text-sm text-secondary">{precinto ? <>Compará físicamente el código con <strong>{precinto}</strong>.</> : "Este bulto no tiene un precinto disponible para verificar."}</p>{canVerify ? <><Button variant="primary" onClick={() => openVerification("intacto")}>Precinto intacto</Button><Button variant="danger" onClick={() => openVerification("incidencia")}>Registrar incidencia</Button></> : <p className="erp-callout">El bulto está en estado {bulto.estado}; no admite una nueva verificación.</p>}{data.remito && <Button variant="secondary" onClick={() => navigate(`/logistica/recepcion?remito=${encodeURIComponent(data.remito.numero)}`)}>Controlar bultos del remito</Button>}</aside>
     </div>
-    <Modal open={Boolean(modal)} onClose={() => !mutating && setModal("")} title={modal === "intacto" ? "Confirmar precinto intacto" : "Registrar incidencia"} subtitle={`${code(bulto.id)} · ${bulto.estado}`} isBusy={mutating} footer={<div className="row justify-between w-full"><Button variant="ghost" onClick={() => setModal("")} disabled={mutating}>Cancelar</Button><Button variant={modal === "intacto" ? "primary" : "danger"} loading={mutating} loadingLabel="Registrando…" onClick={confirmVerification}>Confirmar y registrar</Button></div>}>
-      <div className="stack gap-3"><TextInput id="lectura-precinto" label="Código leído" value={lectura} onChange={(event) => setLectura(event.target.value)} required />{modal === "incidencia" && <TextareaField id="motivo-incidencia" label="Motivo de la incidencia" value={motivo} onChange={(event) => setMotivo(event.target.value)} required maxLength={250} showCount />}{mutationError && <Alert tone="danger" title="No se pudo confirmar" description={mutationError} />}</div>
+    <Modal open={Boolean(modal)} onClose={() => !mutating && setModal("")} title={modal === "intacto" ? "Confirmar precinto intacto" : "Registrar incidencia"} subtitle={`${code(bulto.id)} · ${bulto.estado}`} isBusy={mutating} footer={<div className="row justify-between w-full"><Button variant="ghost" onClick={() => setModal("")} disabled={mutating}>Cancelar</Button><Button variant={modal === "intacto" ? "primary" : "danger"} disabled={!canVerify} loading={mutating} loadingLabel="Registrando…" onClick={confirmVerification}>Confirmar y registrar</Button></div>}>
+      <div className="stack gap-3"><TextInput id="lectura-precinto" label="Código leído" value={lectura} onChange={(event) => setLectura(event.target.value)} required />{(modal === "incidencia" || (lectura.trim() && precinto && lectura.trim() !== precinto)) && <TextareaField id="motivo-incidencia" label="Motivo de la incidencia" value={motivo} onChange={(event) => setMotivo(event.target.value)} required maxLength={250} showCount />}{mutationError && <Alert tone="danger" title="No se pudo confirmar" description={mutationError} />}</div>
     </Modal>
   </div>;
 }

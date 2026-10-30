@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { http } from "../../core/http";
 import { DEFAULT_LOCATIONS } from "../../shared/components/AppShell";
+import { useAuth } from "../auth/AuthProvider";
 
 const STORAGE_KEY = "stocky.sede";
 const SedeContext = createContext(null);
@@ -36,10 +37,12 @@ function mapUbicacionToOption(u) {
 }
 
 export function SedeProvider({ children }) {
+  const { user } = useAuth();
   const [sedes, setSedes] = useState(DEFAULT_LOCATIONS);
   const [sedeId, setSedeIdState] = useState(() => readStored());
 
   const reloadSedes = useCallback(async () => {
+    if (!user) { setSedes([]); setSedeIdState(null); return; }
     try {
       let resp;
       try {
@@ -48,21 +51,21 @@ export function SedeProvider({ children }) {
         resp = await http.get("/api/stock/ubicaciones", { params: { activas: true } });
       }
       const items = Array.isArray(resp) ? resp : resp?.data || [];
-      if (items.length > 0) {
+      {
         const mapped = items.map(mapUbicacionToOption);
         setSedes(mapped);
         setSedeIdState((curr) => {
           if (mapped.some((s) => s.value === curr)) return curr;
           const stored = readStored();
           if (stored && mapped.some((s) => s.value === stored)) return stored;
-          return mapped[0].value;
+          return mapped[0]?.value ?? null;
         });
       }
     } catch {
       setSedes([]);
       setSedeIdState(null);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     reloadSedes();

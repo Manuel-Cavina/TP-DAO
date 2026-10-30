@@ -3,30 +3,20 @@ import { Modal } from "../../../shared/components/Motion";
 import { Button } from "../../../shared/components/Button";
 import { useToast } from "../../../shared/feedback/ToastContext";
 import { logisticaService } from "../services";
+import { createSealControlRows, validateSealControl } from "../mappers/sealControl";
 
-export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess }) {
+export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess, disabled = false }) {
   const { toast } = useToast();
   const [rows, setRows] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [generalError, setGeneralError] = useState("");
 
   useEffect(() => {
-    if (open && bultos && bultos.length > 0) {
-      setRows(
-        bultos.map((b) => ({
-          bultoId: b.id,
-          version: b.version || 1,
-          codigoBulto: b.codigo || `BLT-${String(b.id).padStart(4, "0")}`,
-          precintoEsperado: b.codigoPrecinto || "",
-          precintoLeido: b.codigoPrecinto || "",
-          resultado: "INTACTO",
-          motivoRechazo: "",
-          error: "",
-        }))
-      );
+    if (open) {
+      setRows(createSealControlRows(bultos));
       setGeneralError("");
     }
-  }, [open, bultos]);
+  }, [open, remito?.numero]);
 
   const updateRow = (index, patch) => {
     setRows((prev) => {
@@ -40,6 +30,7 @@ export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess
     let conformes = 0;
     let rechazados = 0;
     for (const r of rows) {
+      if (!r.resultado || !r.precintoLeido.trim()) continue;
       const discrepancia =
         r.precintoEsperado && r.precintoLeido.trim() !== r.precintoEsperado.trim();
       if (r.resultado === "VIOLADO" || discrepancia) {
@@ -52,26 +43,16 @@ export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess
   }, [rows]);
 
   const handleConfirmar = async () => {
+    if (disabled || submitting) return;
     let hasError = false;
     const validatedRows = rows.map((row) => {
-      let rowError = "";
-      const readTrimmed = row.precintoLeido.trim();
-      if (!readTrimmed) {
-        rowError = "Ingrese el código de precinto leído.";
-      } else {
-        const discrepancia =
-          row.precintoEsperado && readTrimmed !== row.precintoEsperado.trim();
-        const requiereMotivo = row.resultado === "VIOLADO" || discrepancia;
-        if (requiereMotivo && !row.motivoRechazo.trim()) {
-          rowError = "Motivo de rechazo obligatorio al marcar violado o código discrepante.";
-        }
-      }
+      const rowError = validateSealControl(row).error;
       if (rowError) hasError = true;
       return { ...row, error: rowError };
     });
 
     setRows(validatedRows);
-    if (hasError) {
+    if (hasError || validatedRows.length === 0) {
       setGeneralError("Revise las filas marcadas con error antes de confirmar.");
       return;
     }
@@ -85,7 +66,7 @@ export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess
         version: r.version || 1,
         codigo_esperado: r.precintoEsperado,
         codigo_leido: r.precintoLeido.trim(),
-        resultado: r.resultado,
+        resultado: validateSealControl(r).resultado,
         motivo_rechazo: r.motivoRechazo.trim(),
       }));
 
@@ -115,6 +96,7 @@ export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess
             variant="primary"
             onClick={handleConfirmar}
             loading={submitting}
+            disabled={disabled || submitting || rows.length === 0}
             loadingLabel="Confirmando control..."
           >
             Confirmar control de precintos
@@ -152,7 +134,7 @@ export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess
         <div className="stack gap-3">
           {rows.map((row, idx) => {
             const discrepancia =
-              row.precintoEsperado &&
+              row.precintoLeido.trim() && row.precintoEsperado &&
               row.precintoLeido.trim() !== row.precintoEsperado.trim();
             const esRechazo = row.resultado === "VIOLADO" || discrepancia;
 
@@ -176,6 +158,7 @@ export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess
                   <div className="row gap-2 align-center">
                     <Button
                       size="sm"
+                      aria-pressed={row.resultado === "INTACTO"}
                       variant={row.resultado === "INTACTO" && !discrepancia ? "success" : "ghost"}
                       onClick={() => updateRow(idx, { resultado: "INTACTO" })}
                     >
@@ -183,6 +166,7 @@ export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess
                     </Button>
                     <Button
                       size="sm"
+                      aria-pressed={row.resultado === "VIOLADO"}
                       variant={esRechazo ? "danger" : "ghost"}
                       onClick={() => updateRow(idx, { resultado: "VIOLADO" })}
                     >
@@ -193,10 +177,14 @@ export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess
 
                 <div className="row gap-3 wrap align-center">
                   <div className="flex-1 min-w-48">
-                    <label className="text-xs text-muted block mb-1">
+                    <label htmlFor={`seal-read-${row.bultoId}`} className="text-xs text-muted block mb-1">
                       Código leído en precinto
                     </label>
                     <input
+                      id={`seal-read-${row.bultoId}`}
+                      required
+                      aria-invalid={Boolean(row.error)}
+                      aria-describedby={row.error ? `seal-error-${row.bultoId}` : undefined}
                       className="input font-mono text-sm w-full"
                       value={row.precintoLeido}
                       onChange={(e) => updateRow(idx, { precintoLeido: e.target.value })}
@@ -213,10 +201,14 @@ export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess
 
                 {esRechazo && (
                   <div className="stack gap-1">
-                    <label className="text-xs text-danger font-medium block">
+                    <label htmlFor={`seal-reason-${row.bultoId}`} className="text-xs text-danger font-medium block">
                       Motivo de rechazo (obligatorio para merma)
                     </label>
                     <input
+                      id={`seal-reason-${row.bultoId}`}
+                      required
+                      aria-invalid={Boolean(row.error)}
+                      aria-describedby={row.error ? `seal-error-${row.bultoId}` : undefined}
                       className="input text-sm w-full"
                       value={row.motivoRechazo}
                       onChange={(e) => updateRow(idx, { motivoRechazo: e.target.value })}
@@ -227,7 +219,7 @@ export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess
                 )}
 
                 {row.error && (
-                  <span className="text-xs text-danger font-medium">{row.error}</span>
+                  <span id={`seal-error-${row.bultoId}`} role="alert" className="text-xs text-danger font-medium">{row.error}</span>
                 )}
               </div>
             );
