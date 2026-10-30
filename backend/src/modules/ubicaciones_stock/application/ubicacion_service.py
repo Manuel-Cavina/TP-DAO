@@ -39,6 +39,12 @@ class Ubicacion_Service:
         self._repository.actualizar(ubicacion)
         return ubicacion
 
+    def reactivar(self, ubicacion_id: int) -> Ubicacion:
+        ubicacion = self.obtener(ubicacion_id)
+        ubicacion.reactivar()
+        self._repository.actualizar(ubicacion)
+        return ubicacion
+
     def obtener(self, ubicacion_id: int) -> Ubicacion:
         ubicacion = self._repository.obtener_por_id(ubicacion_id)
         if ubicacion is None:

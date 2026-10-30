@@ -66,6 +66,10 @@ class Ubicacion(ABC):
     def desactivar(self) -> None:
         self._activo = False
 
+    def reactivar(self) -> None:
+        """Restore operational availability without replacing historical identity."""
+        self._activo = True
+
 
 class Centro_Distribucion(Ubicacion):
     """Centro de Distribución para ingresos de proveedores y despachos a locales."""
@@ -73,12 +77,6 @@ class Centro_Distribucion(Ubicacion):
     @property
     def tipo(self) -> str:
         return "CD"
-
-    def desactivar(self) -> None:
-        raise Ubicacion_Invalida_Exception(
-            "El Centro de Distribución no se puede dar de baja desde este flujo."
-        )
-
 
 class Local(Ubicacion):
     """Local de venta al público; se abastece solo desde el CD por el flujo logístico."""
