@@ -57,6 +57,8 @@ router = APIRouter(
     tags=["Logística y Trazabilidad de Bultos"],
     dependencies=[Depends(requerir_rol(ROL_OPERADOR))],
 )
+# Crear órdenes y cargar necesidades a mano es tarea del Administrador (CU 11).
+Solo_Admin = [Depends(requerir_rol(ROL_ADMIN))]
 
 Id_Path = Annotated[int, Path(gt=0, le=2**63 - 1)]
 
@@ -93,6 +95,7 @@ def get_trazabilidad_service() -> Trazabilidad_Service:
     "/necesidades",
     status_code=status.HTTP_201_CREATED,
     summary="Registrar necesidad de reposicion (usado por Observer de Stock o carga manual)",
+    dependencies=Solo_Admin,
 )
 def registrar_necesidad(
     req: Registrar_Necesidad_Request_DTO,
@@ -141,6 +144,7 @@ def listar_necesidades(
     response_model=Orden_Reposicion_DTO,
     status_code=status.HTTP_201_CREATED,
     summary="Consolidar necesidades pendientes en una Orden de Reposicion (P3)",
+    dependencies=Solo_Admin,
 )
 def consolidar_orden(
     req: Consolidar_Orden_Request_DTO,
@@ -164,6 +168,7 @@ def consolidar_orden(
     response_model=Orden_Reposicion_DTO,
     status_code=status.HTTP_201_CREATED,
     summary="Crear una orden de reposicion manualmente",
+    dependencies=Solo_Admin,
 )
 def crear_orden_manual(
     req: Crear_Orden_Manual_Request_DTO,

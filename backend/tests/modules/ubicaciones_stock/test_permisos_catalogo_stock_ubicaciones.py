@@ -1,4 +1,4 @@
-"""Catálogo, stock y ubicaciones: lectura con sesión iniciada, escritura solo para el Administrador."""
+"""Permisos: catálogo, stock y ubicaciones (lectura con sesión, escritura Administrador) y órdenes de reposición (solo Administrador)."""
 
 from pathlib import Path
 import sys
@@ -78,6 +78,19 @@ class Test_Permisos_Catalogo_Stock_Ubicaciones(unittest.TestCase):
             csrf = self._login(operador, "operador@stocky.local")
             # La alerta no existe: el permiso pasa y responde el dominio (404), no la seguridad (401/403).
             self.assertEqual(operador.post("/api/stock/alertas/999/leer", json={}, headers=csrf).status_code, 404)
+
+    def test_operador_no_puede_crear_ordenes_ni_cargar_necesidades(self) -> None:
+        with TestClient(self.app) as operador:
+            csrf = self._login(operador, "operador@stocky.local")
+            pedidos = [
+                ("/api/logistica/necesidades", {"producto_id": 1, "local_id": 2, "cantidad": 3}),
+                ("/api/logistica/ordenes/consolidar", {"local_destino_id": 2, "origen_id": 1}),
+                ("/api/logistica/ordenes", {"origen_id": 1, "destino_id": 2, "items": [{"producto_id": 1, "cantidad": 1}]}),
+            ]
+            for url, body in pedidos:
+                with self.subTest(url=url):
+                    self.assertEqual(operador.post(url, json=body, headers=csrf).status_code, 403)
+            self.assertEqual(operador.get("/api/logistica/ordenes").status_code, 200)
 
     def test_administrador_puede_escribir(self) -> None:
         with TestClient(self.app) as admin:
