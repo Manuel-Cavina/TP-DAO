@@ -6,6 +6,7 @@ from modules.seguridad.api.dependencies import (
     obtener_sesion_actual,
     obtener_usuario_actual,
     requerir_rol,
+    requerir_sesion_y_admin_para_escritura,
     validar_csrf,
 )
 from modules.seguridad.api.seguridad_router import auth_router, seguridad_router
@@ -16,6 +17,7 @@ __all__ = [
     "obtener_usuario_actual",
     "obtener_sesion_actual",
     "requerir_rol",
+    "requerir_sesion_y_admin_para_escritura",
     "validar_csrf",
     "extraer_token_de_request",
     "obtener_auth_service",

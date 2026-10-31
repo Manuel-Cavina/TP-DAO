@@ -7,8 +7,14 @@ from modules.ubicaciones_stock.dto import Ubicacion_DTO, Ubicacion_Request_DTO
 from modules.ubicaciones_stock.mappers import Stock_Mapper
 from modules.seguridad.api.dependencies import requerir_rol, validar_csrf
 from modules.seguridad.domain.usuario import ROL_ADMIN
+from modules.seguridad.api.dependencies import requerir_sesion_y_admin_para_escritura
 
-router = APIRouter(prefix="/api/ubicaciones", tags=["Ubicaciones (CD y Locales)"])
+
+router = APIRouter(
+    prefix="/api/ubicaciones",
+    tags=["Ubicaciones (CD y Locales)"],
+    dependencies=[Depends(requerir_sesion_y_admin_para_escritura)],
+)
 
 Ubicacion_Id = Annotated[int, Path(gt=0, le=2**63 - 1, description="ID de la ubicación")]
 

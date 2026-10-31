@@ -10,8 +10,17 @@ from modules.ubicaciones_stock.dto import (
     Stock_DTO,
 )
 from modules.ubicaciones_stock.mappers import Stock_Mapper
+from modules.seguridad.api.dependencies import obtener_usuario_actual, requerir_rol
+from modules.seguridad.domain.usuario import ROL_ADMIN
 
-router = APIRouter(prefix="/api/stock", tags=["Stock e Inventario"])
+
+router = APIRouter(
+    prefix="/api/stock",
+    tags=["Stock e Inventario"],
+    # Lectura y marcar alertas como leídas: cualquier usuario con sesión (la campana también la ve el Operador).
+    dependencies=[Depends(obtener_usuario_actual)],
+)
+Solo_Admin = [Depends(requerir_rol(ROL_ADMIN))]
 
 Id_Path = Annotated[int, Path(gt=0, le=2**63 - 1)]
 # Annotated crea un Query por parámetro: reutilizar un mismo Query(...) en dos parámetros
@@ -42,6 +51,7 @@ def listar_stock(
     response_model=Stock_DTO,
     status_code=status.HTTP_201_CREATED,
     summary="Ingreso de mercadería del proveedor (solo al Centro de Distribución)",
+    dependencies=Solo_Admin,
 )
 def ingresar_mercaderia(
     req: Ingreso_Mercaderia_Request_DTO,
@@ -80,6 +90,7 @@ def consultar_stock(
     "/{producto_id}/{ubicacion_id}/nivel-minimo",
     response_model=Stock_DTO,
     summary="Modificar el nivel mínimo de existencia",
+    dependencies=Solo_Admin,
 )
 def actualizar_nivel_minimo(
     producto_id: Id_Path,
