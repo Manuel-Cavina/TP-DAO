@@ -94,6 +94,25 @@ def requerir_rol(rol: str) -> Callable[[Usuario], Usuario]:
     return _verificador
 
 
+METODOS_DE_LECTURA = ("GET", "HEAD", "OPTIONS")
+
+
+def requerir_sesion_y_admin_para_escritura(
+    request: Request,
+    usuario: Usuario = Depends(obtener_usuario_actual),
+) -> Usuario:
+    """Cualquier usuario con sesión puede consultar; solo el Administrador puede crear, modificar o dar de baja.
+
+    Se aplica a nivel de router en catálogo, stock y ubicaciones: el Operador necesita leer
+    productos, ubicaciones y existencias para la logística, pero no puede mantenerlos.
+    """
+    if request.method not in METODOS_DE_LECTURA and usuario.rol != ROL_ADMIN:
+        raise Permiso_Insuficiente_Exception(
+            f"Acceso denegado: se requiere rol '{ROL_ADMIN}' para modificar datos, pero el usuario tiene '{usuario.rol}'."
+        )
+    return usuario
+
+
 def validar_csrf(
     request: Request,
     auth_service: Auth_Service = Depends(obtener_auth_service),

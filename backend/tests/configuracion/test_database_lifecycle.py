@@ -22,6 +22,7 @@ from config.database.database_engine_singleton import Database_Engine_Singleton
 from config.database.legacy_sqlite import sqlite_connection
 from config.database.request_session_context import Request_Session_Context
 from errors.persistence_error import Persistencia_Exception
+from modules.seguridad.application import Auth_Service
 
 
 class Tracking_Session(Session):
@@ -162,6 +163,17 @@ class DatabaseLifecycleTests(unittest.TestCase):
     def test_application_factory_inicializa_esquema_heredado_y_routers(self) -> None:
         app = Application_Factory.crear_aplicacion(self.url)
         cliente = TestClient(app)
+        self.assertEqual(cliente.get("/api/catalogo/categorias").status_code, 401)
+        sesion = Database_Engine_Singleton.obtener_session_factory().crear_sesion()
+        token = Request_Session_Context.establecer_sesion(sesion)
+        try:
+            Auth_Service().sembrar_identidades_defecto()
+            sesion.commit()
+        finally:
+            Request_Session_Context.restablecer(token)
+            sesion.close()
+        login = cliente.post("/api/seguridad/login", json={"login": "admin@stocky.local", "password": "stocky-demo"})
+        self.assertEqual(login.status_code, 200, login.text)
         respuesta = cliente.get("/api/catalogo/categorias")
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta.json(), [])

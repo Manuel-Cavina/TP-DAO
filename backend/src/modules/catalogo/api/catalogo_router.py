@@ -17,8 +17,14 @@ from modules.catalogo.dto import (
 )
 from modules.catalogo.mappers import Catalogo_Mapper
 from modules.ubicaciones_stock.application import Stock_Service
+from modules.seguridad.api.dependencies import requerir_sesion_y_admin_para_escritura
 
-router = APIRouter(prefix="/api/catalogo", tags=["Catálogo"])
+
+router = APIRouter(
+    prefix="/api/catalogo",
+    tags=["Catálogo"],
+    dependencies=[Depends(requerir_sesion_y_admin_para_escritura)],
+)
 
 Id_Path = Annotated[int, Path(gt=0, le=2**63 - 1)]
 
