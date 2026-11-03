@@ -42,6 +42,19 @@ export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess
     return { conformes, rechazados, total: rows.length };
   }, [rows]);
 
+  const handleMarcarTodosEsperados = () => {
+    setRows((prev) =>
+      prev.map((r) => ({
+        ...r,
+        precintoLeido: r.precintoEsperado || r.precintoLeido,
+        resultado: r.precintoEsperado ? "INTACTO" : r.resultado,
+        motivoRechazo: "",
+        error: "",
+      }))
+    );
+    setGeneralError("");
+  };
+
   const handleConfirmar = async () => {
     if (disabled || submitting) return;
     let hasError = false;
@@ -71,10 +84,11 @@ export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess
       }));
 
       await logisticaService.controlarBultosBatch(remito.numero, { items: payloadItems });
-      toast(`Control registrado para ${validatedRows.length} bultos del remito ${remito.numero}`);
+      toast.success("Control por lote", `Control registrado para ${validatedRows.length} bultos del remito ${remito.numero}`);
       onSuccess?.();
       onClose();
     } catch (err) {
+      toast.error(err, { entity: "Remito", action: "controlar lote de precintos" });
       setGeneralError(err?.message || "Error al registrar el control por lote de precintos.");
     } finally {
       setSubmitting(false);
@@ -126,10 +140,21 @@ export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess
           </div>
         </div>
 
-        <p className="text-xs text-secondary">
-          Revise la faja de seguridad física de cada bulto. Si el código difiere o el precinto
-          está dañado, registre el motivo para documentar la merma formal.
-        </p>
+        <div className="row justify-between align-center wrap gap-2">
+          <p className="text-xs text-secondary flex-1 min-w-48">
+            Revise la faja de seguridad física de cada bulto. Si el código difiere o el precinto
+            está dañado, registre el motivo para documentar la merma formal.
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            iconLeft="check"
+            onClick={handleMarcarTodosEsperados}
+          >
+            Marcar todos con faja esperada e intactos
+          </Button>
+        </div>
 
         <div className="stack gap-3">
           {rows.map((row, idx) => {
@@ -156,6 +181,18 @@ export function ControlPrecintosModal({ remito, bultos, open, onClose, onSuccess
                   </div>
 
                   <div className="row gap-2 align-center">
+                    {row.precintoEsperado && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        type="button"
+                        iconLeft="check"
+                        title="Copiar faja esperada"
+                        onClick={() => updateRow(idx, { precintoLeido: row.precintoEsperado, resultado: "INTACTO", motivoRechazo: "", error: "" })}
+                      >
+                        Coincide
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       aria-pressed={row.resultado === "INTACTO"}

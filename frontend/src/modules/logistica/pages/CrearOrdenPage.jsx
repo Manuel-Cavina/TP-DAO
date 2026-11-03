@@ -1,33 +1,36 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Button } from "../../../shared/components/Button";
-import { FormField } from "../../../shared/components/FormControls";
-import { Select } from "../../../shared/components/Select";
 import { Alert } from "../../../shared/components/Feedback";
 import { useSede } from "../../../app/providers/SedeProvider";
 import { useUbicaciones } from "../../ubicaciones_stock/hooks/useUbicaciones";
 import { useNecesidades } from "../hooks/useNecesidades";
 import { useProductos } from "../../catalogo/hooks/useProductos";
+import { useCategorias } from "../../catalogo/hooks/useCategorias";
+import { stockService } from "../../ubicaciones_stock/services/stockService";
+import { useToast } from "../../../shared/feedback/ToastContext";
 import { logisticaService } from "../services";
 import { CrearOrdenPaso1 } from "../components/CrearOrdenPaso1";
+import { CrearOrdenPaso2 } from "../components/CrearOrdenPaso2";
 
 const STEPS = [
-  { key: "items", label: "1. Necesidades y destino", desc: "Sucursal y renglones" },
-  { key: "origen", label: "2. Centro de distribución", desc: "CD abastecedor activo" },
-  { key: "revision", label: "3. Revisión y confirmación", desc: "Impacto operativo y stock" },
+  { key: "items", label: "1. Ruta y artículos", desc: "Origen, destino y carrito" },
+  { key: "revision", label: "2. Revisión y confirmación", desc: "Impacto operativo y stock" },
 ];
 
 export function CrearOrdenPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { notifySuccess, notifyError } = useToast();
   const { sedeId } = useSede();
   const { ubicaciones, loading: loadingUbic } = useUbicaciones();
   const { necesidades, loading: loadingNec } = useNecesidades();
   const { productos, loading: loadingProd } = useProductos({ activos: true });
+  const { categorias, loading: loadingCat } = useCategorias();
 
-  // Preselección desde navegación (T035 -> T036)
+  // Preselección desde navegación (T035 -> T036 / Alertas)
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const preselectedDestinoId = location.state?.destinoId || searchParams.get("destinoId") || "";
+  const preselectedProdId = location.state?.productoId || searchParams.get("productoId") || "";
   const preselectedNecIds = useMemo(() => {
     if (location.state?.preselectedNecIds && Array.isArray(location.state.preselectedNecIds)) {
       return new Set(location.state.preselectedNecIds);
@@ -38,22 +41,28 @@ export function CrearOrdenPage() {
     }
     return new Set();
   }, [location.state, searchParams]);
-  const preselectedItems = useMemo(
-    () => Array.isArray(location.state?.preselectedItems) ? location.state.preselectedItems : [],
-    [location.state]
-  );
+
+  const preselectedItems = useMemo(() => {
+    if (Array.isArray(location.state?.preselectedItems)) {
+      return location.state.preselectedItems;
+    }
+    if (preselectedProdId) {
+      return [{ productoId: Number(preselectedProdId), cantidad: 1 }];
+    }
+    return [];
+  }, [location.state, preselectedProdId]);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [destinoId, setDestinoId] = useState(preselectedDestinoId);
   const [origenId, setOrigenId] = useState("");
   const [selectedNecIds, setSelectedNecIds] = useState(preselectedNecIds);
   const [manualItems, setManualItems] = useState(preselectedItems);
-  const [newProdId, setNewProdId] = useState("");
-  const [newCantidad, setNewCantidad] = useState("");
-  const [productoSearch, setProductoSearch] = useState("");
-  const [manualError, setManualError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const [stockDestinoMap, setStockDestinoMap] = useState(new Map());
+  const [stockOrigenMap, setStockOrigenMap] = useState(new Map());
+  const [loadingStock, setLoadingStock] = useState(false);
 
   const locales = useMemo(
     () => ubicaciones.filter((u) => u.tipo === "LOCAL" && u.activo),
@@ -73,13 +82,6 @@ export function CrearOrdenPage() {
     [productos]
   );
 
-  const productOptions = useMemo(() => {
-    const query = productoSearch.trim().toLowerCase();
-    return productos
-      .filter((p) => !query || p.codigo.toLowerCase().includes(query) || p.nombre.toLowerCase().includes(query))
-      .map((p) => ({ value: String(p.id), label: `${p.codigo} · ${p.nombre}` }));
-  }, [productos, productoSearch]);
-
   const effectiveDestinoId = destinoId || (locales[0] ? String(locales[0].id) : "");
   const effectiveOrigenId =
     origenId ||
@@ -95,6 +97,52 @@ export function CrearOrdenPage() {
     return necesidades.filter((n) => n.localId === dId && n.estado === "PENDIENTE");
   }, [necesidades, effectiveDestinoId]);
 
+  // Sincronización de inventario en origen y destino
+  useEffect(() => {
+    let active = true;
+    async function fetchStocks() {
+      if (!effectiveDestinoId && !effectiveOrigenId) return;
+      setLoadingStock(true);
+      try {
+        const [destRes, origRes] = await Promise.all([
+          effectiveDestinoId ? stockService.consultarPorUbicacion(Number(effectiveDestinoId)) : [],
+          effectiveOrigenId ? stockService.consultarPorUbicacion(Number(effectiveOrigenId)) : [],
+        ]);
+        if (!active) return;
+        const destList = Array.isArray(destRes) ? destRes : destRes?.data || [];
+        const origList = Array.isArray(origRes) ? origRes : origRes?.data || [];
+
+        const dMap = new Map();
+        for (const item of destList) {
+          dMap.set(item.producto_id, {
+            disponible: Number(item.cantidad_disponible) || 0,
+            enTransito: Number(item.cantidad_en_transito) || 0,
+            nivelMinimo: Number(item.nivel_minimo_existencia) || 1,
+          });
+        }
+        setStockDestinoMap(dMap);
+
+        const oMap = new Map();
+        for (const item of origList) {
+          oMap.set(item.producto_id, {
+            disponible: Number(item.cantidad_disponible) || 0,
+            enTransito: Number(item.cantidad_en_transito) || 0,
+            nivelMinimo: Number(item.nivel_minimo_existencia) || 1,
+          });
+        }
+        setStockOrigenMap(oMap);
+      } catch (err) {
+        console.warn("Error cargando stocks para orden:", err);
+      } finally {
+        if (active) setLoadingStock(false);
+      }
+    }
+    fetchStocks();
+    return () => {
+      active = false;
+    };
+  }, [effectiveDestinoId, effectiveOrigenId]);
+
   useEffect(() => {
     if (preselectedNecIds.size > 0 && selectedNecIds.size === 0) {
       setSelectedNecIds(new Set(preselectedNecIds));
@@ -102,14 +150,18 @@ export function CrearOrdenPage() {
   }, [preselectedNecIds]);
 
   useEffect(() => {
-    if (preselectedItems.length > 0) setManualItems(preselectedItems);
+    if (preselectedItems.length > 0 && manualItems.length === 0) {
+      setManualItems(preselectedItems);
+    }
   }, [preselectedItems]);
 
-  useEffect(() => {
-    if (!newProdId && productOptions.length > 0) setNewProdId(productOptions[0].value);
-  }, [newProdId, productOptions]);
-
   const handleToggleNec = (id) => {
+    const nec = pendingForDestino.find((n) => n.id === id);
+    if (!nec) return;
+    const cdStock = stockOrigenMap.get(nec.productoId)?.disponible || 0;
+    // Regla estricta: No ingresar al carrito si no tiene stock en CD
+    if (cdStock <= 0 && !selectedNecIds.has(id)) return;
+
     setSelectedNecIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -119,58 +171,140 @@ export function CrearOrdenPage() {
   };
 
   const handleSelectAllNec = () => {
-    if (selectedNecIds.size === pendingForDestino.length) {
+    const availableNecs = pendingForDestino.filter(
+      (n) => (stockOrigenMap.get(n.productoId)?.disponible || 0) > 0
+    );
+    if (selectedNecIds.size >= availableNecs.length && availableNecs.length > 0) {
       setSelectedNecIds(new Set());
     } else {
-      setSelectedNecIds(new Set(pendingForDestino.map((n) => n.id)));
+      setSelectedNecIds(new Set(availableNecs.map((n) => n.id)));
     }
   };
 
-  const handleAddManualItem = (e) => {
-    e.preventDefault();
-    const pid = Number(newProdId);
-    const cant = Number(newCantidad);
-    if (!pid || !Number.isInteger(cant) || cant <= 0) {
-      setManualError("Seleccione un producto y una cantidad entera mayor a cero.");
+  const handleAddItem = (productoId, cantidad = 1) => {
+    const pid = Number(productoId);
+    const cant = Number(cantidad);
+    const cdStock = stockOrigenMap.get(pid)?.disponible || 0;
+
+    // Regla estricta: No ingresar al carrito si no tiene stock
+    if (!pid || cant <= 0 || cdStock <= 0) return;
+
+    const safeCant = Math.min(cant, cdStock);
+
+    const matchingNec = pendingForDestino.find(
+      (n) => n.productoId === pid && !selectedNecIds.has(n.id)
+    );
+
+    if (matchingNec) {
+      setSelectedNecIds((prev) => new Set([...prev, matchingNec.id]));
+      const diff = safeCant - matchingNec.cantidad;
+      if (diff > 0) {
+        setManualItems((prev) => {
+          const exists = prev.find((it) => it.productoId === pid);
+          if (exists) {
+            return prev.map((it) => (it.productoId === pid ? { ...it, cantidad: Math.min(cdStock - matchingNec.cantidad, it.cantidad + diff) } : it));
+          }
+          return [...prev, { productoId: pid, cantidad: diff }];
+        });
+      }
+    } else {
+      setManualItems((prev) => {
+        const exists = prev.find((it) => it.productoId === pid);
+        if (exists) {
+          return prev.map((it) => (it.productoId === pid ? { ...it, cantidad: Math.min(cdStock, it.cantidad + safeCant) } : it));
+        }
+        return [...prev, { productoId: pid, cantidad: safeCant }];
+      });
+    }
+  };
+
+  const handleUpdateQuantity = (productoId, nuevaCantidad) => {
+    const pid = Number(productoId);
+    const cdStock = stockOrigenMap.get(pid)?.disponible || 0;
+    if (cdStock <= 0) {
+      handleRemoveItem(pid);
       return;
     }
 
-    setManualItems((prev) => {
-      const exists = prev.find((it) => it.productoId === pid);
-      if (exists) {
-        return prev.map((it) =>
-          it.productoId === pid ? { ...it, cantidad: it.cantidad + cant } : it
-        );
+    const safeQty = Math.min(Number(nuevaCantidad), cdStock);
+    if (safeQty <= 0) {
+      handleRemoveItem(pid);
+      return;
+    }
+
+    const matchingNecs = pendingForDestino.filter((n) => n.productoId === pid && selectedNecIds.has(n.id));
+    const totalNecUnits = matchingNecs.reduce((sum, n) => sum + n.cantidad, 0);
+
+    if (totalNecUnits > 0) {
+      if (safeQty >= totalNecUnits) {
+        const diff = safeQty - totalNecUnits;
+        setManualItems((prev) => {
+          const filtered = prev.filter((it) => it.productoId !== pid);
+          return diff > 0 ? [...filtered, { productoId: pid, cantidad: diff }] : filtered;
+        });
+      } else {
+        setSelectedNecIds((prev) => {
+          const next = new Set(prev);
+          matchingNecs.forEach((n) => next.delete(n.id));
+          return next;
+        });
+        setManualItems((prev) => {
+          const filtered = prev.filter((it) => it.productoId !== pid);
+          return [...filtered, { productoId: pid, cantidad: safeQty }];
+        });
       }
-      return [...prev, { productoId: pid, cantidad: cant }];
-    });
-    setNewProdId("");
-    setNewCantidad("");
-    setManualError("");
+    } else {
+      setManualItems((prev) => {
+        const filtered = prev.filter((it) => it.productoId !== pid);
+        return [...filtered, { productoId: pid, cantidad: safeQty }];
+      });
+    }
   };
 
-  const handleRemoveManualItem = (pid) => {
+  const handleRemoveItem = (productoId) => {
+    const pid = Number(productoId);
     setManualItems((prev) => prev.filter((it) => it.productoId !== pid));
+    setSelectedNecIds((prev) => {
+      const next = new Set(prev);
+      pendingForDestino.forEach((n) => {
+        if (n.productoId === pid) next.delete(n.id);
+      });
+      return next;
+    });
   };
 
+  // Consolidación de renglones respetando estrictamente que ningún ítem exceda stock ni tenga 0 stock
   const consolidatedItems = useMemo(() => {
     const map = new Map();
     for (const nec of pendingForDestino) {
       if (selectedNecIds.has(nec.id)) {
-        const cur = map.get(nec.productoId) || { cantidad: 0, origenNec: [] };
-        map.set(nec.productoId, {
-          cantidad: cur.cantidad + nec.cantidad,
-          origenNec: [...cur.origenNec, nec.id],
-        });
+        const cdStock = stockOrigenMap.get(nec.productoId)?.disponible || 0;
+        if (cdStock > 0) {
+          const cur = map.get(nec.productoId) || { cantidad: 0, origenNec: [] };
+          const allowed = Math.min(nec.cantidad, cdStock - cur.cantidad);
+          if (allowed > 0) {
+            map.set(nec.productoId, {
+              cantidad: cur.cantidad + allowed,
+              origenNec: [...cur.origenNec, nec.id],
+            });
+          }
+        }
       }
     }
     for (const it of manualItems) {
-      const cur = map.get(it.productoId) || { cantidad: 0, origenNec: [] };
-      map.set(it.productoId, {
-        cantidad: cur.cantidad + it.cantidad,
-        origenNec: cur.origenNec,
-        esManual: true,
-      });
+      const cdStock = stockOrigenMap.get(it.productoId)?.disponible || 0;
+      if (cdStock > 0) {
+        const cur = map.get(it.productoId) || { cantidad: 0, origenNec: [] };
+        const remainingCd = cdStock - cur.cantidad;
+        const allowed = Math.min(it.cantidad, Math.max(0, remainingCd));
+        if (allowed > 0) {
+          map.set(it.productoId, {
+            cantidad: cur.cantidad + allowed,
+            origenNec: cur.origenNec,
+            esManual: true,
+          });
+        }
+      }
     }
     return Array.from(map.entries()).map(([productoId, data]) => ({
       productoId,
@@ -178,17 +312,20 @@ export function CrearOrdenPage() {
       origenNec: data.origenNec,
       esManual: data.esManual,
     }));
-  }, [pendingForDestino, selectedNecIds, manualItems]);
+  }, [pendingForDestino, selectedNecIds, manualItems, stockOrigenMap]);
 
   const totalUnidades = useMemo(
     () => consolidatedItems.reduce((acc, it) => acc + it.cantidad, 0),
     [consolidatedItems]
   );
 
-  const canProceedStep1 = consolidatedItems.length > 0 && Boolean(effectiveDestinoId);
   const selectedCdObj = centrosDistribucion.find((cd) => String(cd.id) === String(effectiveOrigenId));
   const isOrigenCdValido = Boolean(selectedCdObj && selectedCdObj.activo && selectedCdObj.tipo === "CD");
-  const canProceedStep2 = isOrigenCdValido;
+
+  const canProceedStep1 =
+    consolidatedItems.length > 0 &&
+    Boolean(effectiveDestinoId) &&
+    isOrigenCdValido;
 
   const handleConfirmOrder = async () => {
     setSubmitting(true);
@@ -211,22 +348,26 @@ export function CrearOrdenPage() {
             producto_id: it.productoId,
             cantidad: it.cantidad,
           })),
+          necesidad_ids: necIdsArray.length > 0 ? necIdsArray : undefined,
         });
       }
 
       if (createdOrder?.id) {
+        notifySuccess("Orden creada", `Orden de reposición #${createdOrder.id} creada exitosamente.`);
         navigate(`/logistica/ordenes/${createdOrder.id}`);
       } else {
+        notifySuccess("Orden creada", "Orden de reposición creada exitosamente.");
         navigate("/logistica/ordenes");
       }
     } catch (err) {
+      notifyError(err, { entity: "Orden", action: "crear orden de reposición" });
       setErrorMessage(err.message || "Error al crear la orden de reposición.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loadingUbic || loadingProd) {
+  if (loadingUbic || loadingProd || loadingCat) {
     return (
       <div className="p-8 text-center text-secondary">
         Cargando datos maestros para el asistente de órdenes...
@@ -245,7 +386,7 @@ export function CrearOrdenPage() {
             <span>·</span>
             <span>Nueva orden de reposición</span>
           </div>
-          <h1 className="text-xl">Crear orden de reposición en 3 pasos</h1>
+          <h1 className="text-xl">Crear orden de reposición</h1>
         </div>
       </div>
 
@@ -275,186 +416,50 @@ export function CrearOrdenPage() {
       {currentStep === 0 && (
         <CrearOrdenPaso1
           locales={locales}
+          centrosDistribucion={centrosDistribucion}
           effectiveDestinoId={effectiveDestinoId}
           onDestinoChange={(val) => {
             setDestinoId(val);
             setSelectedNecIds(new Set());
           }}
+          effectiveOrigenId={effectiveOrigenId}
+          onOrigenChange={setOrigenId}
           ubicMap={ubicMap}
           productoMap={productoMap}
+          categorias={categorias}
+          productos={productos}
           pendingForDestino={pendingForDestino}
           selectedNecIds={selectedNecIds}
           onToggleNec={handleToggleNec}
           onSelectAllNec={handleSelectAllNec}
-          loadingNec={loadingNec}
-          productOptions={productOptions}
-          productoSearch={productoSearch}
-          onProductoSearchChange={setProductoSearch}
-          newProdId={newProdId}
-          onNewProdIdChange={setNewProdId}
-          newCantidad={newCantidad}
-          onNewCantidadChange={setNewCantidad}
-          onAddManualItem={handleAddManualItem}
-          manualError={manualError}
-          manualItems={manualItems}
-          onRemoveManualItem={handleRemoveManualItem}
+          stockDestinoMap={stockDestinoMap}
+          stockOrigenMap={stockOrigenMap}
+          loadingStock={loadingStock}
           consolidatedItems={consolidatedItems}
           totalUnidades={totalUnidades}
+          onAddItem={handleAddItem}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
           canProceedStep1={canProceedStep1}
           onProceed={() => setCurrentStep(1)}
         />
       )}
 
       {currentStep === 1 && (
-        <div className="card p-5 stack gap-4">
-          <div>
-            <h2 className="text-lg">Paso 2: Centro de distribución origen</h2>
-            <p className="text-sm text-secondary">
-              Indique el Centro de Distribución activo desde el cual se abastecerán los renglones de la orden (FR-020).
-            </p>
-          </div>
-
-          <div className="p-3 rounded bg-surface-muted row justify-between align-center">
-            <span className="text-sm text-muted">Destino seleccionado:</span>
-            <span className="text-sm font-medium">
-              {ubicMap.get(Number(effectiveDestinoId)) || `Local #${effectiveDestinoId}`} (Local comercial)
-            </span>
-          </div>
-
-          <FormField
-            label="Centro de distribución abastecedor (Activo)"
-            required
-            error={!isOrigenCdValido ? "Debe seleccionar un Centro de Distribución activo." : undefined}
-          >
-            <Select
-              options={centrosDistribucion.map((cd) => ({
-                value: String(cd.id),
-                label: `${cd.nombre} (ID #${cd.id} · CD Activo)`,
-              }))}
-              value={effectiveOrigenId}
-              onChange={setOrigenId}
-              placeholder="Seleccionar CD origen"
-            />
-          </FormField>
-
-          {selectedCdObj && (
-            <div className="p-3 rounded border bg-surface stack gap-1">
-              <span className="text-xs text-muted">Detalles del CD abastecedor:</span>
-              <span className="text-sm font-medium">{selectedCdObj.nombre}</span>
-              <span className="text-xs text-secondary">Tipo: Centro de Distribución · Estado: Operativo</span>
-            </div>
-          )}
-
-          <div className="erp-callout">
-            <span className="text-xs text-secondary">
-              Validación de red: Cualquier Centro de Distribución activo puede abastecer cualquier sucursal comercial,
-              sujeto a la disponibilidad de stock en el origen seleccionado.
-            </span>
-          </div>
-
-          <div className="row justify-between pt-4 border-t">
-            <Button variant="ghost" onClick={() => setCurrentStep(0)} iconLeft="arrow-left">
-              Volver al paso 1
-            </Button>
-            <Button
-              variant="primary"
-              disabled={!canProceedStep2}
-              onClick={() => setCurrentStep(2)}
-              iconRight="arrow-right"
-            >
-              Continuar a revisión final
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {currentStep === 2 && (
-        <div className="card p-5 stack gap-4">
-          <div>
-            <h2 className="text-lg">Paso 3: Revisión y confirmación de la orden</h2>
-            <p className="text-sm text-secondary">
-              Verifique el itinerario de la ruta, la tabla de renglones y el impacto en stock antes de emitir la orden formal.
-            </p>
-          </div>
-
-          <div className="grid-2 gap-3">
-            <div className="p-3 rounded bg-surface-muted stack gap-1">
-              <span className="text-xs text-muted">Origen (Centro de distribución)</span>
-              <span className="text-sm font-medium">
-                {ubicMap.get(Number(effectiveOrigenId)) || `CD #${effectiveOrigenId}`}
-              </span>
-              <span className="text-xs text-secondary">CD activo emisor</span>
-            </div>
-            <div className="p-3 rounded bg-surface-muted stack gap-1">
-              <span className="text-xs text-muted">Destino (Local comercial)</span>
-              <span className="text-sm font-medium">
-                {ubicMap.get(Number(effectiveDestinoId)) || `Local #${effectiveDestinoId}`}
-              </span>
-              <span className="text-xs text-secondary">Sucursal receptora única</span>
-            </div>
-          </div>
-
-          <div className="stack gap-2">
-            <div className="row justify-between align-center">
-              <span className="text-sm font-medium">Renglones a incluir en la orden</span>
-              <span className="text-xs text-secondary">
-                {consolidatedItems.length} producto(s) · {totalUnidades} unidades totales
-              </span>
-            </div>
-            <div className="stack gap-2">
-              {consolidatedItems.map((it) => {
-                const prod = productoMap.get(it.productoId);
-                return (
-                  <div key={it.productoId} className="row justify-between align-center p-3 rounded bg-surface border text-sm">
-                    <div>
-                      <span className="font-mono text-xs text-secondary">{prod?.codigo || `SKU-${it.productoId}`}</span>
-                      <div className="font-medium">{prod?.nombre || `Producto #${it.productoId}`}</div>
-                      <span className="text-xs text-muted">
-                        {it.origenNec?.length > 0
-                          ? `Consolida necesidad(es) #${it.origenNec.join(", #")}`
-                          : "Carga manual"}
-                      </span>
-                    </div>
-                    <div className="stack align-end gap-0">
-                      <span className="tabular-nums font-medium">{it.cantidad} unidades</span>
-                      <span className="text-xs text-secondary">Reserva en CD</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="erp-callout stack gap-1">
-            <span className="text-sm font-medium">Impacto operativo y en stock (Reglas V1 y V2)</span>
-            <p className="text-xs text-secondary">
-              · Se emitirá la Orden de Reposición en estado <strong>PENDIENTE</strong> vinculada al CD origen y al Local destino.
-            </p>
-            <p className="text-xs text-secondary">
-              · Las necesidades seleccionadas quedarán marcadas como atendidas y vinculadas a esta orden.
-            </p>
-            <p className="text-xs text-secondary">
-              · En origen (CD), la mercadería queda reservada para empaquetado y precintado de bultos.
-            </p>
-            <p className="text-xs text-secondary">
-              · En destino (Local), la mercadería <strong>NO</strong> suma al stock disponible hasta que los bultos sean recibidos y verificados con precinto intacto.
-            </p>
-          </div>
-
-          <div className="row justify-between pt-4 border-t align-center">
-            <Button variant="ghost" onClick={() => setCurrentStep(1)} disabled={submitting} iconLeft="arrow-left">
-              Modificar origen
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleConfirmOrder}
-              loading={submitting}
-              loadingLabel="Creando orden..."
-            >
-              Crear orden de reposición
-            </Button>
-          </div>
-        </div>
+        <CrearOrdenPaso2
+          effectiveDestinoId={effectiveDestinoId}
+          effectiveOrigenId={effectiveOrigenId}
+          ubicMap={ubicMap}
+          ubicaciones={ubicaciones}
+          productoMap={productoMap}
+          consolidatedItems={consolidatedItems}
+          totalUnidades={totalUnidades}
+          stockDestinoMap={stockDestinoMap}
+          stockOrigenMap={stockOrigenMap}
+          submitting={submitting}
+          onConfirmOrder={handleConfirmOrder}
+          onBack={() => setCurrentStep(0)}
+        />
       )}
     </div>
   );

@@ -17,9 +17,11 @@ import { useStockMatriz } from "../../ubicaciones_stock";
 import { PosTerminal } from "../components/PosTerminal";
 import { FacturaModal } from "../components/FacturaModal";
 import { DevolucionModal } from "../components/DevolucionModal";
+import { AnimatedCounter } from "../../../components/arc/animated-counter/animated-counter";
+import "../ventas-pos.css";
 
 export function VentasCajaPage() {
-  const { sede, sedeId, sedes } = useSede();
+  const { sede, sedeId, sedes, setSedeId } = useSede();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState(
@@ -39,12 +41,73 @@ export function VentasCajaPage() {
   const [lastInvoice, setLastInvoice] = useState(null);
   const [facturaParaDevolver, setFacturaParaDevolver] = useState(null);
   const devModal = useDisclosure(false);
-  const [localId, setLocalId] = useState("");
-  const localOptions = useMemo(() => sedes.filter((item) => item.tipo === "LOCAL").map((item) => ({ value: item.value, label: item.label })), [sedes]);
+
+  const localOptions = useMemo(
+    () =>
+      sedes
+        .filter((item) => item.tipo === "LOCAL")
+        .map((item) => ({ value: String(item.value), label: item.label })),
+    [sedes]
+  );
+
+  const [localId, setLocalId] = useState(() => {
+    if (sede?.tipo === "LOCAL") return String(sedeId);
+    const firstLocal = sedes.find((item) => item.tipo === "LOCAL");
+    return firstLocal ? String(firstLocal.value) : "";
+  });
+
+  // Sincronización reactiva bidireccional con el selector superior de Sede
   useEffect(() => {
-    if (!localId && sede?.tipo === "LOCAL") setLocalId(sedeId);
-  }, [localId, sede, sedeId]);
-  const localSeleccionado = sedes.find((item) => String(item.value) === String(localId));
+    if (sede?.tipo === "LOCAL" && String(sede.value) !== String(localId)) {
+      setLocalId(String(sede.value));
+    } else if (!localId && localOptions.length > 0) {
+      setLocalId(String(localOptions[0].value));
+    }
+  }, [sede, localId, localOptions]);
+
+  const handleSelectLocal = (newLocalId) => {
+    const strId = String(newLocalId);
+    setLocalId(strId);
+    setSedeId(Number(strId) || strId);
+  };
+
+  const localSeleccionado = useMemo(
+    () => sedes.find((item) => String(item.value) === String(localId)),
+    [sedes, localId]
+  );
+
+  // Períodos de tiempo: "hoy", "ayer" (último día) y "mes" (este mes)
+  const [periodoPreset, setPeriodoPreset] = useState("hoy");
+
+  const { desde, hasta, periodoLabel } = useMemo(() => {
+    const today = new Date();
+    const formatYMD = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    if (periodoPreset === "ayer") {
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      const iso = formatYMD(yesterday);
+      return { desde: iso, hasta: iso, periodoLabel: "Último día" };
+    }
+
+    if (periodoPreset === "mes") {
+      const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      return {
+        desde: formatYMD(firstOfMonth),
+        hasta: formatYMD(today),
+        periodoLabel: "Este mes",
+      };
+    }
+
+    // Default "hoy"
+    const isoToday = formatYMD(today);
+    return { desde: isoToday, hasta: isoToday, periodoLabel: "Hoy (Turno)" };
+  }, [periodoPreset]);
 
   const {
     ventas,
@@ -62,12 +125,19 @@ export function VentasCajaPage() {
     devError,
     obtenerComprobante,
     comprobantePending,
-  } = useVentasCaja({ localId, enabled: Boolean(localSeleccionado) });
+  } = useVentasCaja({
+    localId,
+    desde,
+    hasta,
+    enabled: Boolean(localSeleccionado),
+  });
+
   const {
     productos,
     loading: productosLoading,
     error: productosError,
   } = useProductos();
+
   const {
     stocks,
     loading: stockLoading,
@@ -191,7 +261,7 @@ export function VentasCajaPage() {
   ];
 
   return (
-    <div className="stack gap-5">
+    <div className="stack gap-4">
       <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">
@@ -201,23 +271,54 @@ export function VentasCajaPage() {
           </div>
           <h1 className="text-xl">Punto de venta</h1>
         </div>
-        {localSeleccionado && (
-          <Button
-            variant="secondary"
-            iconLeft="refresh"
-            disabled={visibleVentas.length === 0}
-            onClick={() => openDevolucion(null)}
-          >
-            Registrar devolución
-          </Button>
-        )}
+        <div className="row align-center gap-2">
+          {localOptions.length > 0 && (
+            <div className="row align-center gap-2">
+              <span className="text-xs text-secondary font-medium">Punto de venta:</span>
+              <Select
+                ariaLabel="Punto de venta activo"
+                options={localOptions}
+                value={String(localId)}
+                onChange={handleSelectLocal}
+                placeholder="Seleccionar local"
+              />
+            </div>
+          )}
+          {localSeleccionado && (
+            <Button
+              variant="secondary"
+              iconLeft="refresh"
+              disabled={visibleVentas.length === 0}
+              onClick={() => openDevolucion(null)}
+            >
+              Registrar devolución
+            </Button>
+          )}
+        </div>
       </div>
 
       {!localSeleccionado ? (
         <div className="erp-section-card stack gap-3">
-          <div><h2 className="erp-card-title">Local comercial de esta operación</h2><p className="text-sm text-secondary">La sede de lectura no cambia una venta. Elegí el local al que se imputarán caja, comprobantes y stock.</p></div>
-          <Select ariaLabel="Local comercial para esta venta" options={localOptions} value={localId} onChange={setLocalId} placeholder="Seleccionar local" />
-          {!localOptions.length && <Alert tone="warning" title="No hay locales comerciales disponibles" description="No se puede operar ventas hasta que el backend informe un local activo." />}
+          <div>
+            <h2 className="erp-card-title">Local comercial de esta operación</h2>
+            <p className="text-sm text-secondary">
+              La sede de lectura no cambia una venta. Elegí el local al que se imputarán caja, comprobantes y stock.
+            </p>
+          </div>
+          <Select
+            ariaLabel="Local comercial para esta venta"
+            options={localOptions}
+            value={localId}
+            onChange={handleSelectLocal}
+            placeholder="Seleccionar local"
+          />
+          {!localOptions.length && (
+            <Alert
+              tone="warning"
+              title="No hay locales comerciales disponibles"
+              description="No se puede operar ventas hasta que el backend informe un local activo."
+            />
+          )}
         </div>
       ) : (
         <>
@@ -234,32 +335,56 @@ export function VentasCajaPage() {
             />
           )}
 
+          {/* Barra de Período y Estado de Caja */}
+          <div className="pos-period-bar row justify-between align-center wrap gap-2 p-2.5 rounded">
+            <div className="row align-center gap-2">
+              <span className="text-xs text-secondary font-medium">Período de caja:</span>
+              <SegmentedControl
+                value={periodoPreset}
+                onChange={setPeriodoPreset}
+                options={[
+                  { value: "hoy", label: "Hoy (Turno)" },
+                  { value: "ayer", label: "Último día" },
+                  { value: "mes", label: "Este mes" },
+                ]}
+              />
+            </div>
+            <div className="row align-center gap-3">
+              <span className="text-xs text-muted tabular-nums">
+                Período: <strong>{desde}</strong> al <strong>{hasta}</strong>
+              </span>
+              <Badge tone="success" dot={true}>
+                {localSeleccionado.label}
+              </Badge>
+            </div>
+          </div>
+
           {loading && !hasData ? (
             <div className="erp-section-card text-sm text-muted" aria-live="polite">
               Cargando caja del local seleccionado...
             </div>
           ) : (
-          <div className="grid-3 gap-3">
-            <MetricCard
-              label="Saldo neto de caja"
-              value={`$${caja.saldo.toLocaleString("es-AR")}`}
-              subtext={`${periodo.desde} · ventas menos devoluciones`}
-              badgeText="Datos persistidos"
-              badgeTone={caja.saldo >= 0 ? "success" : "danger"}
-            />
-            <MetricCard
-              label="Ventas cobradas"
-              value={`$${caja.totalVentas.toLocaleString("es-AR")}`}
-              subtext={`${caja.cantidadVentas} comprobantes en el período`}
-              badgeTone="info"
-            />
-            <MetricCard
-              label="Devoluciones"
-              value={`$${caja.totalDevoluciones.toLocaleString("es-AR")}`}
-              subtext={`${caja.cantidadDevoluciones} ajustes en el período`}
-              badgeTone="warning"
-            />
-          </div>
+            <div className="grid-3 gap-3">
+              <MetricCard
+                label="Saldo neto de caja"
+                value={<AnimatedCounter value={Number(caja.saldo) || 0} prefix="$ " locale="es-AR" />}
+                subtext={`${periodoLabel} · ventas menos devoluciones`}
+                badgeText="Datos persistidos"
+                badgeTone={caja.saldo >= 0 ? "success" : "danger"}
+              />
+              <MetricCard
+                label="Ventas cobradas"
+                value={<AnimatedCounter value={Number(caja.totalVentas) || 0} prefix="$ " locale="es-AR" />}
+                subtext={`${caja.cantidadVentas} comprobantes en el período`}
+                badgeTone="info"
+              />
+              <MetricCard
+                label="Devoluciones"
+                value={<AnimatedCounter value={Number(caja.totalDevoluciones) || 0} prefix="$ " locale="es-AR" />}
+                subtext={`${caja.cantidadDevoluciones} ajustes en el período`}
+                badgeTone="warning"
+              />
+            </div>
           )}
 
           <SegmentedControl
@@ -277,6 +402,7 @@ export function VentasCajaPage() {
               productos={productos}
               stocks={stocks}
               localId={localId}
+              localNombre={localSeleccionado?.label || "Punto de venta"}
               onCheckout={handleCheckout}
               pending={ventaPending}
               loading={productosLoading || stockLoading}

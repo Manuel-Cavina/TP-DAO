@@ -1,6 +1,36 @@
 import { env } from "../config/env.js";
 import { mapHttpError, mapNetworkError } from "./errorMapper.js";
 
+const SESSION_STORAGE_KEY = "stocky_session_token";
+let currentSessionToken = null;
+
+try {
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    currentSessionToken = window.sessionStorage.getItem(SESSION_STORAGE_KEY) || null;
+  }
+} catch {
+  // almacenamiento no disponible
+}
+
+export function setSessionToken(token) {
+  currentSessionToken = token || null;
+  try {
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      if (currentSessionToken) {
+        window.sessionStorage.setItem(SESSION_STORAGE_KEY, currentSessionToken);
+      } else {
+        window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      }
+    }
+  } catch {
+    // almacenamiento no disponible
+  }
+}
+
+export function getSessionToken() {
+  return currentSessionToken;
+}
+
 let currentCsrfToken = null;
 
 export function setCsrfToken(token) {
@@ -21,6 +51,7 @@ export function onUnauthorized(callback) {
 }
 
 function notifyUnauthorized(payload) {
+  setSessionToken(null);
   unauthorizedListeners.forEach((callback) => {
     try {
       callback(payload);
@@ -73,6 +104,10 @@ async function request(method, path, { body, params, headers: customHeaders, sig
     headers["X-CSRF-Token"] = currentCsrfToken;
   }
 
+  if (currentSessionToken && !headers["Authorization"]) {
+    headers["Authorization"] = `Bearer ${currentSessionToken}`;
+  }
+
   let response;
   try {
     response = await fetch(buildUrl(path, params), {
@@ -93,10 +128,20 @@ async function request(method, path, { body, params, headers: customHeaders, sig
     setCsrfToken(newCsrfHeader);
   }
 
+  const newSessionHeader = response.headers.get("x-session-token") || response.headers.get("X-Session-Token");
+  if (newSessionHeader) {
+    setSessionToken(newSessionHeader);
+  }
+
   const payload = await parseBody(response).catch(() => null);
 
-  if (payload && typeof payload === "object" && payload.csrf_token) {
-    setCsrfToken(payload.csrf_token);
+  if (payload && typeof payload === "object") {
+    if (payload.csrf_token) {
+      setCsrfToken(payload.csrf_token);
+    }
+    if (payload.token) {
+      setSessionToken(payload.token);
+    }
   }
 
   if (response.status === 401) {

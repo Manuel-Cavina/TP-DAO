@@ -1,419 +1,428 @@
-import React, { useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "../reportes.css";
 import "../reportes-details.css";
-import {
-  SegmentedControl,
-  Alert,
-  Button,
-  Icon,
-} from "../../../shared";
-import { useReportes } from "../hooks/useReportes";
+import { SegmentedControl } from "../../../shared/components/SegmentedControl";
+import { Alert } from "../../../shared/components/Feedback";
+import { Button } from "../../../shared/components/Button";
+import { Icon } from "../../../shared/components/Icon";
 import { ReportesHeader } from "../components/ReportesHeader";
-import { ReporteExportToolbar } from "../components/ReporteExportToolbar";
+import { ReportesFiltrosBar } from "../components/ReportesFiltrosBar";
+import { ReportesKpiStrip } from "../components/ReportesKpiStrip";
+import { ReportesGraficosView } from "../components/ReportesGraficosView";
+import { ReportesTableView } from "../components/ReportesTableView";
 import { ModalFichaStock } from "../components/ModalFichaStock";
 import { ModalAuditoriaMerma } from "../components/ModalAuditoriaMerma";
-import { ReporteR1StockView } from "../components/ReporteR1StockView";
-import { ReporteR2MermasView } from "../components/ReporteR2MermasView";
 import { PrintReport } from "../components/PrintReport";
+import { reportesUnifiedService, presets } from "../services/reportesUnifiedService";
+import { reportesService } from "../services/reportesService";
 
-export function ReportesPage({ initialReport = "r1" }) {
+const normalizeKey = (k) => {
+  if (k === "r1" || k === "stock") return "stock";
+  if (k === "r2" || k === "mermas") return "mermas";
+  if (k === "productos") return "productos";
+  if (k === "transito") return "transito";
+  return "ventas";
+};
+
+const keyToPath = (k) => `/reportes/${k}`;
+
+export function ReportesPage({ initialReport = "ventas" }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const {
-    activeReport,
-    setActiveReport,
+  const activeKeyFromUrl = () => {
+    const parts = location.pathname.split("/").filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (["ventas", "productos", "transito", "stock", "mermas"].includes(last)) {
+      return last;
+    }
+    return normalizeKey(initialReport);
+  };
 
-    // R1
-    r1Data,
-    loadingR1,
-    errorR1,
-    r1UbicacionId,
-    setR1UbicacionId,
-    r1CategoriaId,
-    setR1CategoriaId,
-    r1SoloBajoMinimo,
-    setR1SoloBajoMinimo,
+  const [activeReport, setActiveReport] = useState(activeKeyFromUrl);
+  const [activePreset, setActivePreset] = useState("30d");
 
-    // R2
-    r2Data,
-    loadingR2,
-    errorR2,
-    r2FechaInicio,
-    setR2FechaInicio,
-    r2FechaFin,
-    setR2FechaFin,
-    r2LocalDestinoId,
-    setR2LocalDestinoId,
+  // Estado para saber si el usuario ya tocó "Generar reporte" en cada pestaña
+  const [generatedTabs, setGeneratedTabs] = useState({
+    ventas: false,
+    productos: false,
+    transito: false,
+    stock: false,
+    mermas: false,
+  });
 
-    // Opciones
-    ubicaciones,
-    categorias, mastersError, mastersLoading, reloadMasters, errorR1DrillDown, errorR2DrillDown,
+  // Parámetros en borrador que el usuario ingresa
+  const [draftParams, setDraftParams] = useState({
+    desde: presets.hace30Dias(),
+    hasta: presets.hoy(),
+    localId: "",
+    ubicacionId: "",
+    categoriaId: "",
+    soloBajoMinimo: false,
+    top: 10,
+  });
 
-    // Drill downs
-    isR1ModalOpen,
-    selectedProductoId,
-    r1DrillDownData,
-    loadingR1DrillDown,
-    openR1DrillDown,
-    closeR1DrillDown,
+  // Parámetros aplicados por pestaña
+  const [appliedParamsByTab, setAppliedParamsByTab] = useState({});
 
-    isR2ModalOpen,
-    selectedBultoId,
-    r2DrillDownData,
-    loadingR2DrillDown,
-    openR2DrillDown,
-    closeR2DrillDown,
+  // Caché de datos por pestaña
+  const [cacheByTab, setCacheByTab] = useState({});
 
-    reloadAll,
-  } = useReportes();
+  // Maestros de combos
+  const [locations, setLocations] = useState([]);
+  const [categories, setCategories] = useState([]);
 
-  // Sincronizar ruta actual con el reporte activo
+  // Estado de carga y error activo
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Modales de drill-down
+  const [stockModalOpen, setStockModalOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState(null);
+  const [stockDrillDownData, setStockDrillDownData] = useState(null);
+  const [stockDrillDownLoading, setStockDrillDownLoading] = useState(false);
+  const [stockDrillDownError, setStockDrillDownError] = useState(null);
+
+  const [mermaModalOpen, setMermaModalOpen] = useState(false);
+  const [selectedBultoId, setSelectedBultoId] = useState(null);
+  const [mermaDrillDownData, setMermaDrillDownData] = useState(null);
+  const [mermaDrillDownLoading, setMermaDrillDownLoading] = useState(false);
+  const [mermaDrillDownError, setMermaDrillDownError] = useState(null);
+
+  const queryRequestId = useRef(0);
+
+  // Sincronizar ruta con activeReport
   useEffect(() => {
-    if (location.pathname.endsWith("/mermas") && activeReport !== "r2") {
-      setActiveReport("r2");
-    } else if (location.pathname.endsWith("/stock") && activeReport !== "r1") {
-      setActiveReport("r1");
-    } else if (initialReport && activeReport !== initialReport && !location.pathname.includes("/reportes/")) {
-      setActiveReport(initialReport);
+    const current = activeKeyFromUrl();
+    if (current !== activeReport) {
+      setActiveReport(current);
     }
-  }, [location.pathname, initialReport, activeReport, setActiveReport]);
+  }, [location.pathname]);
 
-  const handleReportChange = (val) => {
-    setActiveReport(val);
-    navigate(val === "r2" ? "/reportes/mermas" : "/reportes/stock");
+  // Cargar maestros de ubicaciones y categorías
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([
+      reportesUnifiedService.getLocations(),
+      reportesUnifiedService.getCategories(),
+    ])
+      .then(([locs, cats]) => {
+        if (!mounted) return;
+        setLocations(locs);
+        setCategories(cats);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Función ejecutora que SOLO se ejecuta al hacer clic en "Generar reporte"
+  const executeReport = useCallback(
+    async (repKey, paramsToUse) => {
+      const thisReq = ++queryRequestId.current;
+      setLoading(true);
+      setError(null);
+
+      try {
+        let result;
+        if (repKey === "ventas") {
+          result = await reportesUnifiedService.getVentas(paramsToUse);
+        } else if (repKey === "productos") {
+          result = await reportesUnifiedService.getProductos(paramsToUse);
+        } else if (repKey === "transito") {
+          result = await reportesUnifiedService.getTransito(paramsToUse);
+        } else if (repKey === "stock") {
+          result = await reportesUnifiedService.getStock(paramsToUse);
+        } else if (repKey === "mermas") {
+          result = await reportesUnifiedService.getMermas(paramsToUse);
+        }
+
+        if (thisReq !== queryRequestId.current) return;
+        setCacheByTab((prev) => ({ ...prev, [repKey]: result }));
+        setAppliedParamsByTab((prev) => ({ ...prev, [repKey]: { ...paramsToUse } }));
+        setGeneratedTabs((prev) => ({ ...prev, [repKey]: true }));
+        setLoading(false);
+      } catch (err) {
+        if (thisReq !== queryRequestId.current) return;
+        setError(err);
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  const handleTabChange = (nextKey) => {
+    setActiveReport(nextKey);
+    navigate(keyToPath(nextKey));
   };
 
-  const r1Items = r1Data?.items || [];
-  const r1Resumen = r1Data?.resumen;
+  const handleApplyPreset = (presetKey) => {
+    setActivePreset(presetKey);
+    let nextDesde = draftParams.desde;
+    let nextHasta = presets.hoy();
 
-  const r2Bultos = r2Data?.bultos_rechazados || [];
-  const r2Resumen = r2Data?.resumen;
+    if (presetKey === "30d") nextDesde = presets.hace30Dias();
+    else if (presetKey === "7d") nextDesde = presets.hace7Dias();
+    else if (presetKey === "mes") nextDesde = presets.inicioMes();
+    else if (presetKey === "anio") nextDesde = presets.inicioAnio();
 
-  const getFiltrosDescripcion = () => {
-    if (activeReport === "r1") {
-      const ub = ubicaciones.find((u) => String(u.id) === String(r1UbicacionId))?.nombre || "Todas las sedes";
-      const cat = categorias.find((c) => String(c.id) === String(r1CategoriaId))?.nombre || "Todas las categorías";
-      return `Ubicación: ${ub} | Categoría: ${cat} | Solo bajo mínimo: ${r1SoloBajoMinimo ? "Sí" : "No"}`;
+    setDraftParams((prev) => ({ ...prev, desde: nextDesde, hasta: nextHasta }));
+  };
+
+  const handleGenerate = () => {
+    executeReport(activeReport, draftParams);
+  };
+
+  const handleReset = () => {
+    const defaultParams = {
+      desde: presets.hace30Dias(),
+      hasta: presets.hoy(),
+      localId: "",
+      ubicacionId: "",
+      categoriaId: "",
+      soloBajoMinimo: false,
+      top: 10,
+    };
+    setActivePreset("30d");
+    setDraftParams(defaultParams);
+    setGeneratedTabs((prev) => ({ ...prev, [activeReport]: false }));
+    setCacheByTab((prev) => {
+      const copy = { ...prev };
+      delete copy[activeReport];
+      return copy;
+    });
+  };
+
+  // Comparar si draftParams difiere de los parámetros aplicados para esta pestaña
+  const currentApplied = appliedParamsByTab[activeReport];
+  const hasGeneratedCurrentTab = Boolean(generatedTabs[activeReport]);
+  const isDirty = Boolean(
+    hasGeneratedCurrentTab &&
+      currentApplied &&
+      (draftParams.desde !== currentApplied.desde ||
+        draftParams.hasta !== currentApplied.hasta ||
+        draftParams.localId !== currentApplied.localId ||
+        draftParams.ubicacionId !== currentApplied.ubicacionId ||
+        draftParams.categoriaId !== currentApplied.categoriaId ||
+        draftParams.soloBajoMinimo !== currentApplied.soloBajoMinimo ||
+        draftParams.top !== currentApplied.top)
+  );
+
+  const hasInvalidRange = Boolean(
+    activeReport !== "stock" &&
+      draftParams.desde &&
+      draftParams.hasta &&
+      draftParams.desde > draftParams.hasta
+  );
+
+  // Apertura de drill-downs
+  const handleOpenStockDrillDown = async (productoId) => {
+    setSelectedProductId(productoId);
+    setStockModalOpen(true);
+    setStockDrillDownLoading(true);
+    setStockDrillDownError(null);
+    try {
+      const data = await reportesService.getR1DrillDown(productoId);
+      setStockDrillDownData(data);
+    } catch (err) {
+      setStockDrillDownError(err);
+    } finally {
+      setStockDrillDownLoading(false);
     }
-    const loc = ubicaciones.find((u) => String(u.id) === String(r2LocalDestinoId))?.nombre || "Todos los locales receptores";
-    const fIni = r2FechaInicio || "Sin límite inferior";
-    const fFin = r2FechaFin || "Sin límite superior";
-    return `Período: ${fIni} al ${fFin} | Destino: ${loc}`;
   };
 
-  const activeFiltersObj = activeReport === "r1" ? {
-    ubicacion_id: r1UbicacionId,
-    categoria_id: r1CategoriaId,
-    solo_bajo_minimo: r1SoloBajoMinimo,
-  } : {
-    fecha_inicio: r2FechaInicio,
-    fecha_fin: r2FechaFin,
-    local_destino_id: r2LocalDestinoId,
+  const handleOpenMermaDrillDown = async (bultoId) => {
+    setSelectedBultoId(bultoId);
+    setMermaModalOpen(true);
+    setMermaDrillDownLoading(true);
+    setMermaDrillDownError(null);
+    try {
+      const currentData = cacheByTab[activeReport];
+      const row = currentData?.filas?.find((item) => item.bulto_id === bultoId);
+      const data = await reportesService.getR2DrillDown(bultoId, row);
+      setMermaDrillDownData(data);
+    } catch (err) {
+      setMermaDrillDownError(err);
+    } finally {
+      setMermaDrillDownLoading(false);
+    }
   };
+
+  const reportTitles = {
+    ventas: {
+      title: "Ventas e ingresos por período, local y medio de pago",
+      question: "¿Cuánto vendió cada local y con qué medio de pago, neto de devoluciones?",
+    },
+    productos: {
+      title: "Productos más vendidos y margen estimado",
+      question: "¿Qué productos se venden más y cuáles dejan pérdida?",
+    },
+    transito: {
+      title: "Tiempo de tránsito CD a locales",
+      question: "¿Cuántas horas tarda un bulto desde que sale del CD hasta que llega al local?",
+    },
+    stock: {
+      title: "¿Dónde está el stock y cuál es su valorización?",
+      question: "Salud de stock: Auditoría integral de existencias físicas y valorización patrimonial por centro y sucursales.",
+    },
+    mermas: {
+      title: "¿Dónde se originaron las mermas y violaciones de precintos?",
+      question: "Mermas y precintos: Peritaje de roturas de precinto (Regla V1) y trazabilidad forense de bultos rechazados en destino.",
+    },
+  };
+
+  const currentInfo = reportTitles[activeReport] || reportTitles.ventas;
+  const currentReportData = cacheByTab[activeReport];
 
   return (
     <div className="stocky-reports-page">
       <PrintReport
-        reportKey={activeReport}
-        items={activeReport === "r1" ? r1Items : r2Bultos}
-        summary={activeReport === "r1" ? r1Resumen : r2Resumen}
-        filters={getFiltrosDescripcion()}
-        generatedAt={(activeReport === "r1" ? r1Data : r2Data)?.fetched_at}
+        reportKey={activeReport === "stock" ? "r1" : "r2"}
+        items={currentReportData?.filas || []}
+        summary={currentReportData?.totales || {}}
+        filters={`Reporte: ${activeReport}`}
+        generatedAt={new Date().toISOString()}
       />
 
       <div className="stocky-report-screen stack gap-4">
-        {/* Cabecera Oficial Stocky con logo y operador */}
+        {/* Cabecera Oficial Stocky con verificación de operador */}
         <ReportesHeader
-          loading={activeReport === "r1" ? loadingR1 : loadingR2}
-          onRefresh={reloadAll}
+          loading={loading}
+          onRefresh={handleGenerate}
         />
 
-        {/* Pregunta operacional de auditoría según T038 */}
-        <div className="card p-4 stocky-audit-question-card">
-          <div className="row align-center gap-3">
-            <div className="p-2 bg-subtle rounded-md">
-              <Icon
-                name={activeReport === "r1" ? "package" : "alert-triangle"}
-                size={22}
-                className="text-accent"
-              />
-            </div>
-            <div>
-              <h2 className="text-lg font-medium stocky-audit-question">
-                {activeReport === "r1"
-                  ? "¿Dónde está el stock y cuál es su valorización en la red?"
-                  : "¿Dónde se originaron las mermas y violaciones de precintos?"}
-              </h2>
+        {/* Tarjeta de contexto con pregunta estructurada */}
+        <div className="card p-4">
+          <h2 className="text-lg font-medium">{currentInfo.title}</h2>
+          <p className="text-xs text-secondary">{currentInfo.question}</p>
+        </div>
+
+        {/* Selector unificado de los 5 reportes */}
+        <div className="stocky-toolbar-card no-print">
+          <SegmentedControl
+            ariaLabel="Selección de reporte gerencial"
+            value={activeReport}
+            onChange={handleTabChange}
+            options={[
+              { value: "ventas", label: "Ventas e ingresos" },
+              { value: "productos", label: "Más vendidos y margen" },
+              { value: "transito", label: "Tiempo de tránsito" },
+              { value: "stock", label: "Salud de stock" },
+              { value: "mermas", label: "Mermas y precintos" },
+            ]}
+          />
+        </div>
+
+        {/* Barra de configuración de parámetros: primero se definen los datos */}
+        <ReportesFiltrosBar
+          reportKey={activeReport}
+          draftParams={draftParams}
+          setDraftParams={setDraftParams}
+          onApplyPreset={handleApplyPreset}
+          activePreset={activePreset}
+          locations={locations}
+          categories={categories}
+          onGenerate={handleGenerate}
+          onReset={handleReset}
+          loading={loading}
+          isDirty={isDirty}
+          hasInvalidRange={hasInvalidRange}
+        />
+
+        {/* Alerta de rango inválido */}
+        {hasInvalidRange && (
+          <Alert
+            tone="warning"
+            title="Rango de fechas inválido"
+            description="La fecha inicial no puede ser posterior a la fecha final. Ajusta las fechas para poder generar el reporte."
+          />
+        )}
+
+        {/* Alerta de error en la consulta */}
+        {error && !hasInvalidRange && (
+          <Alert
+            tone="danger"
+            title="No se pudo cargar el reporte"
+            description={error.message || "Ocurrió un error al procesar la solicitud."}
+            action={
+              <Button variant="secondary" size="sm" onClick={handleGenerate}>
+                Reintentar
+              </Button>
+            }
+          />
+        )}
+
+        {/* Estado pendiente previo: antes de tocar 'Generar reporte' */}
+        {!hasGeneratedCurrentTab && !loading && !error && !hasInvalidRange && (
+          <div className="card p-5 text-center stack gap-3 align-center justify-center">
+            <Icon name="chart" size={32} className="text-secondary" />
+            <div className="stack gap-1">
+              <h3 className="text-base font-medium text-foreground">Reporte listo para configurar</h3>
               <p className="text-xs text-secondary">
-                {activeReport === "r1"
-                  ? "Dictamen operacional de existencias en CD y locales, niveles críticos bajo mínimo y valorización patrimonial."
-                  : "Dictamen forense de trazabilidad de bultos despachados, precintos violados y mermas efectivizadas."}
+                Selecciona la temporalidad, sede y filtros requeridos en la barra superior. Luego presiona el botón para procesar los datos en vivo sin consumir consultas en vano.
               </p>
             </div>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleGenerate}
+              icon={<Icon name="arrow-right" size="sm" />}
+            >
+              Generar reporte ahora
+            </Button>
           </div>
-        </div>
+        )}
 
-        {/* Selector principal de Reportes estructurados como preguntas operacionales */}
-        <div className="stocky-toolbar-card no-print">
-          <div className="row justify-between align-center wrap gap-3">
-            <SegmentedControl
-              value={activeReport}
-              onChange={handleReportChange}
-              options={[
-                {
-                  value: "r1",
-                  label: "Salud de stock",
-                  count: r1Items.length,
-                },
-                {
-                  value: "r2",
-                  label: "Mermas y precintos",
-                  count: r2Bultos.length,
-                },
-              ]}
+        {/* Contenido analítico generado bajo demanda */}
+        {(hasGeneratedCurrentTab || loading) && !error && !hasInvalidRange && (
+          <>
+            <ReportesKpiStrip
+              kpis={currentReportData?.kpis || []}
+              loading={loading}
             />
 
-            <ReporteExportToolbar
+            <ReportesGraficosView
+              graficoPrincipal={currentReportData?.grafico}
+              graficoComplementario={currentReportData?.graficoComplementario}
+              loading={loading}
+            />
+
+            <ReportesTableView
               reportKey={activeReport}
-              reportTitle={
-                activeReport === "r1"
-                  ? "R1_Salud_Stock_Valorizacion"
-                  : "R2_Mermas_Precintos_Violados"
-              }
-              dataRows={activeReport === "r1" ? r1Items : r2Bultos}
-              rawReportData={activeReport === "r1" ? r1Data : r2Data}
-              activeFiltersDesc={getFiltrosDescripcion()}
-              filters={activeFiltersObj}
-              disabled={mastersLoading || Boolean(mastersError) || (activeReport === "r1" ? loadingR1 || Boolean(errorR1) : loadingR2 || Boolean(errorR2))}
+              rows={currentReportData?.filas || []}
+              loading={loading}
+              error={error}
+              onRetry={handleGenerate}
+              onOpenStockDrillDown={handleOpenStockDrillDown}
+              onOpenMermaDrillDown={handleOpenMermaDrillDown}
             />
-          </div>
-
-          {mastersError && <Alert tone="danger" title="No se pudieron cargar los filtros" description={mastersError.message} action={<Button onClick={reloadMasters}>Reintentar</Button>} />}
-        {/* Filtros para R1 */}
-          {activeReport === "r1" && (
-            <div className="stocky-filter-row pt-2 border-t border-subtle mt-3">
-              <div className="stocky-filter-controls">
-                <label className="text-xs text-secondary font-medium">Filtros de stock:</label>
-                <select
-                  className="erp-input erp-input--sm stocky-filter-select"
-                  aria-label="Ubicación de stock"
-                  disabled={mastersLoading || Boolean(mastersError)}
-                  value={r1UbicacionId}
-                  onChange={(e) => setR1UbicacionId(e.target.value)}
-                >
-                  <option value="">Todas las ubicaciones</option>
-                  {ubicaciones.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.tipo === "CD" ? "CD" : "Local"} - {u.nombre}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  className="erp-input erp-input--sm stocky-filter-select"
-                  aria-label="Categoría del producto"
-                  disabled={mastersLoading || Boolean(mastersError)}
-                  value={r1CategoriaId}
-                  onChange={(e) => setR1CategoriaId(e.target.value)}
-                >
-                  <option value="">Todas las categorías</option>
-                  {categorias.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
-
-                <label className="row align-center gap-2 cursor-pointer text-xs font-medium">
-                  <input
-                    type="checkbox"
-                    checked={r1SoloBajoMinimo}
-                    onChange={(e) => setR1SoloBajoMinimo(e.target.checked)}
-                  />
-                  <span className="text-danger font-medium">
-                    Solo bajo mínimo (Observer)
-                  </span>
-                </label>
-
-                {(r1UbicacionId || r1CategoriaId || r1SoloBajoMinimo) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setR1UbicacionId("");
-                      setR1CategoriaId("");
-                      setR1SoloBajoMinimo(false);
-                    }}
-                  >
-                    Limpiar filtros
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Filtros para R2 */}
-          {activeReport === "r2" && (
-            <div className="stocky-filter-row pt-2 border-t border-subtle mt-3">
-              <div className="stocky-filter-controls">
-                <label className="text-xs text-secondary font-medium">Filtros de mermas:</label>
-
-                <div className="row align-center gap-1">
-                  <span className="text-xs text-muted">Desde:</span>
-                  <input
-                    type="date"
-                    aria-label="Fecha del período"
-                    className="erp-input erp-input--sm"
-                    value={r2FechaInicio}
-                    onChange={(e) => setR2FechaInicio(e.target.value)}
-                  />
-                </div>
-
-                <div className="row align-center gap-1">
-                  <span className="text-xs text-muted">Hasta:</span>
-                  <input
-                    type="date"
-                    aria-label="Fecha del período"
-                    className="erp-input erp-input--sm"
-                    value={r2FechaFin}
-                    onChange={(e) => setR2FechaFin(e.target.value)}
-                  />
-                </div>
-
-                <select
-                  className="erp-input erp-input--sm stocky-filter-select"
-                  aria-label="Local de destino"
-                  disabled={mastersLoading || Boolean(mastersError)}
-                  value={r2LocalDestinoId}
-                  onChange={(e) => setR2LocalDestinoId(e.target.value)}
-                >
-                  <option value="">Todos los locales de destino</option>
-                  {ubicaciones
-                    .filter((u) => u.tipo === "LOCAL")
-                    .map((u) => (
-                      <option key={u.id} value={u.id}>
-                        Local: {u.nombre}
-                      </option>
-                    ))}
-                </select>
-
-                {(r2FechaInicio || r2FechaFin || r2LocalDestinoId) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setR2FechaInicio("");
-                      setR2FechaFin("");
-                      setR2LocalDestinoId("");
-                    }}
-                  >
-                    Limpiar filtros
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Banner de Pregunta Operacional Clara (T038) */}
-        <section className="stocky-formal-question-banner no-print">
-          <div className="row justify-between align-center wrap gap-2">
-            <div>
-              <div className="stocky-formal-question-title">
-                {activeReport === "r1"
-                  ? "¿Dónde está el stock y cuál es su valorización?"
-                  : "¿Dónde se originaron las mermas y violaciones de precintos?"}
-              </div>
-              <div className="stocky-formal-question-sub">
-                {activeReport === "r1"
-                  ? "Salud de stock: Auditoría integral de existencias físicas y valorización patrimonial por centro y sucursales."
-                  : "Mermas y precintos: Peritaje de roturas de precinto (Regla V1) y trazabilidad forense de bultos rechazados en destino."}
-              </div>
-            </div>
-            <span className="text-xs font-mono text-secondary">
-              {activeReport === "r1" ? "Módulo de Existencias" : "Módulo Forense"}
-            </span>
-          </div>
-        </section>
-
-        {activeReport === "r1" && errorR1 && (
-          <Alert
-            tone="danger"
-            title="Error al consultar Salud de Stock"
-            description={errorR1.message}
-            action={
-              <Button variant="secondary" size="sm" onClick={reloadAll}>
-                Reintentar
-              </Button>
-            }
-          >
-            {errorR1.message || "Ocurrió una falla de red al contactar al backend."}
-          </Alert>
+          </>
         )}
-
-        {activeReport === "r2" && errorR2 && (
-          <Alert
-            tone="danger"
-            title="Error al consultar Mermas y Precintos"
-            description={errorR2.message}
-            action={
-              <Button variant="secondary" size="sm" onClick={reloadAll}>
-                Reintentar
-              </Button>
-            }
-          >
-            {errorR2.message || "Ocurrió una falla de red al contactar al backend."}
-          </Alert>
-        )}
-
-        {activeReport === "r1" && !errorR1 && (
-          <ReporteR1StockView
-            r1Data={r1Data}
-            loadingR1={loadingR1}
-            r1Items={r1Items}
-            r1Resumen={r1Resumen}
-            openR1DrillDown={openR1DrillDown}
-            setR1UbicacionId={setR1UbicacionId}
-            setR1CategoriaId={setR1CategoriaId}
-            setR1SoloBajoMinimo={setR1SoloBajoMinimo}
-          />
-        )}
-
-        {activeReport === "r2" && !errorR2 && (
-          <ReporteR2MermasView
-            r2Data={r2Data}
-            loadingR2={loadingR2}
-            r2Bultos={r2Bultos}
-            r2Resumen={r2Resumen}
-            openR2DrillDown={openR2DrillDown}
-            setR2FechaInicio={setR2FechaInicio}
-            setR2FechaFin={setR2FechaFin}
-            setR2LocalDestinoId={setR2LocalDestinoId}
-          />
-        )}
-
-        <ModalFichaStock
-          open={isR1ModalOpen}
-          onClose={closeR1DrillDown}
-          productoId={selectedProductoId}
-          data={r1DrillDownData}
-          loading={loadingR1DrillDown}
-          error={errorR1DrillDown}
-          onRetry={() => openR1DrillDown(selectedProductoId)}
-        />
-
-        <ModalAuditoriaMerma
-          open={isR2ModalOpen}
-          onClose={closeR2DrillDown}
-          bultoId={selectedBultoId}
-          data={r2DrillDownData}
-          loading={loadingR2DrillDown}
-          error={errorR2DrillDown}
-          onRetry={() => openR2DrillDown(selectedBultoId)}
-        />
       </div>
+
+      {/* Drill-down de Ficha de Stock Multisede */}
+      <ModalFichaStock
+        open={stockModalOpen}
+        onClose={() => setStockModalOpen(false)}
+        productoId={selectedProductId}
+        data={stockDrillDownData}
+        loading={stockDrillDownLoading}
+        error={stockDrillDownError}
+        onRetry={() => handleOpenStockDrillDown(selectedProductId)}
+      />
+
+      {/* Drill-down de Peritaje Forense de Bulto y Precinto */}
+      <ModalAuditoriaMerma
+        open={mermaModalOpen}
+        onClose={() => setMermaModalOpen(false)}
+        bultoId={selectedBultoId}
+        data={mermaDrillDownData}
+        loading={mermaDrillDownLoading}
+        error={mermaDrillDownError}
+        onRetry={() => handleOpenMermaDrillDown(selectedBultoId)}
+      />
     </div>
   );
 }

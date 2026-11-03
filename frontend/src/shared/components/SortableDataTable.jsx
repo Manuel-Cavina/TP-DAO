@@ -134,7 +134,7 @@ export function SortableDataTable({
                 return (
                   <th
                     key={col.key}
-                    className={`${col.align === "right" ? "align-right" : ""} ${
+                    className={`${(col.align === "right" || col.numeric) ? "align-right tabular-nums" : ""} ${
                       isSorted ? "is-sorted" : ""
                     }`.trim()}
                   >
@@ -144,7 +144,7 @@ export function SortableDataTable({
                         className="erp-table__sort-btn"
                         onClick={() => toggleSort(col.key)}
                       >
-                        <span>{col.header}</span>
+                        <span>{col.header || col.label}</span>
                         <Icon
                           name={
                             isSorted
@@ -157,7 +157,7 @@ export function SortableDataTable({
                         />
                       </button>
                     ) : (
-                      <span>{col.header}</span>
+                      <span>{col.header || col.label}</span>
                     )}
                   </th>
                 );

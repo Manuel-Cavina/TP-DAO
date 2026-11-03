@@ -14,6 +14,7 @@ import { useReportes } from "./hooks/useReportes";
 export {
   ReportesPage,
   ReporteImprimiblePage,
+  ReportesAnaliticosPage,
   ReportesHeader,
   ReporteExportToolbar,
   PlotlyRenderer,
@@ -26,14 +27,14 @@ export {
 export function ReportesRoutes() {
   return (
     <Routes>
-      <Route index element={<ReportesPage initialReport="r1" />} />
-      <Route path="stock" element={<ReportesPage initialReport="r1" />} />
-      <Route path="mermas" element={<ReportesPage initialReport="r2" />} />
-      <Route path="ventas" element={<ReportesAnaliticosPage />} />
-      <Route path="productos" element={<ReportesAnaliticosPage />} />
-      <Route path="transito" element={<ReportesAnaliticosPage />} />
+      <Route index element={<ReportesPage initialReport="ventas" />} />
+      <Route path="ventas" element={<ReportesPage initialReport="ventas" />} />
+      <Route path="productos" element={<ReportesPage initialReport="productos" />} />
+      <Route path="transito" element={<ReportesPage initialReport="transito" />} />
+      <Route path="stock" element={<ReportesPage initialReport="stock" />} />
+      <Route path="mermas" element={<ReportesPage initialReport="mermas" />} />
       <Route path="imprimible" element={<ReporteImprimiblePage />} />
-      <Route path="*" element={<Navigate to="stock" replace />} />
+      <Route path="*" element={<Navigate to="ventas" replace />} />
     </Routes>
   );
 }

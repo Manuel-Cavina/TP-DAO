@@ -110,7 +110,7 @@ export function CategoriasPage() {
             <span>·</span>
             <span>Categorías</span>
           </div>
-          <h1 className="text-xl">Categorías de Catálogo</h1>
+          <h1 className="text-xl">Categorías de catálogo</h1>
           <p className="text-sm text-secondary">
             Familias y agrupaciones para organización taxonómica de los artículos comerciales.
           </p>

@@ -44,12 +44,14 @@ def _login_handler(
         secure=False,
         path="/",
     )
-    return Seguridad_Mapper.login_a_response_dto(usuario, sesion)
+    response.headers["X-Session-Token"] = raw_token
+    return Seguridad_Mapper.login_a_response_dto(usuario, sesion, raw_token=raw_token)
 
 
-def _me_handler(datos_sesion: tuple[Usuario, Sesion]) -> Login_Response_DTO:
+def _me_handler(datos_sesion: tuple[Usuario, Sesion], request: Request | None = None) -> Login_Response_DTO:
     usuario, sesion = datos_sesion
-    return Seguridad_Mapper.login_a_response_dto(usuario, sesion)
+    token = extraer_token_de_request(request) if request is not None else None
+    return Seguridad_Mapper.login_a_response_dto(usuario, sesion, raw_token=token)
 
 
 def _logout_handler(
@@ -76,9 +78,10 @@ def login(
 
 @seguridad_router.get("/me", response_model=Login_Response_DTO, status_code=status.HTTP_200_OK)
 def me(
+    request: Request,
     datos_sesion: tuple[Usuario, Sesion] = Depends(obtener_sesion_actual),
 ) -> Login_Response_DTO:
-    return _me_handler(datos_sesion)
+    return _me_handler(datos_sesion, request=request)
 
 
 @seguridad_router.post("/logout", status_code=status.HTTP_200_OK)
@@ -134,9 +137,10 @@ def auth_login(
 
 @auth_router.get("/me", response_model=Login_Response_DTO, status_code=status.HTTP_200_OK)
 def auth_me(
+    request: Request,
     datos_sesion: tuple[Usuario, Sesion] = Depends(obtener_sesion_actual),
 ) -> Login_Response_DTO:
-    return _me_handler(datos_sesion)
+    return _me_handler(datos_sesion, request=request)
 
 
 @auth_router.post("/logout", status_code=status.HTTP_200_OK)

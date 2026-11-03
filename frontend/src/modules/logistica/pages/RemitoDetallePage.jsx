@@ -11,6 +11,7 @@ import {
 } from "../../../shared";
 import { useUbicaciones } from "../../ubicaciones_stock/hooks/useUbicaciones";
 import { useAuth } from "../../../app/auth/AuthProvider";
+import { useToast } from "../../../shared/feedback/ToastContext";
 import { logisticaService } from "../services";
 import { mapRemitoToUI } from "../mappers/logisticaMappers";
 import { RemitoTimeline } from "../components/RemitoTimeline";
@@ -26,6 +27,7 @@ export function RemitoDetallePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { ubicaciones } = useUbicaciones();
+  const { notifySuccess, notifyError } = useToast();
 
   const [despachando, setDespachando] = useState(false);
   const [despachoError, setDespachoError] = useState("");
@@ -93,9 +95,11 @@ export function RemitoDetallePage() {
     setDespachoError("");
     try {
       await logisticaService.despacharRemito(numero);
+      notifySuccess("Remito despachado", `Remito ${numero} despachado hacia sucursal destino.`);
       despachoModal.onClose();
       await refresh();
     } catch (err) {
+      notifyError(err, { entity: "Remito", action: "despachar" });
       setDespachoError(err.message || "Error al despachar el remito.");
     } finally {
       setDespachando(false);
@@ -151,8 +155,8 @@ export function RemitoDetallePage() {
         <h2 className="text-lg text-danger">No se pudo cargar el remito</h2>
         <p className="text-sm text-secondary">{error || "El remito solicitado no existe."}</p>
         <div className="row justify-center">
-          <Button variant="secondary" onClick={() => navigate("/logistica/remitos")}>
-            Volver al listado de remitos
+          <Button variant="secondary" onClick={() => navigate("/logistica/operaciones")}>
+            Volver al tablero de operaciones
           </Button>
         </div>
       </div>
@@ -165,12 +169,12 @@ export function RemitoDetallePage() {
       <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">
-            <span className="cursor-pointer text-secondary" onClick={() => navigate("/logistica/remitos")}>
-              Distribución
+            <span className="cursor-pointer text-secondary" onClick={() => navigate("/logistica/operaciones")}>
+              Operaciones
             </span>
             <span>·</span>
-            <span className="cursor-pointer text-secondary" onClick={() => navigate("/logistica/remitos")}>
-              Remitos
+            <span className="cursor-pointer text-secondary" onClick={() => navigate("/logistica/operaciones")}>
+              Tablero operativo
             </span>
             <span>·</span>
             <span className="font-mono">{remito.numero}</span>
@@ -183,8 +187,17 @@ export function RemitoDetallePage() {
           </div>
         </div>
 
-        {/* FR-043: Exactamente una accion primaria visible por contexto */}
-        <div>
+        <div className="row gap-2 align-center">
+          {remito.bultosResumen?.[0]?.ordenId && (
+            <Button
+              variant="secondary"
+              size="sm"
+              iconLeft="arrow-left"
+              onClick={() => navigate(`/logistica/ordenes/${remito.bultosResumen[0].ordenId}`)}
+            >
+              Volver a la orden #{remito.bultosResumen[0].ordenId}
+            </Button>
+          )}
           {remito.documentoEstado === "EMITIDO" && (
             <Button
               variant="primary"
@@ -200,7 +213,14 @@ export function RemitoDetallePage() {
             <Button
               variant="primary"
               iconRight="arrow-right"
-              onClick={() => navigate(`/logistica/recepcion?remito=${encodeURIComponent(remito.numero)}`)}
+              onClick={() => {
+                const ordenId = remito.bultosResumen?.[0]?.ordenId;
+                if (ordenId) {
+                  navigate(`/logistica/ordenes/${ordenId}?tab=recepcion`);
+                } else {
+                  navigate("/logistica/operaciones");
+                }
+              }}
             >
               Ir a recepción en destino
             </Button>
@@ -210,7 +230,14 @@ export function RemitoDetallePage() {
             <Button
               variant="primary"
               iconRight="arrow-right"
-              onClick={() => navigate(`/logistica/recepcion?remito=${encodeURIComponent(remito.numero)}`)}
+              onClick={() => {
+                const ordenId = remito.bultosResumen?.[0]?.ordenId;
+                if (ordenId) {
+                  navigate(`/logistica/ordenes/${ordenId}?tab=recepcion`);
+                } else {
+                  navigate("/logistica/operaciones");
+                }
+              }}
             >
               Continuar verificación de precintos
             </Button>

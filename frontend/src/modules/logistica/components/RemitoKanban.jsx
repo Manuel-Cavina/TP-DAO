@@ -1,7 +1,10 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { StatusBadge } from "../../../shared/components/Badge";
+import { Badge, StatusBadge } from "../../../shared/components/Badge";
 import { Button } from "../../../shared/components/Button";
+import { SortableDataTable } from "../../../shared/components/SortableDataTable";
+import { isDateToday } from "../../../shared";
+
 
 export const REMITO_STAGES = [
   { stage: 0, key: "EMITIDO", title: "Emitidos en CD" },
@@ -31,8 +34,17 @@ export function RemitoKanban({
   const cards = useMemo(() => {
     return remitos
       .filter((r) => {
-        if (!filtroDestino) return true;
-        return String(r.destinoId) === String(filtroDestino);
+        if (filtroDestino && String(r.destinoId) !== String(filtroDestino)) {
+          return false;
+        }
+        const esCerrado = r.documentoEstado === "CERRADO" || r.estado === "CERRADO";
+        if (esCerrado) {
+          const fechaRaw = r.fecha || r.creadoEn || r.fechaEmision;
+          if (!isDateToday(fechaRaw)) {
+            return false;
+          }
+        }
+        return true;
       })
       .map((r) => {
         let stage = 0;
@@ -61,12 +73,14 @@ export function RemitoKanban({
 
         const origenNombre = ubicMap.get(r.origenId) || `CD #${r.origenId}`;
         const destinoNombre = ubicMap.get(r.destinoId) || `Local #${r.destinoId}`;
+        const fechaRaw = r.fecha || r.creadoEn || r.fechaEmision || "2026-10-28T10:30:00";
+        const fecha = fechaRaw ? new Date(fechaRaw).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }) : "Sin fecha";
 
         return {
           id: `rem-${r.numero}`,
           remito: r,
           numero: r.numero,
-          ordenId: r.bultosResumen?.[0]?.ordenId || null,
+          ordenId: r.ordenId || r.bultosResumen?.[0]?.ordenId || null,
           code: r.numero,
           stage,
           badgeText,
@@ -80,6 +94,7 @@ export function RemitoKanban({
           bultosPendientes: r.bultosPendientes || 0,
           owner: stage >= 2 ? "Operador de Sucursal" : "Transporte / CD",
           avatar: stage >= 2 ? "OS" : "TR",
+          fecha,
         };
       });
   }, [remitos, ubicMap, filtroDestino]);
@@ -126,78 +141,112 @@ export function RemitoKanban({
     onDropRemito?.(card, targetStage);
   };
 
+  const columns = useMemo(
+    () => [
+      {
+        key: "numero",
+        header: "Remito",
+        mono: true,
+        sortable: true,
+        render: (v, row) => (
+          <strong
+            className="font-mono text-sm cursor-pointer"
+            onClick={() => openOrder(row)}
+          >
+            {row.numero}
+          </strong>
+        ),
+      },
+      {
+        key: "fecha",
+        header: "Hora y fecha",
+        sortable: true,
+        render: (v) => <span className="text-xs text-secondary tabular-nums">{v}</span>,
+      },
+      {
+        key: "owner",
+        header: "Responsable",
+        sortable: true,
+        render: (v) => <span className="text-xs text-secondary">{v}</span>,
+      },
+      {
+        key: "origenNombre",
+        header: "Origen (CD)",
+        sortable: true,
+        render: (v) => <span className="text-sm font-medium">{v}</span>,
+      },
+      {
+        key: "destinoNombre",
+        header: "Destino (Local)",
+        sortable: true,
+        render: (v) => <span className="text-sm">{v}</span>,
+      },
+      {
+        key: "totalBultos",
+        header: "Bultos controlados",
+        align: "right",
+        sortable: true,
+        render: (_, row) => (
+          <span className="text-xs tabular-nums font-medium text-foreground">
+            {row.bultosVerificados} / {row.totalBultos} bultos ({row.bultosPendientes} pend.)
+          </span>
+        ),
+      },
+      {
+        key: "documentoEstado",
+        header: "Estado",
+        sortable: true,
+        render: (_, row) => (
+          <div className="row gap-2 align-center wrap">
+            <StatusBadge status={row.documentoEstado} />
+            <Badge tone="neutral" dot={false}>
+              {REMITO_STAGES[row.stage]?.title || row.badgeText}
+            </Badge>
+          </div>
+        ),
+      },
+      {
+        key: "acciones",
+        header: "Acción",
+        align: "right",
+        sortable: false,
+        render: (_, row) => (
+          <div className="row gap-2 justify-end align-center wrap">
+            <Button size="sm" variant="ghost" onClick={() => openOrder(row)}>
+              Ver remito
+            </Button>
+            {row.stage === 0 && (
+              <Button size="sm" variant="primary" iconLeft="truck" onClick={() => openOrder(row, "despacho")}>
+                Despachar
+              </Button>
+            )}
+            {row.stage >= 1 && row.stage < 4 && (
+              <Button size="sm" variant="primary" iconLeft="check" onClick={() => openOrder(row, "recepcion")}>
+                Verificar
+              </Button>
+            )}
+          </div>
+        ),
+      },
+    ],
+    [openOrder]
+  );
+
   if (viewMode === "list") {
     return (
-      <div className="card p-4 stack gap-3">
+      <div className="stack gap-3">
         <div className="row justify-between align-center">
           <h3 className="text-md font-medium">Listado operacional de remitos de traslado</h3>
           <span className="text-xs text-secondary">{cards.length} remito(s) registrados</span>
         </div>
-
-        {cards.length === 0 ? (
-          <div className="p-6 text-center text-secondary">
-            No se encontraron remitos para el filtro seleccionado.
-          </div>
-        ) : (
-          <div className="stack gap-2">
-            {cards.map((c) => (
-              <div
-                key={c.id}
-                className="row justify-between align-center p-3 rounded bg-surface-muted wrap gap-2"
-              >
-                <div className="stack gap-1">
-                  <div className="row gap-2 align-center">
-                    <strong
-                      className="font-mono text-sm cursor-pointer"
-                      onClick={() => openOrder(c)}
-                    >
-                      {c.numero}
-                    </strong>
-                    <StatusBadge status={c.documentoEstado} />
-                    <span className="badge-pill bg-accent-subtle text-accent text-xs">
-                      {REMITO_STAGES[c.stage]?.title || c.badgeText}
-                    </span>
-                  </div>
-                  <span className="text-xs text-secondary">Ruta: {c.route}</span>
-                </div>
-
-                <div className="row gap-4 align-center">
-                  <span className="text-xs tabular-nums text-secondary">
-                    {c.totalBultos} bultos · {c.bultosPendientes} pendientes
-                  </span>
-
-                  <div className="row gap-2 align-center">
-                    {c.stage === 0 && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => openOrder(c)}
-                      >
-                        Despachar
-                      </Button>
-                    )}
-                    {c.stage >= 1 && c.stage < 4 && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => openOrder(c, "recepcion")}
-                      >
-                        Recepción
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => openOrder(c)}
-                    >
-                      Ver remito
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <SortableDataTable
+          columns={columns}
+          data={cards}
+          rowKey="id"
+          selectable={false}
+          emptyTitle="Sin remitos de traslado"
+          emptyDescription="No se encontraron remitos registrados para el filtro seleccionado."
+        />
       </div>
     );
   }
@@ -243,7 +292,7 @@ export function RemitoKanban({
                       <div className="task-title">
                         <strong
                           className="cursor-pointer"
-                          onClick={() => openOrder(c)}
+                          onClick={() => openOrder(c, c.stage <= 1 ? "despacho" : "recepcion")}
                         >
                           {c.numero}
                         </strong>
@@ -265,7 +314,9 @@ export function RemitoKanban({
 
                       <Button
                         size="sm"
-                        variant="secondary"
+                        variant={c.stage < 4 ? "primary" : "secondary"}
+                        iconLeft={c.stage === 0 ? "truck" : c.stage < 4 ? "shield-check" : "check"}
+                        className="task-next"
                         onClick={() => {
                           if (c.stage === 0) {
                             openOrder(c);
@@ -274,7 +325,7 @@ export function RemitoKanban({
                           }
                         }}
                       >
-                        {c.stage === 0 ? "Revisar despacho" : "Control en destino"}
+                        {c.stage === 0 ? "Revisar despacho" : c.stage < 4 ? "Control en destino" : "Ver remito"}
                       </Button>
                     </article>
                   );

@@ -103,5 +103,6 @@ export function mapRemitoToUI(dto) {
     bultosPendientes,
     bultosResumen,
     bultosIds: dto.bultos_ids || (bultosResumen || []).map((b) => b.id),
+    ordenId: dto.orden_id || bultosResumen?.[0]?.ordenId || null,
   };
 }

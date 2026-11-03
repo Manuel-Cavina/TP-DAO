@@ -45,6 +45,7 @@ class Login_Response_DTO(BaseModel):
     user: Usuario_Response_DTO
     scope: Scope_Response_DTO
     csrf_token: str
+    token: str | None = None
 
 
 LoginResponse = Login_Response_DTO

@@ -1,4 +1,4 @@
-﻿/* Shared UI: buttons, confirm morph and select. */
+/* Shared UI: buttons, confirm morph and select. */
 
 /* ==========================================================================
  * 3. ARC BUTTON, BUTTON GROUP & CONFIRM MORPH
@@ -20,7 +20,7 @@
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
-  transition: transform var(--duration-instant) var(--ease-standard),
+  transition: transform var(--duration-fast) var(--ease-spring),
               background-color var(--duration-fast) var(--ease-standard),
               border-color var(--duration-fast) var(--ease-standard),
               color var(--duration-fast) var(--ease-standard);
@@ -28,7 +28,7 @@
 
 .erp-btn:active:not(:disabled),
 .arc-btn:active:not(:disabled) {
-  transform: scale(0.985);
+  transform: scale(0.97);
 }
 
 .erp-btn:disabled,
@@ -63,12 +63,14 @@
 .erp-btn--primary,
 .arc-btn--primary {
   background: var(--accent);
-  color: var(--accent-foreground);
+  color: var(--accent-foreground, #ffffff);
+  border-color: transparent;
 }
 
 .erp-btn--primary:hover:not(:disabled),
 .arc-btn--primary:hover:not(:disabled) {
   background: var(--accent-strong);
+  color: var(--accent-foreground, #ffffff);
 }
 
 .erp-btn--secondary,
@@ -161,6 +163,17 @@
   display: inline-flex;
   flex-direction: column;
   gap: 5px;
+}
+
+.erp-select-wrap.w-full,
+.erp-select-wrap--full {
+  display: flex;
+  width: 100%;
+}
+
+.erp-select-wrap.w-full .erp-select-trigger,
+.erp-select-wrap--full .erp-select-trigger {
+  width: 100%;
 }
 
 .erp-field-label {

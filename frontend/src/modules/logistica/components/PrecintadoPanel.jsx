@@ -8,6 +8,7 @@ import { Alert } from "../../../shared/components/Feedback";
  * PrecintadoPanel (T046 / US4):
  * Soporte para precintado individual y por lote revisado asignando
  * codigo de precinto unico por bulto y validando duplicados.
+ * Mantiene evidencia visual y no desaparece al completar el precintado.
  */
 export function PrecintadoPanel({
   bultos = [],
@@ -49,12 +50,12 @@ export function PrecintadoPanel({
     setIndividualError("");
     const codigo = (individualInputs[bultoId] || "").trim().toUpperCase();
     if (!codigo) {
-      setIndividualError(`Debe ingresar un codigo de precinto para el bulto #${bultoId}.`);
+      setIndividualError(`Debe ingresar un código de precinto para el bulto #${bultoId}.`);
       return;
     }
 
     if (precintosYaUsados.has(codigo)) {
-      setIndividualError(`El precinto '${codigo}' ya esta asignado a otro bulto.`);
+      setIndividualError(`El precinto '${codigo}' ya está asignado a otro bulto.`);
       return;
     }
 
@@ -85,11 +86,11 @@ export function PrecintadoPanel({
         errors[b.id] = "Precinto requerido";
       } else if (precintosYaUsados.has(codigo)) {
         errors[b.id] = "Ya utilizado en otro bulto";
-        globalErr = "Uno o mas codigos ya fueron utilizados previamente.";
+        globalErr = "Uno o más códigos ya fueron utilizados previamente.";
       } else if (codigosVistos.has(codigo)) {
-        errors[b.id] = "Codigo duplicado en este lote";
-        errors[codigosVistos.get(codigo)] = "Codigo duplicado en este lote";
-        globalErr = "Los codigos de precinto deben ser unicos para cada bulto.";
+        errors[b.id] = "Código duplicado en este lote";
+        errors[codigosVistos.get(codigo)] = "Código duplicado en este lote";
+        globalErr = "Los códigos de precinto deben ser únicos para cada bulto.";
       } else {
         codigosVistos.set(codigo, b.id);
       }
@@ -123,21 +124,67 @@ export function PrecintadoPanel({
     }
   };
 
+  // Cuando todos los bultos ya están precintados, NUNCA desaparece: muestra confirmación y listado completo
   if (bultosPendientes.length === 0) {
     return (
-      <div className="card p-4 stack gap-2 bg-surface-muted text-center">
-        <span className="text-sm font-medium text-success">
-          Todos los bultos de esta orden estan precintados
-        </span>
-        <span className="text-xs text-secondary">
-          No hay bultos en estado PREPARADO pendientes de precinto de seguridad.
-        </span>
+      <div className="card p-4 stack gap-3" id="panel-precintos">
+        <div className="row justify-between align-center wrap gap-2">
+          <div>
+            <h3 className="text-md font-medium">Control de precintos de seguridad</h3>
+            <span className="text-xs text-secondary">
+              Todos los bultos preparados cuentan con precinto de seguridad numerado e intacto.
+            </span>
+          </div>
+          <span className="erp-badge erp-badge--success">
+            <span className="erp-badge__dot" />
+            100% Precintados ({bultos.length} de {bultos.length})
+          </span>
+        </div>
+
+        <div className="stack gap-2">
+          {bultos.map((b) => {
+            const totalUnits = (b.detalles || []).reduce(
+              (sum, d) => sum + (d.cantidad || 0),
+              0
+            );
+            return (
+              <div
+                key={b.id}
+                className="row justify-between align-center p-3 rounded bg-surface-muted wrap gap-2 text-sm"
+              >
+                <div className="stack gap-1">
+                  <div className="row align-center gap-2">
+                    <span className="font-mono font-medium">Bulto #{b.id}</span>
+                    <StatusBadge status={b.estado} />
+                  </div>
+                  <span className="text-xs text-secondary">
+                    Contenido: {(b.detalles || []).map((d) => `Prod #${d.productoId} (${d.cantidad} u.)`).join(", ")} · {totalUnits} u. en total
+                  </span>
+                </div>
+
+                <div className="row align-center gap-3">
+                  <div className="row align-center gap-1 font-mono text-xs">
+                    <span className="text-muted">Precinto:</span>
+                    <span className="font-mono font-medium text-primary">
+                      {b.codigoPrecinto || "Sin código"}
+                    </span>
+                  </div>
+                  {b.aprobado ? (
+                    <span className="badge badge--success text-xs">Aprobado</span>
+                  ) : (
+                    <span className="text-xs text-secondary">Listo para aprobación</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="card p-4 stack gap-4">
+    <div className="card p-4 stack gap-4" id="panel-precintos">
       <div className="row justify-between align-center wrap gap-2">
         <div>
           <h3 className="text-md font-medium">Asignación de precintos de seguridad</h3>

@@ -77,6 +77,17 @@ export function OperacionesPage() {
       })
     );
 
+    for (const rem of remitosMapped) {
+      if (!rem.ordenId) {
+        for (const [oId, bList] of Object.entries(bultosMap)) {
+          if (bList.some((b) => b.remitoNumero === rem.numero)) {
+            rem.ordenId = Number(oId);
+            break;
+          }
+        }
+      }
+    }
+
     return {
       ordenes: ordenesMapped,
       remitos: remitosMapped,
@@ -154,19 +165,30 @@ export function OperacionesPage() {
           </div>
           <div className="row gap-3 align-center mt-1">
             <h1 className="text-xl">Tableros de operaciones</h1>
-            <LiveIndicator freshnessSeconds={freshnessSeconds} isStale={isStale} onRefresh={refresh} />
           </div>
+          <p className="text-xs text-secondary mt-1">
+            Flujo operativo en vivo: órdenes y remitos en curso o concluidos durante la jornada de hoy.
+          </p>
         </div>
 
         {/* FR-043: Una unica accion primaria contextually */}
-        <div>
-          {user?.role === "ADMIN" && <Button
-            variant="primary"
-            iconLeft="plus"
-            onClick={() => navigate("/logistica/ordenes/nueva")}
+        <div className="row gap-2 align-center">
+          <Button
+            variant="secondary"
+            iconLeft="file-text"
+            onClick={() => navigate("/logistica/ordenes")}
           >
-            Nueva orden de reposición
-          </Button>}
+            Historial de órdenes
+          </Button>
+          {user?.role === "ADMIN" && (
+            <Button
+              variant="primary"
+              iconLeft="plus"
+              onClick={() => navigate("/logistica/ordenes/nueva")}
+            >
+              Nueva orden de reposición
+            </Button>
+          )}
         </div>
       </div>
 

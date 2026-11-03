@@ -2,9 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
 import { Button } from "./Button";
 import { UserChip } from "./Avatar";
-import { Select } from "./Select";
 import { Drawer } from "./Motion";
 import { NotificationPanel } from "./NotificationPanel";
+import { LogoutModal } from "./LogoutModal";
 import { navigationFocusTarget } from "../lib/navigationFocus";
 
 export const TASK_GROUPS = [
@@ -34,7 +34,6 @@ export const TASK_GROUPS = [
     defaultPath: "/stock/stock",
     items: [
       { id: "inventario-stock", label: "Stock por ubicación", path: "/stock/stock" },
-      { id: "inventario-ingresos", label: "Ingresos al CD", path: "/stock/ingresos" },
       { id: "inventario-alertas", label: "Alertas de reposición", path: "/stock/alertas" },
       { id: "inventario-movimientos", label: "Movimientos", path: "/logistica/trazabilidad" },
     ],
@@ -46,21 +45,7 @@ export const TASK_GROUPS = [
     defaultPath: "/logistica/operaciones",
     items: [
       { id: "operaciones-tablero", label: "Tablero operativo", path: "/logistica/operaciones" },
-      { id: "operaciones-recepcion", label: "Recepción", path: "/logistica/recepcion" },
-      { id: "distribucion-necesidades", label: "Necesidades", path: "/logistica" },
-      { id: "distribucion-ordenes", label: "Órdenes", path: "/logistica/ordenes" },
-      { id: "distribucion-empaquetado", label: "Empaquetado", path: "/logistica/empaquetado" },
-      { id: "distribucion-remitos", label: "Remitos y despacho", path: "/logistica/remitos" },
-    ],
-  },
-  {
-    id: "recepcion",
-    label: "Recepción",
-    icon: "check",
-    defaultPath: "/logistica/recepcion",
-    items: [
-      { id: "recepcion-pendientes", label: "Pendientes de recibir", path: "/logistica/recepcion" },
-      { id: "recepcion-historial", label: "Historial de recepciones", path: "/logistica/remitos" },
+      { id: "distribucion-ordenes", label: "Historial de órdenes", path: "/logistica/ordenes" },
     ],
   },
   {
@@ -78,12 +63,10 @@ export const TASK_GROUPS = [
     id: "control",
     label: "Control",
     icon: "chart",
-    defaultPath: "/reportes/stock",
+    defaultPath: "/reportes/ventas",
     items: [
       { id: "control-trazabilidad", label: "Trazabilidad", path: "/logistica/trazabilidad" },
-      { id: "control-reportes", label: "Stock y mermas", path: "/reportes/stock" },
-      { id: "control-ventas", label: "Ventas y márgenes", path: "/reportes/ventas" },
-      { id: "control-exportaciones", label: "Exportaciones PDF", path: "/reportes/imprimible" },
+      { id: "control-reportes", label: "Reportes gerenciales", path: "/reportes/ventas" },
     ],
   },
 ];
@@ -101,9 +84,8 @@ const ITEM_LABELS = {
   "inventario-stock": "Inventario por sede",
   "inventario-ingresos": "Recepción de proveedores",
   "inventario-alertas": "Reposición",
-  "distribucion-necesidades": "Reposición pendiente",
-  "distribucion-ordenes": "Distribución",
-  "distribucion-remitos": "Remitos y despacho",
+  "distribucion-ordenes": "Historial de órdenes",
+  "operaciones-tablero": "Tablero operativo",
 };
 
 // La navegación no inventa sedes: SedeProvider carga sólo las disponibles desde la API.
@@ -132,11 +114,7 @@ export function AppShell({
   onNavigate,
   activeModule = "inicio",
   onSelectModule,
-  flowContextBadge,
   onSearch,
-  readingLocations = [],
-  activeReadingLocation = "",
-  onSelectReadingLocation,
   notifications = [],
   notificationsError,
   onMarkNotificationRead,
@@ -144,6 +122,7 @@ export function AppShell({
   onResolveNotification,
   operatorName = "Usuario",
   operatorRole = "Administrador",
+  onLogout,
   children,
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -154,6 +133,8 @@ export function AppShell({
   const [search, setSearch] = useState("");
   const [expandedGroups, setExpandedGroups] = useState(() => new Set([getActiveGroupId(currentPath, activeModule)].filter(Boolean)));
   const [activityOpen, setActivityOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 768px)");
@@ -250,7 +231,22 @@ export function AppShell({
             );
           })}
         </nav>
-        <div className="erp-sidebar__footer"><UserChip name={operatorName} role={operatorRole} /></div>
+        <div className="erp-sidebar__footer">
+          <div className="erp-sidebar__user-row">
+            <UserChip name={operatorName} role={operatorRole} />
+            {onLogout && (
+              <Button
+                variant="ghost"
+                size="sm"
+                iconLeft="log-out"
+                aria-label="Cerrar sesión"
+                title="Cerrar sesión"
+                onClick={() => setLogoutOpen(true)}
+                className="erp-sidebar__logout-btn"
+              />
+            )}
+          </div>
+        </div>
       </aside>
       <div className="erp-main" ref={mainRef}>
         <header className="erp-topbar">
@@ -258,18 +254,60 @@ export function AppShell({
             <Button variant="ghost" size="sm" iconLeft="menu" aria-label="Abrir navegación" aria-expanded={mobileOpen} aria-controls="stocky-navigation" onClick={(event) => { menuTriggerRef.current = event.currentTarget; setMobileOpen(true); }} className="erp-topbar__menu-btn" />
             <form className="erp-topbar__search" onSubmit={submitSearch}>
               <Icon name="search" size={16} />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar orden, remito, bulto, precinto o SKU" aria-label="Búsqueda global" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar orden, remito, bulto, precinto o SKU (/)" aria-label="Búsqueda global" />
             </form>
-            {readingLocations.length > 0 && <Select className="erp-topbar__reading-select" ariaLabel="Sede de lectura" options={[{ value: "", label: "Toda la red (lectura)" }, ...readingLocations]} value={activeReadingLocation} onChange={onSelectReadingLocation} />}
-            {flowContextBadge && <span className="erp-topbar__context">{flowContextBadge}</span>}
           </div>
-          <div className="erp-topbar__right"><Button variant="ghost" size="sm" iconLeft="bell" aria-label="Abrir panel de actividad" title="Panel de actividad" onClick={() => setActivityOpen(true)} /></div>
+          <div className="erp-topbar__right">
+            <Button
+              variant="ghost"
+              size="sm"
+              iconLeft="moon"
+              aria-label="Tema oscuro (Arc Dark)"
+              title="Tema oscuro (Arc Dark)"
+              onClick={() => {
+                const current = document.documentElement.dataset.theme;
+                const next = current === "light" ? "dark" : "light";
+                document.documentElement.dataset.theme = next;
+                localStorage.setItem("theme", next);
+              }}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              iconLeft="bell"
+              aria-label="Abrir panel de actividad"
+              title="Panel de actividad"
+              onClick={() => setActivityOpen(true)}
+            >
+              {notifications.filter((n) => !n.read).length > 0 && (
+                <span className="erp-topbar__badge tabular-nums">
+                  {notifications.filter((n) => !n.read).length}
+                </span>
+              )}
+            </Button>
+          </div>
         </header>
         <main className="erp-workspace">{children}</main>
       </div>
       <Drawer open={activityOpen} onClose={() => setActivityOpen(false)} title="Actividad operativa" subtitle="Alertas reales de reposición" className="erp-activity-drawer">
         {notificationsError ? <div className="erp-callout erp-callout--danger" role="alert">No se pudieron consultar las alertas. Abrí Alertas de reposición para reintentar.</div> : <NotificationPanel open embedded notifications={notifications} onMarkRead={onMarkNotificationRead} onMarkAllRead={onMarkAllNotificationsRead} onResolve={(notification) => { setActivityOpen(false); onResolveNotification?.(notification); }} />}
       </Drawer>
+      <LogoutModal
+        open={logoutOpen}
+        onClose={() => !loggingOut && setLogoutOpen(false)}
+        onConfirm={async () => {
+          try {
+            setLoggingOut(true);
+            if (onLogout) await onLogout();
+          } finally {
+            setLoggingOut(false);
+            setLogoutOpen(false);
+          }
+        }}
+        userName={operatorName}
+        userRole={operatorRole}
+        isBusy={loggingOut}
+      />
     </div>
   );
 }

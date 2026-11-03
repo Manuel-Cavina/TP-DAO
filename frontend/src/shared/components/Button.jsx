@@ -61,6 +61,10 @@ export function ConfirmMorph({
   confirmLabel = "Confirmar",
   cancelLabel = "Cancelar",
   doneLabel = "Acción registrada",
+  size = "sm",
+  variant = "danger",
+  iconLeft,
+  className = "",
   onConfirm,
 }) {
   const [phase, setPhase] = useState("idle"); // "idle" | "confirming" | "done"
@@ -76,18 +80,18 @@ export function ConfirmMorph({
 
   if (phase === "confirming") {
     return (
-      <div className="arc-confirm-morph" role="group" aria-label={confirmTitle}>
+      <div className={`arc-confirm-morph ${className}`.trim()} role="group" aria-label={confirmTitle}>
         <span className="arc-confirm-morph__label">{confirmTitle}</span>
         <Button
           variant="secondary"
-          size="sm"
+          size={size}
           onClick={() => setPhase("idle")}
         >
           {cancelLabel}
         </Button>
         <Button
           variant="danger"
-          size="sm"
+          size={size}
           onClick={() => {
             if (onConfirm) onConfirm();
             setPhase("done");
@@ -101,10 +105,77 @@ export function ConfirmMorph({
 
   return (
     <Button
-      variant="danger"
+      variant={variant}
+      size={size}
+      iconLeft={iconLeft}
+      className={className}
       onClick={() => setPhase("confirming")}
     >
       {triggerLabel}
+    </Button>
+  );
+}
+
+export function CopyButton({
+  value,
+  label = "Copiar",
+  copiedLabel = "Copiado",
+  size = "sm",
+  variant = "ghost",
+  className = "",
+  onCopied,
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(value);
+      }
+      setCopied(true);
+      if (onCopied) onCopied();
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      // fallback
+    }
+  };
+
+  return (
+    <Button
+      variant={variant}
+      size={size}
+      iconLeft={copied ? "check" : "copy"}
+      onClick={handleCopy}
+      className={`arc-copy-btn ${className}`.trim()}
+      aria-label={label}
+      title={label}
+    >
+      {copied ? copiedLabel : label}
+    </Button>
+  );
+}
+
+export function ActionSwap({
+  active = false,
+  onAction1,
+  onAction2,
+  label1 = "Activar",
+  label2 = "Desactivar",
+  icon1,
+  icon2,
+  size = "sm",
+  variant = "secondary",
+  className = "",
+}) {
+  return (
+    <Button
+      variant={variant}
+      size={size}
+      iconLeft={active ? icon2 : icon1}
+      onClick={active ? onAction2 : onAction1}
+      className={`arc-action-swap ${className}`.trim()}
+    >
+      {active ? label2 : label1}
     </Button>
   );
 }

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "default",
+  "rsc": false,
+  "tsx": false,
+  "tailwind": {
+    "config": "",
+    "css": "",
+    "baseColor": "",
+    "cssVariables": true
+  },
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/components/arc/lib",
+    "ui": "@/components/arc",
+    "lib": "@/components/arc/lib",
+    "hooks": "@/components/arc/hooks"
+  },
+  "registries": {
+    "@uiarc": "https://uiarc.dev/r/{name}.json"
+  }
+}

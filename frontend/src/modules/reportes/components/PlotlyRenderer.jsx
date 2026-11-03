@@ -29,38 +29,36 @@ function loadPlotlyScript() {
 }
 
 function getThemeTokens(node) {
-  const root = node || (typeof document !== "undefined" ? document.documentElement : null);
-  if (!root || typeof window === "undefined") {
+  const isDark = typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark";
+  if (isDark) {
     return {
-      textColor: "#262623",
-      textSecondary: "#65655f",
-      textMuted: "#8c8c85",
-      border: "#e6e6e2",
-      borderSubtle: "#f0f0ed",
-      accent: "#262623",
-      success: "#15803d",
-      warning: "#b45309",
-      danger: "#b91c1c",
-      info: "#0284c7",
-      scopeCd: "#0369a1",
-      scopeLocal: "#0f766e",
+      textColor: "#f8fafc",
+      textSecondary: "#94a3b8",
+      textMuted: "#64748b",
+      border: "#334155",
+      borderSubtle: "#1e293b",
+      accent: "#38bdf8",
+      success: "#22c55e",
+      warning: "#f59e0b",
+      danger: "#ef4444",
+      info: "#38bdf8",
+      scopeCd: "#38bdf8",
+      scopeLocal: "#2dd4bf",
     };
   }
-  const cs = window.getComputedStyle(root);
-  const get = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
   return {
-    textColor: get("--foreground", "#262623"),
-    textSecondary: get("--text-secondary", "#65655f"),
-    textMuted: get("--text-muted", "#8c8c85"),
-    border: get("--border", "#e6e6e2"),
-    borderSubtle: get("--border-subtle", "#f0f0ed"),
-    accent: get("--accent", "#262623"),
-    success: get("--success", "#15803d"),
-    warning: get("--warning", "#b45309"),
-    danger: get("--danger", "#b91c1c"),
-    info: get("--info", "#0284c7"),
-    scopeCd: get("--scope-cd", "#0369a1"),
-    scopeLocal: get("--scope-local", "#0f766e"),
+    textColor: "#0f172a",
+    textSecondary: "#64748b",
+    textMuted: "#94a3b8",
+    border: "#e2e8f0",
+    borderSubtle: "#f1f5f9",
+    accent: "#2563eb",
+    success: "#16a34a",
+    warning: "#d97706",
+    danger: "#dc2626",
+    info: "#0284c7",
+    scopeCd: "#0284c7",
+    scopeLocal: "#0d9488",
   };
 }
 
@@ -168,25 +166,59 @@ export function PlotlyRenderer({
       return cloned;
     });
 
+    const hasMultipleSeries = (figure.data || []).length > 1;
+    const titleText = typeof figure.layout?.title === "string" ? figure.layout.title : figure.layout?.title?.text;
+    const xAxisTitle = typeof figure.layout?.xaxis?.title === "string" ? figure.layout.xaxis.title : figure.layout?.xaxis?.title?.text;
+    const yAxisTitle = typeof figure.layout?.yaxis?.title === "string" ? figure.layout.yaxis.title : figure.layout?.yaxis?.title?.text;
+
     const layout = {
       autosize: true,
-      margin: { l: 45, r: 20, t: 35, b: 45, ...(figure.layout?.margin || {}) },
-      font: { family: "inherit", size: 12, color: tokens.textSecondary },
       paper_bgcolor: "transparent",
       plot_bgcolor: "transparent",
+      ...(figure.layout || {}),
+      template: undefined,
+      font: { family: "inherit", size: 12, color: tokens.textSecondary },
+      title: titleText ? {
+        text: titleText,
+        font: { family: "inherit", size: 13, color: tokens.textColor || "#f8fafc" },
+      } : undefined,
       xaxis: {
-        tickfont: { color: tokens.textSecondary, size: 11 },
+        ...(figure.layout?.xaxis || {}),
+        title: xAxisTitle ? {
+          text: xAxisTitle,
+          font: { family: "inherit", size: 11, color: tokens.textSecondary },
+        } : undefined,
+        tickfont: { family: "inherit", size: 11, color: tokens.textSecondary },
         gridcolor: tokens.borderSubtle,
         zerolinecolor: tokens.border,
-        ...(figure.layout?.xaxis || {}),
+        linecolor: tokens.border,
       },
       yaxis: {
-        tickfont: { color: tokens.textSecondary, size: 11 },
+        ...(figure.layout?.yaxis || {}),
+        title: yAxisTitle ? {
+          text: yAxisTitle,
+          font: { family: "inherit", size: 11, color: tokens.textSecondary },
+        } : undefined,
+        tickfont: { family: "inherit", size: 11, color: tokens.textSecondary },
         gridcolor: tokens.borderSubtle,
         zerolinecolor: tokens.border,
-        ...(figure.layout?.yaxis || {}),
+        linecolor: tokens.border,
       },
-      ...figure.layout,
+      legend: hasMultipleSeries ? {
+        orientation: "h",
+        y: 1.15,
+        x: 1,
+        xanchor: "right",
+        font: { family: "inherit", size: 11, color: tokens.textSecondary },
+        ...(figure.layout?.legend || {}),
+      } : { showlegend: false },
+      margin: {
+        ...(figure.layout?.margin || {}),
+        l: Math.max(figure.layout?.margin?.l || 0, 56),
+        r: Math.max(figure.layout?.margin?.r || 0, 48),
+        t: hasMultipleSeries ? Math.max(figure.layout?.margin?.t || 0, 56) : (titleText ? 40 : 24),
+        b: Math.max(figure.layout?.margin?.b || 0, 48),
+      },
     };
 
     const config = {

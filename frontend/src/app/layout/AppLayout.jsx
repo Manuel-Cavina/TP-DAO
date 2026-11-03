@@ -4,15 +4,13 @@ import { AppShell, TASK_GROUPS } from "../../shared/components/AppShell";
 import { ScreenTransition } from "../../shared/components/Motion";
 import { ErrorBoundary } from "../providers/ErrorBoundary";
 import { useAuth } from "../auth/AuthProvider";
-import { useSede } from "../providers/SedeProvider";
 import { useAlertasStock } from "../../modules/ubicaciones_stock/hooks/useAlertasStock";
 
 export function AppLayout() {
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
   const fullPath = pathname + search;
-  const { user } = useAuth();
-  const { sedes, sedeId, setSedeId } = useSede();
+  const { user, logout } = useAuth();
   const { alertas, error: alertasError, marcarLeida } = useAlertasStock();
   const notifications = alertas.map((alerta) => ({
     id: alerta.id,
@@ -62,17 +60,11 @@ export function AppLayout() {
       ? activeGroup.label
       : "Stocky ERP";
 
-  // Identificar si la ruta es un flujo operativo con origen y destino explícitos
-  // para no imponer una sede global única como restricción obligatoria
   const isMultiNodeFlow =
     pathname.startsWith("/logistica") ||
     pathname.startsWith("/catalogo") ||
     pathname.startsWith("/stock/ubicaciones") ||
     pathname.startsWith("/red");
-
-  const flowContextBadge = isMultiNodeFlow
-    ? "Sede de lectura (origen y destino explícitos en operación)"
-    : null;
 
   return (
     <AppShell
@@ -80,11 +72,7 @@ export function AppLayout() {
       routeTitle={routeTitle}
       onNavigate={(path) => navigate(path)}
       activeModule={activeGroup?.id || "inventario"}
-      flowContextBadge={flowContextBadge}
       onSearch={(query) => navigate(`/logistica/trazabilidad?q=${encodeURIComponent(query)}`)}
-      readingLocations={sedes.map((sede) => ({ value: sede.value, label: sede.label, icon: sede.icon }))}
-      activeReadingLocation={sedeId ?? ""}
-      onSelectReadingLocation={setSedeId}
       notifications={notifications}
       notificationsError={alertasError}
       onMarkNotificationRead={(id) => marcarLeida(id)}
@@ -92,6 +80,10 @@ export function AppLayout() {
       onResolveNotification={(notification) => navigate(`/stock/alertas?stockId=${notification.entity.id}`)}
       operatorName={user?.displayName || user?.name || "Administrador"}
       operatorRole={user?.role === "ADMIN" ? "Administrador" : "Operador"}
+      onLogout={async () => {
+        await logout();
+        navigate("/login", { replace: true });
+      }}
     >
       <ErrorBoundary resetKey={pathname}>
         <ScreenTransition screenKey={pathname}>

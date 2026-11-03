@@ -133,14 +133,14 @@ export function LogisticaPage({ initialTab = "remitos" }) {
             </Button>
           )}
 
-          {row.estado === "DESPACHADO" && (
+          {(row.estado === "DESPACHADO" || row.estado === "EN_TRANSITO" || row.estado === "RECIBIDO") && (
             <Button
               variant="primary"
               size="sm"
-              iconLeft="package"
-              onClick={() => navigate(row.ordenId ? `/logistica/ordenes/${row.ordenId}?tab=recepcion` : `/logistica/recepcion?remito=${encodeURIComponent(row.numero)}`)}
+              iconLeft={row.estado === "RECIBIDO" ? "check" : "package"}
+              onClick={() => navigate(row.ordenId ? `/logistica/ordenes/${row.ordenId}?tab=recepcion` : `/logistica/operaciones`)}
             >
-              Gestionar recepción
+              {row.estado === "RECIBIDO" ? "Controlar precintos" : "Gestionar recepción"}
             </Button>
           )}
 
@@ -210,6 +210,16 @@ export function LogisticaPage({ initialTab = "remitos" }) {
               onClick={() => navigate(`/logistica/ordenes/${row.id}?tab=empaque`)}
             >
               Empaquetar
+            </Button>
+          )}
+          {row.estado === "DESPACHADA" && (
+            <Button
+              variant="primary"
+              size="sm"
+              iconLeft="truck"
+              onClick={() => navigate(`/logistica/ordenes/${row.id}?tab=recepcion`)}
+            >
+              Recibir
             </Button>
           )}
         </div>
