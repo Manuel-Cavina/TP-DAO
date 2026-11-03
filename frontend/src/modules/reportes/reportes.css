@@ -467,3 +467,26 @@
     font-size: 0.75rem;
   }
 }
+
+
+.stocky-chart-container text.gtitle,
+.stocky-chart-container text.xtitle,
+.stocky-chart-container text.ytitle,
+.stocky-chart-container .gtitle,
+.stocky-chart-container .xtitle,
+.stocky-chart-container .ytitle {
+  fill: var(--foreground) !important;
+}
+
+.stocky-chart-container .xtick text,
+.stocky-chart-container .ytick text,
+.stocky-chart-container .legendtext,
+.stocky-chart-container text {
+  fill: var(--text-secondary) !important;
+}
+
+.stocky-chart-container text.gtitle {
+  fill: var(--foreground) !important;
+}
+
+.stocky-chart-dual-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 12px; }

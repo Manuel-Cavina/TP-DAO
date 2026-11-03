@@ -185,7 +185,7 @@ export function CatalogoPage({ initialView = "productos" }) {
             <span>·</span>
             <span>Artículos comerciales</span>
           </div>
-          <h1 className="text-xl">Gestión de Catálogo, Proveedores y Categorías</h1>
+          <h1 className="text-xl">Gestión de catálogo, proveedores y categorías</h1>
         </div>
         <div className="row gap-2">
           {activeTab === "productos" && (

@@ -5,45 +5,46 @@
 
 export const motionTokens = {
   duration: {
-    instant: 0.09,
-    fast: 0.14,
-    normal: 0.2,
-    slow: 0.3,
+    instant: 0.12,
+    fast: 0.16,
+    exit: 0.18,
+    standard: 0.24,
+    considered: 0.48,
   },
   ease: {
-    enter: [0.22, 1, 0.36, 1],
+    enter: [0.16, 1, 0.3, 1],
+    exit: [0.7, 0, 0.84, 0],
     standard: [0.22, 1, 0.36, 1],
-    exit: [0.4, 0, 1, 1],
+    inOut: [0.65, 0, 0.35, 1],
+    spring: [0.16, 1, 0.3, 1],
   },
   spring: {
-    snappy: {
-      type: "spring",
-      stiffness: 520,
-      damping: 36,
-      mass: 0.65,
-    },
-    smooth: {
-      type: "spring",
-      stiffness: 380,
-      damping: 32,
-      mass: 0.8,
-    },
-    morph: {
-      type: "spring",
-      stiffness: 420,
-      damping: 34,
-      mass: 0.72,
-    },
+    responsive: { type: "spring", stiffness: 520, damping: 44 },
+    gentle: { type: "spring", stiffness: 340, damping: 34 },
+    snappy: { type: "spring", visualDuration: 0.26, bounce: 0 },
+    smooth: { type: "spring", visualDuration: 0.4, bounce: 0 },
+    morph: { type: "spring", visualDuration: 0.42, bounce: 0 },
   },
   stagger: {
+    char: 0.016,
+    word: 0.04,
+    line: 0.08,
+    item: 0.035,
     tight: 0.025,
-    normal: 0.045,
-    relaxed: 0.07,
+    normal: 0.035,
+    relaxed: 0.06,
   },
   blur: {
-    subtle: "4px",
+    subtle: "2px",
+    soft: "4px",
+    text: "8px",
     standard: "8px",
   },
 };
+
+export function useReducedMotion() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 export default motionTokens;

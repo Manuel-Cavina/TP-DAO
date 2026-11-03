@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Button } from "../../../shared/components/Button";
-import { SegmentedControl } from "../../../shared/components/SegmentedControl";
-import { StatusBadge } from "../../../shared/components/Badge";
-import { MetricCard } from "../../../shared/components/Feedback";
-import { SortableDataTable } from "../../../shared/components/SortableDataTable";
-import { FormField, TextInput } from "../../../shared/components/FormControls";
-import { Select } from "../../../shared/components/Select";
-import { Modal } from "../../../shared/components/Motion";
+import {
+  Button,
+  SegmentedControl,
+  StatusBadge,
+  MetricCard,
+  SortableDataTable,
+  FormField,
+  TextInput,
+  Select,
+  Modal,
+} from "../../../shared";
 import { useDisclosure, useLiveResource } from "../../../shared/hooks";
 import { useToast } from "../../../shared/feedback/ToastContext";
 import { useUbicaciones } from "../../ubicaciones_stock/hooks/useUbicaciones";
@@ -15,6 +18,7 @@ import { useRemitos } from "../hooks/useRemitos";
 import { logisticaService } from "../services";
 import { mapRemitoToUI } from "../mappers/logisticaMappers";
 import { ControlPrecintosModal } from "../components/ControlPrecintosModal";
+import { RecepcionPreCierreModal } from "../components/RecepcionPreCierreModal";
 import { validateSealControl } from "../mappers/sealControl";
 
 export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
@@ -29,6 +33,7 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
   const [selectedNumeroFallback, setSelectedNumero] = useState(effectiveNumero || "");
   const selectedNumero = effectiveNumero || selectedNumeroFallback;
   const [listScope, setListScope] = useState("pendientes");
+  const [scopeManuallySelected, setScopeManuallySelected] = useState(false);
 
   const verificarModal = useDisclosure(false);
   const [targetBulto, setTargetBulto] = useState(null);
@@ -38,7 +43,6 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
   const [motivoRechazo, setMotivoRechazo] = useState("");
   const [verificando, setVerificando] = useState(false);
   const [verifError, setVerifError] = useState("");
-
   const controlBatchModal = useDisclosure(false);
   const preCierreModal = useDisclosure(false);
   const [recibiendo, setRecibiendo] = useState(false);
@@ -47,6 +51,36 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
   const [actionError, setActionError] = useState("");
 
   const ubicMap = useMemo(() => new Map(ubicaciones.map((u) => [u.id, u.nombre])), [ubicaciones]);
+
+  const countPendientes = useMemo(() => remitos.filter((r) => r.estado === "DESPACHADO" || r.estado === "EN_TRANSITO").length, [remitos]);
+  const countVerificacion = useMemo(() => remitos.filter((r) => r.estado === "RECIBIDO").length, [remitos]);
+  const countHistorial = useMemo(() => remitos.filter((r) => r.estado === "CERRADO").length, [remitos]);
+
+  // Si hay un remito específico en URL o props, adaptar la pestaña correspondiente
+  useEffect(() => {
+    if (effectiveNumero && remitos.length > 0) {
+      const found = remitos.find((r) => r.numero === effectiveNumero);
+      if (found) {
+        if (found.estado === "CERRADO") setListScope("historial");
+        else if (found.estado === "RECIBIDO") setListScope("verificacion");
+        else if (found.estado === "DESPACHADO" || found.estado === "EN_TRANSITO") setListScope("pendientes");
+      }
+    }
+  }, [effectiveNumero, remitos]);
+
+  // Si se entra sin remito seleccionado y el usuario no cambió manualmente de pestaña,
+  // seleccionar automáticamente la pestaña que tenga trabajo pendiente (verificación o pendientes).
+  useEffect(() => {
+    if (!effectiveNumero && !scopeManuallySelected && remitos.length > 0) {
+      if (countPendientes > 0) {
+        setListScope("pendientes");
+      } else if (countVerificacion > 0) {
+        setListScope("verificacion");
+      } else if (countHistorial > 0) {
+        setListScope("historial");
+      }
+    }
+  }, [effectiveNumero, scopeManuallySelected, remitos.length, countPendientes, countVerificacion, countHistorial]);
   const remitosRecepcion = useMemo(() => remitos.filter((remito) => {
     if (listScope === "historial") return remito.estado === "CERRADO";
     if (listScope === "verificacion") return remito.estado === "RECIBIDO";
@@ -56,36 +90,38 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
   useEffect(() => {
     if (effectiveNumero) {
       setSelectedNumero(effectiveNumero);
-    } else if (remitosRecepcion.length > 0 && !remitosRecepcion.some((remito) => remito.numero === selectedNumero)) {
-      const firstNum = remitosRecepcion[0].numero;
-      setSelectedNumero(firstNum);
-      if (!embedded) setSearchParams({ remito: firstNum });
+    } else if (remitosRecepcion.length > 0) {
+      const existsInScope = remitosRecepcion.some((remito) => remito.numero === selectedNumero);
+      if (!existsInScope) {
+        const firstNum = remitosRecepcion[0].numero;
+        setSelectedNumero(firstNum);
+        if (!embedded) setSearchParams({ remito: firstNum });
+      }
+    } else if (remitosRecepcion.length === 0 && selectedNumeroFallback) {
+      setSelectedNumero("");
     }
   }, [effectiveNumero, remitosRecepcion, selectedNumero, embedded, setSearchParams]);
 
   const fetchActiveRemito = useCallback(async ({ signal }) => {
-      const res = await logisticaService.obtenerRemito(selectedNumero, { signal });
-      const mapped = mapRemitoToUI(res);
-      if (Array.isArray(res.bultos)) {
-        mapped.bultosResumen = res.bultos.map((b) => ({
-          id: b.id,
-          ordenId: b.orden_id,
-          codigo: b.codigo || `BLT-${String(b.id).padStart(4, "0")}`,
-          codigoPrecinto: b.codigo_precinto || b.precinto?.codigo || null,
-          estado: b.estado,
-          cantidadItems: Number(b.cantidad_items) || (b.detalles || []).reduce((acc, d) => acc + (Number(d.cantidad) || 0), 0),
-          detalles: b.detalles || [],
-        }));
-        mapped.totalBultos = mapped.bultosResumen.length;
-        mapped.bultosVerificados = mapped.bultosResumen.filter((b) => b.estado === "VERIFICADO").length;
-        mapped.bultosRechazados = mapped.bultosResumen.filter((b) => b.estado === "RECHAZADO").length;
-        mapped.bultosPendientes = mapped.bultosResumen.filter((b) => b.estado === "RECIBIDO" || b.estado === "EN_TRANSITO").length;
-      }
-      return mapped;
+    const res = await logisticaService.obtenerRemito(selectedNumero, { signal });
+    const mapped = mapRemitoToUI(res);
+    if (Array.isArray(res.bultos)) {
+      mapped.bultosResumen = res.bultos.map((b) => ({
+        id: b.id, ordenId: b.orden_id, codigo: b.codigo || `BLT-${String(b.id).padStart(4, "0")}`,
+        codigoPrecinto: b.codigo_precinto || b.precinto?.codigo || null, estado: b.estado,
+        cantidadItems: Number(b.cantidad_items) || (b.detalles || []).reduce((acc, d) => acc + (Number(d.cantidad) || 0), 0),
+        detalles: b.detalles || [], historial: b.historial || [],
+      }));
+      mapped.totalBultos = mapped.bultosResumen.length;
+      mapped.bultosVerificados = mapped.bultosResumen.filter((b) => b.estado === "VERIFICADO").length;
+      mapped.bultosRechazados = mapped.bultosResumen.filter((b) => b.estado === "RECHAZADO").length;
+      mapped.bultosPendientes = mapped.bultosResumen.filter((b) => b.estado === "RECIBIDO" || b.estado === "EN_TRANSITO").length;
+    }
+    return mapped;
   }, [selectedNumero]);
+
   const { data: activeRemito, isLoading: loadingRemito, error: errorRemito, isStale, refresh: loadActiveRemito } = useLiveResource(fetchActiveRemito, {
-    resourceKey: `reception:${selectedNumero}`,
-    enabled: Boolean(selectedNumero),
+    resourceKey: `reception:${selectedNumero}`, enabled: Boolean(selectedNumero),
   });
 
   useEffect(() => {
@@ -96,18 +132,24 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
     setTargetBulto(null);
   }, [selectedNumero]);
 
-  const bultosPendientesRecibidos = useMemo(
-    () => (activeRemito?.bultosResumen || []).filter((b) => b.estado === "RECIBIDO"),
-    [activeRemito]
-  );
+  const bultosPendientesRecibidos = useMemo(() => (activeRemito?.bultosResumen || []).filter((b) => b.estado === "RECIBIDO"), [activeRemito]);
+
+  const queryBulto = searchParams.get("bulto");
+  const queryBatch = searchParams.get("batch");
+  useEffect(() => {
+    if (queryBulto && activeRemito?.bultosResumen?.length > 0 && !targetBulto && !verificarModal.open) {
+      const match = activeRemito.bultosResumen.find((b) => String(b.id) === String(queryBulto) && b.estado === "RECIBIDO");
+      if (match) handleOpenVerificar(match);
+    } else if (queryBatch && bultosPendientesRecibidos.length > 0 && !controlBatchModal.open) {
+      controlBatchModal.onOpen();
+    }
+  }, [queryBulto, queryBatch, activeRemito?.bultosResumen, targetBulto, verificarModal.open, bultosPendientesRecibidos.length]);
 
   const { unidadesVerificadas, unidadesMerma } = useMemo(() => {
-    let verif = 0;
-    let merma = 0;
+    let verif = 0, merma = 0;
     for (const b of activeRemito?.bultosResumen || []) {
-      const cant = b.cantidadItems || 0;
-      if (b.estado === "VERIFICADO") verif += cant;
-      else if (b.estado === "RECHAZADO") merma += cant;
+      if (b.estado === "VERIFICADO") verif += b.cantidadItems || 0;
+      else if (b.estado === "RECHAZADO") merma += b.cantidadItems || 0;
     }
     return { unidadesVerificadas: verif, unidadesMerma: merma };
   }, [activeRemito]);
@@ -118,11 +160,12 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
     setActionError("");
     try {
       await logisticaService.recibirRemito(selectedNumero);
-      toast(`Remito ${selectedNumero} recibido en sucursal destino`);
+      toast.success("Remito recibido", `Remito ${selectedNumero} recibido en sucursal destino.`);
       await loadActiveRemito();
       await reloadRemitos();
       onChange?.();
     } catch (err) {
+      toast.error(err, { entity: "Remito", action: "recibir remito" });
       setActionError(err.message || "Error al recibir remito.");
     } finally {
       setRecibiendo(false);
@@ -131,11 +174,7 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
 
   const handleOpenVerificar = (bulto) => {
     if (isStale || loadingRemito) return;
-    setTargetBulto(bulto);
-    setCodigoIngresado("");
-    setResultadoPrecinto("");
-    setMotivoRechazo("");
-    setVerifError("");
+    setTargetBulto(bulto); setCodigoIngresado(""); setResultadoPrecinto(""); setMotivoRechazo(""); setVerifError("");
     verificarModal.onOpen();
   };
 
@@ -150,17 +189,12 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
     setVerificando(true);
     setVerifError("");
     try {
-      await logisticaService.verificarBulto(targetBulto.id, {
-        codigoPrecintoRecibido: decision.read,
-        estaIntacto: !decision.rejected,
-        motivoRechazo: motivoRechazo.trim(),
-      });
+      await logisticaService.verificarBulto(targetBulto.id, { codigoPrecintoRecibido: decision.read, estaIntacto: !decision.rejected, motivoRechazo: motivoRechazo.trim() });
       verificarModal.onClose();
-      toast(`Control registrado para el bulto #${targetBulto.id}`);
-      await loadActiveRemito();
-      await reloadRemitos();
-      onChange?.();
+      toast.success("Control de precinto", `Control registrado para el bulto #${targetBulto.id}`);
+      await loadActiveRemito(); await reloadRemitos(); onChange?.();
     } catch (err) {
+      toast.error(err, { entity: "Bulto", action: "verificar precinto" });
       setVerifError(err.message || "Error al registrar la verificación del bulto.");
     } finally {
       setVerificando(false);
@@ -169,17 +203,14 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
 
   const handleConfirmarCierreFinal = async () => {
     if (!selectedNumero || isStale || loadingRemito) return;
-    setCerrando(true);
-    setActionError("");
+    setCerrando(true); setActionError("");
     try {
       const res = await logisticaService.cerrarRemito(selectedNumero);
-      setCierreOutcome(res);
-      preCierreModal.onClose();
-      toast(`Remito ${selectedNumero} cerrado con impacto exitoso en stock`);
-      await loadActiveRemito();
-      await reloadRemitos();
-      onChange?.();
+      setCierreOutcome(res); preCierreModal.onClose();
+      toast.success("Remito cerrado", `Remito ${selectedNumero} cerrado con impacto exitoso en stock`);
+      await loadActiveRemito(); await reloadRemitos(); onChange?.();
     } catch (err) {
+      toast.error(err, { entity: "Remito", action: "cerrar remito" });
       setActionError(err.message || "Error al cerrar el remito.");
     } finally {
       setCerrando(false);
@@ -193,30 +224,16 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
   const canCerrarRemito = !isCerrado && totalBultos > 0 && bultosPendientes === 0 && !isStale && !loadingRemito;
 
   const bultoChecklistColumns = [
+    { key: "codigo", header: "Bulto", mono: true, render: (_, r) => <span>{r.codigo || `BLT-${r.id}`} <span className="text-xs text-muted">(#{r.id})</span></span> },
+    { key: "codigoPrecinto", header: "Precinto registrado", mono: true, render: (v) => v || <span className="text-muted">Sin precinto</span> },
+    { key: "estado", header: "Estado", render: (v) => <StatusBadge status={v} /> },
     {
-      key: "codigo",
-      header: "Bulto",
-      mono: true,
-      render: (_, r) => <span>{r.codigo || `BLT-${r.id}`} <span className="text-xs text-muted">(#{r.id})</span></span>,
-    },
-    {
-      key: "codigoPrecinto",
-      header: "Precinto registrado",
-      mono: true,
-      render: (v) => v || <span className="text-muted">Sin precinto</span>,
-    },
-    {
-      key: "estado",
-      header: "Estado",
-      render: (v) => <StatusBadge status={v} />,
-    },
-    {
-      key: "accion",
-      header: "Control de precinto",
-      align: "right",
+      key: "accion", header: "Control de precinto", align: "right",
       render: (_, r) => {
         if (r.estado === "RECIBIDO") {
-          return <Button variant="primary" size="sm" iconLeft="check" onClick={() => handleOpenVerificar(r)}>Controlar precinto</Button>;
+          const targetOrdenId = r.ordenId || activeRemito?.ordenId || activeRemito?.bultosResumen?.[0]?.ordenId;
+          const onControlClick = () => (!embedded && targetOrdenId) ? navigate(`/logistica/ordenes/${targetOrdenId}?tab=recepcion&bulto=${r.id}`) : handleOpenVerificar(r);
+          return <Button variant="primary" size="sm" iconLeft="check" onClick={onControlClick}>Controlar precinto</Button>;
         }
         if (r.estado === "VERIFICADO") return <span className="text-xs text-success font-medium">Precinto intacto (conforme)</span>;
         if (r.estado === "RECHAZADO") return <span className="text-xs text-danger font-medium">Precinto violado (merma)</span>;
@@ -232,7 +249,7 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
       {!embedded && <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">
-            <span className="cursor-pointer text-secondary" onClick={() => navigate("/logistica/recepcion")}>Recepción</span>
+            <span className="cursor-pointer text-secondary" onClick={() => navigate("/logistica/operaciones")}>Operaciones</span>
             <span>·</span>
             <span>Recepción y verificación en destino</span>
           </div>
@@ -247,33 +264,58 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
 
       {!embedded && <SegmentedControl
         value={listScope}
-        onChange={setListScope}
+        onChange={(val) => {
+          setListScope(val);
+          setScopeManuallySelected(true);
+        }}
         options={[
-          { value: "pendientes", label: "Pendientes de recibir", count: remitos.filter((r) => r.estado === "DESPACHADO" || r.estado === "EN_TRANSITO").length },
-          { value: "verificacion", label: "En verificación", count: remitos.filter((r) => r.estado === "RECIBIDO").length },
-          { value: "historial", label: "Historial", count: remitos.filter((r) => r.estado === "CERRADO").length },
+          { value: "pendientes", label: "Pendientes de recibir", count: countPendientes },
+          { value: "verificacion", label: "En verificación", count: countVerificacion },
+          { value: "historial", label: "Historial", count: countHistorial },
         ]}
       />}
 
-      {!embedded && <div className="card p-4 row justify-between align-center wrap gap-3">
-        <div className="flex-1 min-w-64">
-          <FormField label="Remito en tránsito o recibido a procesar">
-            <Select
-              options={remitosRecepcion.map((r) => ({
-                value: r.numero,
-                label: `Remito ${r.numero} · Destino: ${ubicMap.get(r.destinoId) || `#${r.destinoId}`} (${r.estado})`,
-              }))}
-              value={selectedNumero}
-              onChange={(val) => { setSelectedNumero(val); setSearchParams({ remito: val }); }}
-              placeholder="Seleccionar remito de traslado"
-            />
-          </FormField>
+      {!embedded && remitosRecepcion.length === 0 && (
+        <div className="card p-6 text-center stack gap-3 align-center">
+          <div className="text-secondary text-sm">
+            No hay remitos en la pestaña <strong>{listScope === "pendientes" ? "Pendientes de recibir" : listScope === "verificacion" ? "En verificación" : "Historial"}</strong>.
+          </div>
+          <div className="row gap-2 justify-center wrap">
+            {countVerificacion > 0 && listScope !== "verificacion" && (
+              <Button variant="secondary" size="sm" onClick={() => { setListScope("verificacion"); setScopeManuallySelected(true); }}>Ver {countVerificacion} remito(s) en verificación</Button>
+            )}
+            {countPendientes > 0 && listScope !== "pendientes" && (
+              <Button variant="secondary" size="sm" onClick={() => { setListScope("pendientes"); setScopeManuallySelected(true); }}>Ver {countPendientes} remito(s) en tránsito</Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => navigate("/logistica/operaciones")}>Ir al tablero de operaciones</Button>
+          </div>
+        </div>
+      )}
+
+      {!embedded && remitosRecepcion.length > 0 && <div className="card p-4 stack gap-3">
+        <div className="row justify-between align-center wrap gap-3">
+          <div className="flex-1 min-w-64">
+            <FormField label="Remito en tránsito o recibido a procesar">
+              <Select
+                options={remitosRecepcion.map((r) => ({
+                  value: r.numero, label: `Remito ${r.numero} · Destino: ${ubicMap.get(r.destinoId) || `#${r.destinoId}`} (${r.estado})`,
+                }))}
+                value={selectedNumero} onChange={(val) => { setSelectedNumero(val); setSearchParams({ remito: val }); }} placeholder="Seleccionar remito de traslado"
+              />
+            </FormField>
+          </div>
+          {activeRemito?.bultosResumen?.[0]?.ordenId && (
+            <Button variant="secondary" size="sm" iconRight="arrow-right" onClick={() => navigate(`/logistica/ordenes/${activeRemito.bultosResumen[0].ordenId}?tab=recepcion`)}>
+              Abrir en centralizador de orden #{activeRemito.bultosResumen[0].ordenId}
+            </Button>
+          )}
         </div>
         {activeRemito && (
-          <div className="row gap-4 align-center pt-2">
-            <div><span className="text-xs text-muted block">Origen (CD)</span><span className="text-sm font-medium">{ubicMap.get(activeRemito.origenId) || `CD #${activeRemito.origenId}`}</span></div>
-            <div><span className="text-xs text-muted block">Destino (Local)</span><span className="text-sm font-medium">{ubicMap.get(activeRemito.destinoId) || `Local #${activeRemito.destinoId}`}</span></div>
+          <div className="row gap-4 align-center pt-2 border-t wrap text-sm">
+            <div><span className="text-xs text-muted block">Origen (CD)</span><span className="font-medium">{ubicMap.get(activeRemito.origenId) || `CD #${activeRemito.origenId}`}</span></div>
+            <div><span className="text-xs text-muted block">Destino (Local)</span><span className="font-medium">{ubicMap.get(activeRemito.destinoId) || `Local #${activeRemito.destinoId}`}</span></div>
             <div><span className="text-xs text-muted block">Documento</span><StatusBadge status={activeRemito.documentoEstado} /></div>
+            <div><span className="text-xs text-muted block">Control de bultos</span><span className="tabular-nums font-medium">{activeRemito.bultosVerificados + activeRemito.bultosRechazados} de {activeRemito.totalBultos} inspeccionados</span></div>
           </div>
         )}
       </div>}
@@ -308,10 +350,10 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
       {activeRemito && (
         <>
           <div className="grid-4 gap-3">
-            <MetricCard label="Total bultos en remito" value={activeRemito.totalBultos} subtext="En este envío" />
-            <MetricCard label="Bultos verificados" value={activeRemito.bultosVerificados} subtext="Acreditarán stock vendible" badgeTone={activeRemito.bultosVerificados > 0 ? "success" : "neutral"} />
-            <MetricCard label="Bultos rechazados" value={activeRemito.bultosRechazados} subtext="Registrarán merma formal" badgeTone={activeRemito.bultosRechazados > 0 ? "danger" : "neutral"} />
-            <MetricCard label="Pendientes de verificación" value={activeRemito.bultosPendientes} subtext="Requieren control de precinto" badgeTone={activeRemito.bultosPendientes > 0 ? "warning" : "success"} />
+            <MetricCard label="Total bultos" value={activeRemito.totalBultos} subtext="En este envío" />
+            <MetricCard label="Verificados" value={activeRemito.bultosVerificados} subtext="Stock vendible" badgeTone={activeRemito.bultosVerificados > 0 ? "success" : "neutral"} />
+            <MetricCard label="Rechazados" value={activeRemito.bultosRechazados} subtext="Merma formal" badgeTone={activeRemito.bultosRechazados > 0 ? "danger" : "neutral"} />
+            <MetricCard label="Pendientes" value={activeRemito.bultosPendientes} subtext="Requieren control" badgeTone={activeRemito.bultosPendientes > 0 ? "warning" : "success"} />
           </div>
 
           <div className="card p-4 stack gap-3">
@@ -323,7 +365,20 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
               <div className="row gap-3 align-center">
                 <span className="text-xs text-muted">{activeRemito.bultosVerificados + activeRemito.bultosRechazados} de {activeRemito.totalBultos} controlados</span>
                 {bultosPendientesRecibidos.length > 0 && (
-                  <Button variant="secondary" size="sm" iconLeft="check" disabled={isStale || loadingRemito} onClick={controlBatchModal.onOpen}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    iconLeft="check"
+                    disabled={isStale || loadingRemito}
+                    onClick={() => {
+                      const targetOrdenId = activeRemito?.ordenId || activeRemito?.bultosResumen?.[0]?.ordenId;
+                      if (!embedded && targetOrdenId) {
+                        navigate(`/logistica/ordenes/${targetOrdenId}?tab=recepcion&batch=1`);
+                      } else {
+                        controlBatchModal.onOpen();
+                      }
+                    }}
+                  >
                     Controlar todos ({bultosPendientesRecibidos.length})
                   </Button>
                 )}
@@ -371,11 +426,18 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
       >
         <form onSubmit={handleSubmitVerificar} className="stack gap-4">
           {verifError && <div className="p-3 rounded bg-danger-subtle text-danger text-sm">{verifError}</div>}
-          <div className="p-3 rounded bg-surface-muted stack gap-1">
-            <span className="text-xs text-muted">Precinto esperado según remito</span>
-            <span className="font-mono text-sm font-medium">{targetBulto?.codigoPrecinto || "Sin código registrado"}</span>
+          <div className="p-3 rounded bg-surface-muted row justify-between align-center wrap gap-2">
+            <div className="stack gap-0.5">
+              <span className="text-xs text-muted">Precinto esperado según remito</span>
+              <span className="font-mono text-sm font-medium">{targetBulto?.codigoPrecinto || "Sin código registrado"}</span>
+            </div>
+            {targetBulto?.codigoPrecinto && (
+              <Button type="button" variant="secondary" size="sm" iconLeft="check" onClick={() => { setCodigoIngresado(targetBulto.codigoPrecinto); setResultadoPrecinto("INTACTO"); setVerifError(""); }}>
+                Coincide con precinto esperado
+              </Button>
+            )}
           </div>
-          <TextInput id="reception-seal-read" label="Código de precinto físico observado" hint="Ingrese el código de la faja física, sin copiar el esperado." mono value={codigoIngresado} onChange={(e) => setCodigoIngresado(e.target.value)} placeholder="p. ej. PRC-2026-0001" required />
+          <TextInput id="reception-seal-read" label="Código de precinto físico observado" hint="Verifique la faja física del bulto o use el botón superior si coincide con la esperada." mono value={codigoIngresado} onChange={(e) => setCodigoIngresado(e.target.value)} placeholder="p. ej. PRC-2026-0001" required />
           <SegmentedControl ariaLabel="Resultado de la inspección física" value={resultadoPrecinto} onChange={setResultadoPrecinto} options={[{ value: "INTACTO", label: "Intacto" }, { value: "VIOLADO", label: "Violado" }]} />
           {(resultadoPrecinto === "VIOLADO" || (codigoIngresado.trim() && targetBulto?.codigoPrecinto && codigoIngresado.trim() !== targetBulto.codigoPrecinto)) && (
             <FormField label="Motivo de rechazo" htmlFor="reception-rejection-reason" required hint="Describa el daño o anomalía observada (máx 250 caracteres).">
@@ -405,43 +467,16 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
       />
 
       {/* Modal Pre-cierre y consecuencia de stock (T059) */}
-      <Modal
+      <RecepcionPreCierreModal
         open={preCierreModal.open}
         onClose={preCierreModal.onClose}
-        title="Confirmación de cierre e impacto de stock"
-        subtitle={`Remito ${activeRemito?.numero || ""} · Destino: ${ubicMap.get(activeRemito?.destinoId) || ""}`}
-        footer={
-          <div className="row justify-between w-full align-center">
-            <Button variant="ghost" onClick={preCierreModal.onClose} disabled={cerrando}>Cancelar</Button>
-            <Button variant="primary" onClick={handleConfirmarCierreFinal} loading={cerrando} loadingLabel="Confirmando cierre...">
-              Confirmar cierre e impacto
-            </Button>
-          </div>
-        }
-      >
-        <div className="stack gap-4">
-          <p className="text-sm text-secondary">
-            Revise el balance de mercadería antes del cierre formal. Esta acción es definitiva e impactará las existencias del inventario según el control físico efectuado.
-          </p>
-          <div className="grid-2 gap-3">
-            <div className="card p-3 bg-success-subtle border-success stack gap-1">
-              <span className="text-xs text-muted block">Acreditación a stock vendible</span>
-              <span className="text-xl font-medium text-success">{activeRemito?.bultosVerificados || 0} bultos</span>
-              <span className="text-sm text-secondary">{unidadesVerificadas} unidades listas para venta comercial</span>
-            </div>
-            <div className="card p-3 bg-danger-subtle border-danger stack gap-1">
-              <span className="text-xs text-muted block">Registro formal de merma</span>
-              <span className="text-xl font-medium text-danger">{activeRemito?.bultosRechazados || 0} bultos</span>
-              <span className="text-sm text-secondary">{unidadesMerma} unidades derivadas a merma por precinto violado</span>
-            </div>
-          </div>
-          <div className="erp-callout">
-            <span className="text-sm text-secondary">
-              Consecuencia legal y contable: Las unidades conformes quedarán disponibles para caja y POS en este local. Los bultos rechazados no podrán venderse y se registrarán en la bitácora de mermas.
-            </span>
-          </div>
-        </div>
-      </Modal>
+        activeRemito={activeRemito}
+        destinoNombre={ubicMap.get(activeRemito?.destinoId) || ""}
+        cerrando={cerrando}
+        onConfirm={handleConfirmarCierreFinal}
+        unidadesVerificadas={unidadesVerificadas}
+        unidadesMerma={unidadesMerma}
+      />
     </div>
   );
 }

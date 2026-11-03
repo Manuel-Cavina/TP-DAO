@@ -208,7 +208,7 @@ export function UbicacionesPage() {
             <span>·</span>
             <span>Centros y Locales</span>
           </div>
-          <h1 className="text-xl">Administración de Red Logística</h1>
+          <h1 className="text-xl">Administración de red logística</h1>
           <p className="text-sm text-secondary">
             Nodos operativos habilitados como orígenes o destinos para reposición, despacho y ventas.
           </p>

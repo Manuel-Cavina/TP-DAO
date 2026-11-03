@@ -314,7 +314,7 @@ export function AlertasPage() {
             <span>·</span>
             <span>Monitor de existencias</span>
           </div>
-          <h1 className="text-xl font-medium">Alertas de Stock Bajo Mínimo</h1>
+          <h1 className="text-xl font-medium">Alertas de stock bajo mínimo</h1>
         </div>
         <div className="row gap-2 align-center">
           <Button

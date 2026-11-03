@@ -7,6 +7,7 @@ export default defineConfig({
   base: "./",
   resolve: {
     alias: {
+      "@": path.resolve(__dirname, "./src"),
       "@shared": path.resolve(__dirname, "./src/shared"),
       "@modules": path.resolve(__dirname, "./src/modules"),
     },
@@ -14,5 +15,11 @@ export default defineConfig({
   server: {
     port: 5173,
     open: false,
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
+    },
   },
 });

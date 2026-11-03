@@ -2,12 +2,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, status
 
-from modules.ubicaciones_stock.application import Alerta_Stock_Service, Stock_Service
+from modules.ubicaciones_stock.application import Alerta_Stock_Service, Stock_Service, Ubicacion_Service
 from modules.ubicaciones_stock.dto import (
     Alerta_Stock_DTO,
     Ingreso_Mercaderia_Request_DTO,
     Nivel_Minimo_Request_DTO,
     Stock_DTO,
+    Ubicacion_DTO,
 )
 from modules.ubicaciones_stock.mappers import Stock_Mapper
 from modules.seguridad.api.dependencies import obtener_usuario_actual, requerir_rol
@@ -36,6 +37,10 @@ def get_alerta_service() -> Alerta_Stock_Service:
     return Alerta_Stock_Service()
 
 
+def get_ubicacion_service() -> Ubicacion_Service:
+    return Ubicacion_Service()
+
+
 @router.get("", response_model=list[Stock_DTO], summary="Existencias por ubicación y/o producto")
 def listar_stock(
     ubicacion_id: Id_Opcional = None,
@@ -44,6 +49,16 @@ def listar_stock(
     service: Stock_Service = Depends(get_stock_service),
 ) -> list[Stock_DTO]:
     return [Stock_Mapper.stock_a_dto(s) for s in service.listar(ubicacion_id, producto_id, solo_bajo_minimo)]
+
+
+@router.get("/ubicaciones", response_model=list[Ubicacion_DTO], summary="Listar ubicaciones activas (compatibilidad)")
+def listar_ubicaciones_compatibilidad(
+    activas: bool = Query(True),
+    solo_activas: bool = Query(False),
+    service: Ubicacion_Service = Depends(get_ubicacion_service),
+) -> list[Ubicacion_DTO]:
+    filtrar_activas = activas or solo_activas
+    return [Stock_Mapper.ubicacion_a_dto(u) for u in service.listar(solo_activas=filtrar_activas)]
 
 
 @router.post(

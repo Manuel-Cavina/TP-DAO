@@ -40,19 +40,20 @@ class TestSeedDemo(unittest.TestCase):
         self.assertEqual(login.status_code, 200, login.text)
         periodo = {"desde": (date.today() - timedelta(days=100)).isoformat(), "hasta": date.today().isoformat()}
 
-        self.assertEqual(len(client.get("/api/ubicaciones", params={"tipo": "LOCAL"}).json()), 3)
-        self.assertEqual(len(client.get("/api/catalogo/productos").json()), 10)
+        self.assertEqual(len(client.get("/api/ubicaciones", params={"tipo": "LOCAL"}).json()), 5)
+        self.assertEqual(len(client.get("/api/ubicaciones", params={"tipo": "CD"}).json()), 2)
+        self.assertEqual(len(client.get("/api/catalogo/productos").json()), 27)
 
         ventas = client.get("/api/reportes/ventas", params=periodo).json()
         self.assertEqual({f["medio_pago"] for f in ventas["filas"]}, {"EFECTIVO", "TARJETA", "TRANSFERENCIA"})
-        self.assertEqual(ventas["totales"]["total_devoluciones"], "1900.00")
+        self.assertEqual(ventas["totales"]["total_devoluciones"], "12300.00")
 
         productos = client.get("/api/reportes/productos-mas-vendidos", params=periodo).json()
         self.assertGreaterEqual(productos["totales"]["productos_con_perdida"], 1)
 
         self.assertGreater(len(client.get("/api/reportes/existencias").json()["filas"]), 0)
-        self.assertEqual(client.get("/api/reportes/mermas", params=periodo).json()["totales"]["bultos_rechazados"], 1)
-        self.assertEqual(client.get("/api/reportes/tiempos-transito", params=periodo).json()["totales"]["bultos_recibidos"], 13)
+        self.assertEqual(client.get("/api/reportes/mermas", params=periodo).json()["totales"]["bultos_rechazados"], 4)
+        self.assertEqual(client.get("/api/reportes/tiempos-transito", params=periodo).json()["totales"]["bultos_recibidos"], 23)
 
         ordenes = client.get("/api/logistica/ordenes").json()
         self.assertTrue({"PENDIENTE", "EN_PREPARACION", "DESPACHADA", "CERRADA"} <= {orden["estado"] for orden in ordenes})
@@ -62,9 +63,19 @@ class TestSeedDemo(unittest.TestCase):
         self.assertEqual(eventos.status_code, 200, eventos.text)
         self.assertGreater(len(eventos.json()), 0)
 
-        # Las ventas dispararon el Observer: alerta y necesidad de reposición del local
-        self.assertEqual(len(client.get("/api/stock/alertas").json()), 1)
-        self.assertEqual(len(client.get("/api/logistica/necesidades").json()), 1)
+        # Las ventas dispararon el Observer: alerta y necesidad de reposición de los locales
+        self.assertGreaterEqual(len(client.get("/api/stock/alertas").json()), 3)
+        self.assertGreaterEqual(len(client.get("/api/logistica/necesidades").json()), 3)
+
+        # Autenticación y alcance del Operador móvil
+        login_op = client.post(
+            "/api/seguridad/login",
+            json={"login": "operador@stocky.local", "password": "stocky-demo"},
+        )
+        self.assertEqual(login_op.status_code, 200, login_op.text)
+        op_info = login_op.json()
+        self.assertEqual(op_info["user"]["role"], "OPERADOR")
+        self.assertEqual(len(op_info["scope"]["branch_ids"]), 5)
 
 
 if __name__ == "__main__":

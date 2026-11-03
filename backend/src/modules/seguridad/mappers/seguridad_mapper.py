@@ -33,11 +33,12 @@ class Seguridad_Mapper:
         )
 
     @staticmethod
-    def login_a_response_dto(usuario: Usuario, sesion: Sesion) -> Login_Response_DTO:
+    def login_a_response_dto(usuario: Usuario, sesion: Sesion, raw_token: str | None = None) -> Login_Response_DTO:
         return Login_Response_DTO(
             user=Seguridad_Mapper.usuario_a_dto(usuario),
             scope=Seguridad_Mapper.asignacion_a_scope_dto(usuario.asignacion),
             csrf_token=sesion.csrf_token,
+            token=raw_token,
         )
 
     @staticmethod

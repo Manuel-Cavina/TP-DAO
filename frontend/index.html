@@ -1,10 +1,18 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light" data-accent="neutral">
+<html lang="es" data-theme="dark" data-accent="blue">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Stocky</title>
     <link rel="icon" type="image/png" href="/stocky-icon.png" />
+    <script>
+      try {
+        const saved = localStorage.getItem("theme");
+        document.documentElement.dataset.theme = saved || "dark";
+      } catch {
+        document.documentElement.dataset.theme = "dark";
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

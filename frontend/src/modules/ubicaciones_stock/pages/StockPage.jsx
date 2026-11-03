@@ -9,16 +9,20 @@ import {
   SegmentedControl,
   LiveIndicator,
   Select,
+  Badge,
 } from "../../../shared";
 import { useSede } from "../../../app/providers/SedeProvider";
 import { useUbicaciones } from "../hooks/useUbicaciones";
 import { useStockMatriz } from "../hooks/useStockMatriz";
 import { useAlertasStock } from "../hooks/useAlertasStock";
 import { useProductos } from "../../catalogo/hooks/useProductos";
+import { useNecesidades } from "../../logistica/hooks/useNecesidades";
+import { RestockCdDrawer } from "../components/RestockCdDrawer";
+import "../stock-craft.css";
 
 /**
  * Vista de existencias por ubicación y matriz de stock (/stock/stock).
- * Aplica frescura live 15s (FR-028), validación de CD seleccionado y refresco tras mutación.
+ * Visibilidad multinivel: stock por sede, demanda diferida y restock de Casa Central.
  */
 export function StockPage() {
   const navigate = useNavigate();
@@ -27,12 +31,17 @@ export function StockPage() {
   const [search, setSearch] = useState("");
   const [filtroNivel, setFiltroNivel] = useState("todos");
   const [ubicacionFiltro, setUbicacionFiltro] = useState("");
+
   const activeUbicacionId = ubicacionFiltro || sedeId;
   const activeSede = useMemo(
-    () => ubicaciones.find((ubicacion) => String(ubicacion.id) === String(activeUbicacionId)) || sede,
+    () =>
+      ubicaciones.find(
+        (ubicacion) => String(ubicacion.id) === String(activeUbicacionId)
+      ) || sede,
     [ubicaciones, activeUbicacionId, sede]
   );
 
+  const isCD = activeSede?.scope === "CD" || activeSede?.tipo === "CD";
 
   const {
     stocks,
@@ -43,22 +52,49 @@ export function StockPage() {
     isStale,
   } = useStockMatriz({ ubicacionId: activeUbicacionId });
 
-  const {
-    alertas,
-    reload: reloadAlertas,
-  } = useAlertasStock({ ubicacionId: activeUbicacionId });
-
+  const { alertas } = useAlertasStock({ ubicacionId: activeUbicacionId });
   const { productos } = useProductos();
+  const { necesidades = [] } = useNecesidades();
 
-  const isCD = activeSede?.scope === "CD" || activeSede?.tipo === "CD";
+  // Drawer de restock a Casa Central
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerTargetProduct, setDrawerTargetProduct] = useState(null);
 
-  // Enriquecer registros de stock con metadatos del producto
+  const handleOpenRestock = (productRow = null) => {
+    setDrawerTargetProduct(productRow);
+    setDrawerOpen(true);
+  };
+
+  // Demanda acumulada de sedes minoristas
+  const demandaPorProducto = useMemo(() => {
+    const map = new Map();
+    for (const n of necesidades) {
+      if (n.estado === "PENDIENTE") {
+        const prodId = Number(n.productoId);
+        map.set(prodId, (map.get(prodId) || 0) + (Number(n.cantidad) || 0));
+      }
+    }
+    return map;
+  }, [necesidades]);
+
+  const totalDemandaSedes = useMemo(() => {
+    let sum = 0;
+    for (const val of demandaPorProducto.values()) {
+      sum += val;
+    }
+    return sum;
+  }, [demandaPorProducto]);
+
+  // Enriquecer registros de stock con metadatos del producto y demanda de sedes
   const stockRows = useMemo(() => {
     const prodMap = new Map((productos || []).map((p) => [p.id, p]));
     return (stocks || []).map((s) => {
       const prod = prodMap.get(s.productoId);
       const isAgotado = s.disponible === 0;
       const isBajoMinimo = s.disponible <= s.nivelMinimo;
+      const demandaSedes = demandaPorProducto.get(s.productoId) || 0;
+      const deficitCD = isCD && demandaSedes > s.disponible;
+
       return {
         id: s.id,
         productoId: s.productoId,
@@ -68,18 +104,22 @@ export function StockPage() {
         disponible: s.disponible,
         enTransito: s.enTransito,
         nivelMinimo: s.nivelMinimo,
+        demandaSedes,
+        deficitCD,
         isAgotado,
         isBajoMinimo,
         deficit: Math.max(0, s.nivelMinimo - s.disponible),
       };
     });
-  }, [stocks, productos]);
+  }, [stocks, productos, demandaPorProducto, isCD]);
 
   const filteredStock = useMemo(() => {
     let result = stockRows;
 
     if (filtroNivel === "bajo_minimo") {
       result = result.filter((r) => r.isBajoMinimo);
+    } else if (filtroNivel === "demanda_sedes") {
+      result = result.filter((r) => r.demandaSedes > 0);
     } else if (filtroNivel === "agotado") {
       result = result.filter((r) => r.isAgotado);
     } else if (filtroNivel === "normal") {
@@ -103,13 +143,6 @@ export function StockPage() {
     () => stockRows.filter((r) => r.isBajoMinimo).length,
     [stockRows]
   );
-  const reorderItems = useMemo(
-    () => stockRows.filter((row) => row.isBajoMinimo).map((row) => ({
-      productoId: row.productoId,
-      cantidad: Math.max(1, row.deficit),
-    })),
-    [stockRows]
-  );
   const totalDisponible = useMemo(
     () => stockRows.reduce((acc, r) => acc + r.disponible, 0),
     [stockRows]
@@ -119,61 +152,102 @@ export function StockPage() {
     [stockRows]
   );
 
-  const stockColumns = [
-    { key: "codigo", header: "Código SKU", mono: true, sortable: true },
-    { key: "nombre", header: "Artículo comercial", sortable: true },
-    {
-      key: "disponible",
-      header: "Stock disponible",
-      align: "right",
-      render: (v, r) => (
-        <span
-          className={`tabular-nums font-medium ${
-            r.isAgotado ? "text-danger" : r.isBajoMinimo ? "text-warning" : "text-success"
-          }`}
-        >
-          {v} u.
-        </span>
-      ),
-    },
-    {
-      key: "enTransito",
-      header: "En tránsito",
-      align: "right",
-      render: (v) => <span className="tabular-nums text-muted">{v} u.</span>,
-    },
-    {
+  const stockColumns = useMemo(() => {
+    const cols = [
+      { key: "codigo", header: "Código SKU", mono: true, sortable: true },
+      { key: "nombre", header: "Artículo comercial", sortable: true },
+      {
+        key: "disponible",
+        header: isCD ? "Stock en CD" : "Stock disponible",
+        align: "right",
+        render: (v, r) => (
+          <span
+            className={`tabular-nums font-medium ${
+              r.isAgotado
+                ? "text-danger"
+                : r.isBajoMinimo
+                ? "text-warning"
+                : "text-success"
+            }`}
+          >
+            {v} u.
+          </span>
+        ),
+      },
+    ];
+
+    if (isCD) {
+      cols.push({
+        key: "demandaSedes",
+        header: "Demanda sedes",
+        align: "right",
+        render: (v, r) => {
+          if (!v) return <span className="text-muted tabular-nums">0 u.</span>;
+          return (
+            <Badge tone={r.deficitCD ? "warning" : "neutral"} className="tabular-nums">
+              {v} u. {r.deficitCD ? "(déficit)" : ""}
+            </Badge>
+          );
+        },
+      });
+    } else {
+      cols.push({
+        key: "enTransito",
+        header: "En tránsito",
+        align: "right",
+        render: (v) => <span className="tabular-nums text-muted">{v} u.</span>,
+      });
+    }
+
+    cols.push({
       key: "nivelMinimo",
       header: "Nivel mínimo",
       align: "right",
       render: (v) => <span className="tabular-nums text-secondary">{v} u.</span>,
-    },
-    {
+    });
+
+    cols.push({
       key: "acciones",
       header: "Acción",
       align: "right",
       render: (_, r) => {
+        if (isCD) {
+          return (
+            <Button
+              variant={r.isBajoMinimo || r.deficitCD ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => handleOpenRestock(r)}
+            >
+              Restock
+            </Button>
+          );
+        }
+
         if (r.isBajoMinimo) {
           return (
             <Button
               variant="ghost"
               size="sm"
               iconRight="arrow-right"
-              onClick={() => navigate(`/stock/alertas?productoId=${r.productoId}&ubicacionId=${activeUbicacionId}`)}
+              onClick={() =>
+                navigate(
+                  `/stock/alertas?productoId=${r.productoId}&ubicacionId=${activeUbicacionId}`
+                )
+              }
             >
               Ver alerta
             </Button>
           );
         }
-        return (
-          <span className="text-xs text-muted">Normal</span>
-        );
+        return <span className="text-xs text-muted">Equilibrado</span>;
       },
-    },
-  ];
+    });
+
+    return cols;
+  }, [isCD, activeUbicacionId, navigate]);
 
   return (
-    <div className="stack gap-5">
+    <div className="stock-flow-wrap">
       <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">
@@ -182,7 +256,7 @@ export function StockPage() {
             <span>{activeSede?.label || activeSede?.nombre || "Sede activa"}</span>
           </div>
           <div className="row align-center gap-3 wrap">
-            <h1 className="text-xl font-medium">Matriz de Stock por Ubicación</h1>
+            <h1 className="text-xl font-medium">Matriz de stock por ubicación</h1>
             <LiveIndicator
               freshnessSeconds={freshnessSeconds}
               isStale={isStale}
@@ -190,14 +264,28 @@ export function StockPage() {
             />
           </div>
         </div>
+
+        {/* Acciones principales de la cabecera */}
         <div className="row gap-2 align-center">
-          <Button
-            variant="primary"
-            iconLeft="plus"
-            onClick={() => navigate("/logistica/ordenes/nueva")}
-          >
-            Crear orden formal
-          </Button>
+          {isCD ? (
+            <Button
+              variant="primary"
+              iconLeft="plus"
+              onClick={() => handleOpenRestock(null)}
+            >
+              Restockear Casa Central
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              iconLeft="truck"
+              onClick={() =>
+                navigate(`/logistica/ordenes/nueva?destinoId=${activeUbicacionId}`)
+              }
+            >
+              Pedir reposición a CD
+            </Button>
+          )}
         </div>
       </div>
 
@@ -206,7 +294,7 @@ export function StockPage() {
           label="Sede en foco"
           value={(activeSede?.label || activeSede?.nombre || "Sede").split(" ")[0]}
           subtext={isCD ? "Ámbito mayorista CD" : "Ámbito minorista Local"}
-          badgeText={isCD ? "CD Central" : "Sucursal"}
+          badgeText={isCD ? "Casa Central" : "Sucursal"}
           badgeTone={isCD ? "cd" : "local"}
         />
         <MetricCard
@@ -215,14 +303,23 @@ export function StockPage() {
           subtext={`${stockRows.length} artículos catalogados`}
         />
         <MetricCard
-          label="Unidades en tránsito"
-          value={`${totalEnTransito} u.`}
-          subtext="Remitidos pendientes de recepción"
+          label={isCD ? "Demanda diferida de sedes" : "Unidades en tránsito"}
+          value={isCD ? `${totalDemandaSedes} u.` : `${totalEnTransito} u.`}
+          subtext={
+            isCD
+              ? "Requeridas por sucursales"
+              : "Remitidos pendientes de recepción"
+          }
+          badgeTone={isCD && totalDemandaSedes > 0 ? "warning" : "neutral"}
         />
         <MetricCard
           label="Bajo nivel mínimo"
           value={articulosBajoMinimo}
-          subtext={articulosBajoMinimo > 0 ? "Disparan alertas activas" : "Existencias equilibradas"}
+          subtext={
+            articulosBajoMinimo > 0
+              ? "Disparan alertas activas"
+              : "Existencias equilibradas"
+          }
           badgeTone={articulosBajoMinimo > 0 ? "danger" : "success"}
         />
       </div>
@@ -237,9 +334,11 @@ export function StockPage() {
               variant="primary"
               size="sm"
               iconRight="arrow-right"
-              onClick={() => navigate(`/logistica/ordenes/nueva?destinoId=${activeUbicacionId}`, {
-                state: { destinoId: String(activeUbicacionId), preselectedItems: reorderItems },
-              })}
+              onClick={() =>
+                navigate(
+                  `/logistica/ordenes/nueva?destinoId=${activeUbicacionId}`
+                )
+              }
             >
               Generar pedido
             </Button>
@@ -256,13 +355,28 @@ export function StockPage() {
           }}
           options={[
             { value: "todos", label: "Todos", count: stockRows.length },
-            { value: "bajo_minimo", label: "Bajo mínimo", count: articulosBajoMinimo },
-            { value: "normal", label: "Stock normal" },
+            {
+              value: "bajo_minimo",
+              label: "Bajo mínimo",
+              count: articulosBajoMinimo,
+            },
+            ...(isCD
+              ? [
+                  {
+                    value: "demanda_sedes",
+                    label: "Con demanda de sedes",
+                    count: stockRows.filter((r) => r.demandaSedes > 0).length,
+                  },
+                ]
+              : [{ value: "normal", label: "Stock normal" }]),
           ]}
         />
         <Select
           ariaLabel="Filtrar por sede"
-          options={ubicaciones.map((ubicacion) => ({ value: String(ubicacion.id), label: ubicacion.nombre }))}
+          options={ubicaciones.map((ubicacion) => ({
+            value: String(ubicacion.id),
+            label: ubicacion.nombre,
+          }))}
           value={String(activeUbicacionId || "")}
           onChange={setUbicacionFiltro}
           placeholder="Seleccionar sede"
@@ -282,9 +396,27 @@ export function StockPage() {
         error={errorStock}
         onRetry={reloadStock}
         emptyTitle="Sin existencias registradas en esta sede"
-        emptyDescription="Creá una orden formal y completá su recepción para registrar existencias."
+        emptyDescription="Creá una orden o restockeá la sede para registrar existencias."
       />
 
+      {/* Drawer de Restock de Casa Central */}
+      <RestockCdDrawer
+        open={drawerOpen}
+        onClose={() => {
+          setDrawerOpen(false);
+          setDrawerTargetProduct(null);
+        }}
+        cdId={activeSede?.id}
+        initialProductoId={drawerTargetProduct?.productoId || ""}
+        initialCantidad={
+          drawerTargetProduct
+            ? Math.max(1, drawerTargetProduct.demandaSedes || drawerTargetProduct.deficit || 100)
+            : 100
+        }
+        stockActual={drawerTargetProduct?.disponible || 0}
+        demandaSedes={drawerTargetProduct?.demandaSedes || 0}
+        onSuccess={reloadStock}
+      />
     </div>
   );
 }

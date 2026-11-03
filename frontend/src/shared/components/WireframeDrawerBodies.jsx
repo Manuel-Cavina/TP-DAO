@@ -166,30 +166,32 @@ export function BulkDrawerBody() {
           <span className="field-help">Mayor que 0 y hasta 100; máximo 2 decimales.</span>
         </div>
       </div>
-      <table className="mt-3">
-        <thead>
-          <tr>
-            <th>Producto</th>
-            <th className="num">Anterior</th>
-            <th className="num">Variación</th>
-            <th className="num">Propuesto</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>SKU-104 · Yerba</td>
-            <td className="num">ARS 3.450,00</td>
-            <td className="num bulk-delta">{deltaLabel}</td>
-            <td className="num bulk-result">{yerbaProposed}</td>
-          </tr>
-          <tr>
-            <td>SKU-229 · Café</td>
-            <td className="num">ARS 7.800,00</td>
-            <td className="num bulk-delta">{deltaLabel}</td>
-            <td className="num bulk-result">{cafeProposed}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="erp-table-scroll mt-3">
+        <table className="erp-table">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th className="num">Anterior</th>
+              <th className="num">Variación</th>
+              <th className="num">Propuesto</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>SKU-104 · Yerba</td>
+              <td className="num">ARS 3.450,00</td>
+              <td className="num bulk-delta">{deltaLabel}</td>
+              <td className="num bulk-result">{yerbaProposed}</td>
+            </tr>
+            <tr>
+              <td>SKU-229 · Café</td>
+              <td className="num">ARS 7.800,00</td>
+              <td className="num bulk-delta">{deltaLabel}</td>
+              <td className="num bulk-result">{cafeProposed}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <div className="validation-note mt-3">
         La revisión muestra precio anterior, porcentaje y resultado por producto. La operación es atómica: si una fila es inválida, no cambia ninguna.
       </div>
@@ -209,15 +211,16 @@ export function ApprovePackagesDrawerBody({ onToast }) {
       <p>
         Puede aprobar un bulto desde su fila o confirmar juntos todos los que ya cumplan contenido y precinto. Cada bulto conserva un evento individual.
       </p>
-      <table>
-        <thead>
-          <tr>
-            <th>Bulto</th>
-            <th>Contenido</th>
-            <th>Precinto</th>
-            <th>Resultado</th>
-          </tr>
-        </thead>
+      <div className="erp-table-scroll">
+        <table className="erp-table">
+          <thead>
+            <tr>
+              <th>Bulto</th>
+              <th>Contenido</th>
+              <th>Precinto</th>
+              <th>Resultado</th>
+            </tr>
+          </thead>
         <tbody>
           <tr>
             <td>BU-000043</td>
@@ -258,7 +261,8 @@ export function ApprovePackagesDrawerBody({ onToast }) {
             </td>
           </tr>
         </tbody>
-      </table>
+        </table>
+      </div>
       <div className="validation-note mt-3">
         <strong>Aprobar listos</strong> incluye sólo BU-000043 y BU-000044. No completa, corrige ni omite el bulto bloqueado.
       </div>
@@ -278,15 +282,16 @@ export function VerifyAllDrawerBody() {
       <p>
         Control por lote de RM-000078. Cada precinto debe escanearse o ingresarse y conserva su propio resultado.
       </p>
-      <table>
-        <thead>
-          <tr>
-            <th className="col-w-18">Bulto</th>
-            <th className="col-w-24">Precinto esperado</th>
-            <th className="col-w-32">Lectura</th>
-            <th className="col-w-26">Resultado</th>
-          </tr>
-        </thead>
+      <div className="erp-table-scroll">
+        <table className="erp-table">
+          <thead>
+            <tr>
+              <th className="col-w-18">Bulto</th>
+              <th className="col-w-24">Precinto esperado</th>
+              <th className="col-w-32">Lectura</th>
+              <th className="col-w-26">Resultado</th>
+            </tr>
+          </thead>
         <tbody>
           <tr>
             <td>BU-000045</td>
@@ -322,7 +327,8 @@ export function VerifyAllDrawerBody() {
             </td>
           </tr>
         </tbody>
-      </table>
+        </table>
+      </div>
       <div className="validation-note mt-3">
         “Confirmar 3 resultados” no significa aprobar a ciegas: valida cada lectura, exige motivo si se elige Violado y genera tres eventos de trazabilidad.
       </div>

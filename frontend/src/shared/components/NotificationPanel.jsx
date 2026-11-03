@@ -1,16 +1,27 @@
 import React, { useState, useEffect } from "react";
-import { Icon } from "./Icon";
+import { Bell, CheckCheck, X, ArrowRight, AlertTriangle, ShieldCheck, DollarSign, Package } from "lucide-react";
+import { Button } from "../../components/arc/button/button";
+import { Badge } from "../../components/arc/badge/badge";
 
-/**
- * NotificationPanel (`frontend/src/shared/components/NotificationPanel.jsx`)
- * Panel reutilizable de notificaciones operativas con:
- * - Filtro por estado leido / no leido
- * - Categoria tematica (Stock, Logistica, Bloqueo, Sistema)
- * - Timestamp relativo / horario
- * - Entidad vinculada (Remito, Orden, SKU, Bulto)
- * - Boton de resolucion directa hacia destino
- * - Exactamente una accion primaria visible a nivel contexto (FR-043)
- */
+const CATEGORY_ICONS = {
+  Bloqueo: AlertTriangle,
+  Stock: AlertTriangle,
+  Logística: Package,
+  Seguridad: ShieldCheck,
+  Ventas: DollarSign,
+  Caja: DollarSign,
+};
+
+function getTone(category = "", severidad = "") {
+  const cat = category.toLowerCase();
+  const sev = severidad.toLowerCase();
+  if (cat.includes("bloqueo") || sev === "critica") return "danger";
+  if (cat.includes("stock") || sev === "alta" || sev === "warn") return "warning";
+  if (cat.includes("logística") || cat.includes("tránsito") || sev === "info") return "info";
+  if (cat.includes("caja") || cat.includes("ventas") || sev === "success") return "success";
+  return "neutral";
+}
+
 export function NotificationPanel({
   open = true,
   onClose,
@@ -45,120 +56,135 @@ export function NotificationPanel({
 
   return (
     <div
-      className={`notification-panel ${className}`.trim()}
+      className={`notification-panel stack gap-3 ${className}`.trim()}
       role={embedded ? undefined : "dialog"}
       aria-modal={embedded ? undefined : "false"}
       aria-label={embedded ? undefined : "Panel de notificaciones"}
     >
       <div className="row justify-between align-center pb-2 border-b">
         <div className="row align-center gap-2">
-          <Icon name="bell" size={16} />
-          <strong>Notificaciones</strong>
+          <Bell width={16} height={16} className="text-secondary" aria-hidden="true" />
+          <span className="text-sm font-medium">Centro de notificaciones</span>
           {unreadCount > 0 ? (
-            <span className="badge bad micro">{unreadCount} pendientes</span>
+            <Badge tone="danger" size="sm" dot>
+              {unreadCount} nuevas
+            </Badge>
           ) : (
-            <span className="badge ok micro">Al día</span>
+            <Badge tone="success" size="sm" dot>
+              Al día
+            </Badge>
           )}
         </div>
         <div className="row align-center gap-1">
           {unreadCount > 0 && onMarkAllRead && (
-            <button
-              type="button"
-              className="button ghost small"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onMarkAllRead}
               title="Marcar todas como leídas"
             >
-              Marcar leídas
-            </button>
+              <CheckCheck width={14} height={14} aria-hidden="true" />
+              <span>Marcar leídas</span>
+            </Button>
           )}
           {!embedded && onClose && (
             <button
               type="button"
-              className="icon-button"
+              className="erp-btn erp-btn--ghost erp-btn--sm"
               aria-label="Cerrar panel de notificaciones"
               onClick={onClose}
             >
-              &times;
+              <X width={16} height={16} aria-hidden="true" />
             </button>
           )}
         </div>
       </div>
 
-      <div className="row gap-1 py-2">
+      <div className="row gap-2">
         <button
           type="button"
-          className={`button small ${filter === "all" ? "primary" : "ghost"}`}
+          className={`erp-btn erp-btn--sm erp-category-btn ${filter === "all" ? "erp-btn--primary" : "erp-btn--ghost"}`}
           onClick={() => setFilter("all")}
         >
-          Todas ({notifications.length})
+          <span>Todas ({notifications.length})</span>
         </button>
         <button
           type="button"
-          className={`button small ${filter === "unread" ? "secondary" : "ghost"}`}
+          className={`erp-btn erp-btn--sm erp-category-btn ${filter === "unread" ? "erp-btn--primary" : "erp-btn--ghost"}`}
           onClick={() => setFilter("unread")}
         >
-          No leídas ({unreadCount})
+          <span>No leídas ({unreadCount})</span>
         </button>
       </div>
 
-      <div className="notification-list">
+      <div className="notification-list stack gap-2">
         {filteredNotifications.length === 0 ? (
-          <div className="p-4 text-center text-muted">
-            <span className="micro">Sin notificaciones pendientes</span>
+          <div className="p-4 text-center text-secondary bg-surface-muted rounded-lg">
+            <span className="text-xs">No hay notificaciones para mostrar.</span>
           </div>
         ) : (
-          filteredNotifications.map((notif) => (
-            <div
-              key={notif.id}
-              className={`notification-item ${notif.read ? "is-read" : "is-unread"}`}
-            >
-              <span className={notif.read ? "dot muted" : "dot"} />
-              <div className="stack gap-1">
-                <div className="row justify-between align-center wrap gap-1">
-                  <span className="micro font-medium text-secondary">
-                    {notif.category || "Sistema"}
-                  </span>
-                  <span className="micro tabular text-muted">
-                    {notif.timestamp}
+          filteredNotifications.map((notif) => {
+            const tone = getTone(notif.category, notif.severidad);
+            const IconComponent = CATEGORY_ICONS[notif.category] || Bell;
+
+            return (
+              <div
+                key={notif.id}
+                className={`erp-notif-card erp-notif-${tone} stack gap-2 ${notif.read ? "is-read" : ""}`}
+              >
+                <div className="row justify-between align-center">
+                  <div className="row gap-2 align-center">
+                    <IconComponent width={14} height={14} className="text-secondary" aria-hidden="true" />
+                    <Badge tone={tone} size="sm">
+                      {notif.category || "General"}
+                    </Badge>
+                  </div>
+                  <span className="text-xs text-muted tabular-nums">
+                    {notif.timestamp || "Reciente"}
                   </span>
                 </div>
-                <strong>{notif.title}</strong>
-                {notif.description && (
-                  <span className="micro text-secondary">
-                    {notif.description}
-                  </span>
-                )}
+
+                <div className="stack gap-0">
+                  <span className="text-sm font-medium text-foreground">{notif.title}</span>
+                  {notif.description && (
+                    <span className="text-xs text-secondary mt-1">{notif.description}</span>
+                  )}
+                </div>
+
                 {notif.entity && (
-                  <div className="row align-center gap-1 mt-1">
-                    <span className="micro text-muted">Entidad:</span>
-                    <span className="badge info micro">
-                      {notif.entity.label || `${notif.entity.type} ${notif.entity.id}`}
-                    </span>
+                  <div className="row align-center gap-1">
+                    <span className="text-xs text-muted">Entidad:</span>
+                    <Badge tone="neutral" size="sm">
+                      {notif.entity.label || `${notif.entity.type} #${notif.entity.id}`}
+                    </Badge>
                   </div>
                 )}
-                <div className="row justify-between align-center mt-2">
+
+                <div className="row justify-between align-center pt-2 border-t">
                   {!notif.read && onMarkRead ? (
-                    <button
-                      type="button"
-                      className="button ghost small"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => onMarkRead(notif.id)}
                     >
                       Marcar leída
-                    </button>
+                    </Button>
                   ) : <span />}
+
                   {(notif.actionLabel || onResolve) && (
-                    <button
-                      type="button"
-                      className="button small"
+                    <Button
+                      variant="primary"
+                      size="sm"
                       onClick={() => onResolve && onResolve(notif)}
                     >
-                      {notif.actionLabel || "Resolver"}
-                    </button>
+                      <span>{notif.actionLabel || "Resolver"}</span>
+                      <ArrowRight width={14} height={14} aria-hidden="true" />
+                    </Button>
                   )}
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

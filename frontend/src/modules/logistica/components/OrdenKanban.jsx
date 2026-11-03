@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { StatusBadge } from "../../../shared/components/Badge";
+import { Badge, StatusBadge } from "../../../shared/components/Badge";
 import { Button } from "../../../shared/components/Button";
+import { SortableDataTable } from "../../../shared/components/SortableDataTable";
+import { isDateToday } from "../../../shared";
 
 export const ORDEN_STAGES = [
   { stage: 0, key: "PENDIENTE", title: "Por preparar" },
@@ -9,6 +11,7 @@ export const ORDEN_STAGES = [
   { stage: 2, key: "FALTA_PRECINTO", title: "Falta precinto" },
   { stage: 3, key: "PARA_REMITO", title: "Para remito" },
   { stage: 4, key: "DESPACHADA", title: "Despachada / En tránsito" },
+  { stage: 5, key: "CERRADA", title: "Cerradas hoy" },
 ];
 
 /**
@@ -33,8 +36,16 @@ export function OrdenKanban({
   const cards = useMemo(() => {
     return ordenes
       .filter((o) => {
-        if (!filtroDestino) return true;
-        return String(o.destinoId) === String(filtroDestino);
+        if (filtroDestino && String(o.destinoId) !== String(filtroDestino)) {
+          return false;
+        }
+        if (o.estado === "CERRADA") {
+          const fechaRaw = o.fecha || o.creadoEn || o.fechaCreacion;
+          if (!isDateToday(fechaRaw)) {
+            return false;
+          }
+        }
+        return true;
       })
       .map((o) => {
         const bultos = bultosPorOrden[o.id] || [];
@@ -47,9 +58,12 @@ export function OrdenKanban({
         let stage = 0;
         let badgeText = "Por preparar";
 
-        if (o.estado === "DESPACHADA" || o.estado === "EN_TRANSITO" || o.estado === "CERRADA") {
+        if (o.estado === "CERRADA") {
+          stage = 5;
+          badgeText = "Cerrada hoy";
+        } else if (o.estado === "DESPACHADA" || o.estado === "EN_TRANSITO") {
           stage = 4;
-          badgeText = "Despachada";
+          badgeText = "En tránsito";
         } else if (bultos.length > 0) {
           const haySinPrecinto = bultos.some((b) => b.estado === "PREPARADO" || !b.codigoPrecinto);
           if (totalEmp >= totalSol && totalSol > 0 && !haySinPrecinto) {
@@ -69,6 +83,8 @@ export function OrdenKanban({
 
         const origenNombre = ubicMap.get(o.origenId) || `CD #${o.origenId}`;
         const destinoNombre = ubicMap.get(o.destinoId) || `Local #${o.destinoId}`;
+        const fechaRaw = o.fecha || o.creadoEn || o.fechaCreacion || "2026-10-28T10:30:00";
+        const fecha = fechaRaw ? new Date(fechaRaw).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }) : "Sin fecha";
 
         return {
           id: `ord-${o.id}`,
@@ -85,6 +101,7 @@ export function OrdenKanban({
           bultosCount: bultos.length,
           owner: "Operador de Logística",
           avatar: "OP",
+          fecha,
         };
       });
   }, [ordenes, bultosPorOrden, ubicMap, filtroDestino]);
@@ -128,67 +145,128 @@ export function OrdenKanban({
     onDropOrder?.(card, targetStage);
   };
 
+  const columns = useMemo(
+    () => [
+      {
+        key: "code",
+        header: "Orden",
+        mono: true,
+        sortable: true,
+        render: (v, row) => (
+          <strong
+            className="font-mono text-sm cursor-pointer"
+            onClick={() => navigate(`/logistica/ordenes/${row.ordenId}`)}
+          >
+            {row.code}
+          </strong>
+        ),
+      },
+      {
+        key: "fecha",
+        header: "Hora y fecha",
+        sortable: true,
+        render: (v) => <span className="text-xs text-secondary tabular-nums">{v}</span>,
+      },
+      {
+        key: "owner",
+        header: "Responsable",
+        sortable: true,
+        render: (v) => <span className="text-xs text-secondary">{v}</span>,
+      },
+      {
+        key: "origenNombre",
+        header: "Origen (CD)",
+        sortable: true,
+        render: (v) => <span className="text-sm font-medium">{v}</span>,
+      },
+      {
+        key: "destinoNombre",
+        header: "Destino (Local)",
+        sortable: true,
+        render: (v) => <span className="text-sm">{v}</span>,
+      },
+      {
+        key: "totalEmp",
+        header: "Bultos y unidades",
+        align: "right",
+        sortable: true,
+        render: (_, row) => (
+          <span className="text-xs tabular-nums font-medium text-foreground">
+            {row.totalEmp} / {row.totalSol} u. ({row.bultosCount} bultos)
+          </span>
+        ),
+      },
+      {
+        key: "estadoReal",
+        header: "Estado",
+        sortable: true,
+        render: (_, row) => (
+          <div className="row gap-2 align-center wrap">
+            <StatusBadge status={row.estadoReal} />
+            <Badge tone="neutral" dot={false}>
+              {ORDEN_STAGES[row.stage]?.title || row.badgeText}
+            </Badge>
+          </div>
+        ),
+      },
+      {
+        key: "acciones",
+        header: "Acción",
+        align: "right",
+        sortable: false,
+        render: (_, row) => {
+          const tab = row.stage <= 2 ? "empaque" : row.stage === 3 ? "despacho" : "recepcion";
+          const actionText =
+            row.stage <= 2
+              ? "Gestionar empaque"
+              : row.stage === 3
+              ? "Emitir remito"
+              : row.stage === 4
+              ? "Gestionar recepción"
+              : "Ver orden";
+          const icon = row.stage <= 2 ? "package" : row.stage === 3 ? "truck" : row.stage === 4 ? "check" : "eye";
+          return (
+            <div className="row gap-2 justify-end align-center wrap">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => navigate(`/logistica/ordenes/${row.ordenId}`)}
+              >
+                Ver orden
+              </Button>
+              {row.stage < 5 && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  iconLeft={icon}
+                  onClick={() => navigate(`/logistica/ordenes/${row.ordenId}?tab=${tab}`)}
+                >
+                  {actionText}
+                </Button>
+              )}
+            </div>
+          );
+        },
+      },
+    ],
+    [navigate]
+  );
+
   if (viewMode === "list") {
     return (
-      <div className="card p-4 stack gap-3">
+      <div className="stack gap-3">
         <div className="row justify-between align-center">
           <h3 className="text-md font-medium">Listado operacional de órdenes de reposición</h3>
           <span className="text-xs text-secondary">{cards.length} orden(es) registradas</span>
         </div>
-
-        {cards.length === 0 ? (
-          <div className="p-6 text-center text-secondary">
-            No se encontraron órdenes de reposición para el filtro seleccionado.
-          </div>
-        ) : (
-          <div className="stack gap-2">
-            {cards.map((c) => (
-              <div
-                key={c.id}
-                className="row justify-between align-center p-3 rounded bg-surface-muted wrap gap-2"
-              >
-                <div className="stack gap-1">
-                  <div className="row gap-2 align-center">
-                    <strong
-                      className="font-mono text-sm cursor-pointer"
-                      onClick={() => navigate(`/logistica/ordenes/${c.ordenId}`)}
-                    >
-                      {c.code}
-                    </strong>
-                    <StatusBadge status={c.estadoReal} />
-                    <span className="badge-pill bg-accent-subtle text-accent text-xs">
-                      {ORDEN_STAGES[c.stage]?.title || c.badgeText}
-                    </span>
-                  </div>
-                  <span className="text-xs text-secondary">Ruta: {c.route}</span>
-                </div>
-
-                <div className="row gap-4 align-center">
-                  <span className="text-xs tabular-nums text-secondary">
-                    {c.totalEmp} / {c.totalSol} u. ({c.bultosCount} bultos)
-                  </span>
-
-                  <div className="row gap-2 align-center">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => navigate(`/logistica/ordenes/${c.ordenId}?tab=empaque`)}
-                    >
-                      Empaquetado
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => navigate(`/logistica/ordenes/${c.ordenId}`)}
-                    >
-                      Ver orden
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <SortableDataTable
+          columns={columns}
+          data={cards}
+          rowKey="id"
+          selectable={false}
+          emptyTitle="Sin órdenes de reposición"
+          emptyDescription="No se encontraron órdenes registradas para el filtro seleccionado."
+        />
       </div>
     );
   }
@@ -234,7 +312,10 @@ export function OrdenKanban({
                       <div className="task-title">
                         <strong
                           className="cursor-pointer"
-                          onClick={() => navigate(`/logistica/ordenes/${c.ordenId}`)}
+                          onClick={() => {
+                            const tab = c.stage <= 2 ? "empaque" : c.stage === 3 ? "despacho" : "recepcion";
+                            navigate(`/logistica/ordenes/${c.ordenId}${c.stage < 5 ? `?tab=${tab}` : ""}`);
+                          }}
                         >
                           {c.code}
                         </strong>
@@ -256,16 +337,21 @@ export function OrdenKanban({
 
                       <Button
                         size="sm"
-                        variant="secondary"
+                        variant={c.stage === 3 ? "primary" : c.stage === 5 ? "ghost" : "secondary"}
+                        iconLeft={c.stage <= 2 ? "package" : c.stage === 3 ? "truck" : c.stage === 4 ? "check" : "eye"}
+                        className="task-next"
                         onClick={() => {
-                          if (c.stage <= 2) {
-                            navigate(`/logistica/ordenes/${c.ordenId}?tab=empaque`);
-                          } else {
-                            navigate(`/logistica/ordenes/${c.ordenId}`);
-                          }
+                          const tab = c.stage <= 2 ? "empaque" : c.stage === 3 ? "despacho" : "recepcion";
+                          navigate(`/logistica/ordenes/${c.ordenId}${c.stage < 5 ? `?tab=${tab}` : ""}`);
                         }}
                       >
-                        {c.stage <= 2 ? "Gestionar bultos" : "Abrir detalle"}
+                        {c.stage <= 2
+                          ? "Gestionar bultos"
+                          : c.stage === 3
+                          ? "Emitir remito"
+                          : c.stage === 4
+                          ? "Gestionar recepción"
+                          : "Ver orden"}
                       </Button>
                     </article>
                   );

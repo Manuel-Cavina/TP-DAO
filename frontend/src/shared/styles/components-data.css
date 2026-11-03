@@ -74,6 +74,8 @@
 .erp-table-scroll {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
 .erp-table {
@@ -84,7 +86,7 @@
 
 /* Arc strict rule: Sentence case headers, weight 500, never uppercase */
 .erp-table th {
-  padding: 10px 14px;
+  padding: 9px 8px;
   background: transparent;
   border-bottom: 1px solid var(--border);
   color: var(--text-secondary);
@@ -101,7 +103,7 @@
 }
 
 .erp-table td {
-  padding: 11px 14px;
+  padding: 9px 8px;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--foreground);
   vertical-align: middle;
@@ -131,6 +133,30 @@
 .erp-table td.align-right {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.erp-table td:last-child {
+  white-space: nowrap;
+}
+
+.erp-table th:first-child, .erp-table td:first-child {
+  padding-left: 12px;
+}
+
+.erp-table th:last-child, .erp-table td:last-child {
+  padding-right: 12px;
+}
+
+.erp-table th:last-child {
+  white-space: nowrap;
+}
+
+.erp-table td:last-child > .row,
+.erp-table td.align-right > .row {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  min-width: max-content;
 }
 
 .erp-table__sort-btn {

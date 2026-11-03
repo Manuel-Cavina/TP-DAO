@@ -139,7 +139,7 @@ export function ProveedoresPage() {
             <span>·</span>
             <span>Proveedores</span>
           </div>
-          <h1 className="text-xl">Proveedores Comerciales</h1>
+          <h1 className="text-xl">Proveedores comerciales</h1>
           <p className="text-sm text-secondary">
             Empresas y fabricantes autorizados para ingreso de mercadería en centros de distribución.
           </p>

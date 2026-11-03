@@ -7,7 +7,7 @@ import "./styles/shared-ui.css";
 
 export { motionTokens } from "./lib/motion-tokens";
 export { Icon } from "./components/Icon";
-export { Button, ButtonGroup, ConfirmMorph } from "./components/Button";
+export { Button, ButtonGroup, ConfirmMorph, CopyButton, ActionSwap } from "./components/Button";
 export { Select } from "./components/Select";
 export { Switch } from "./components/Switch";
 export { SegmentedControl } from "./components/SegmentedControl";
@@ -36,6 +36,7 @@ export {
   LiveKpiCard,
 } from "./components/DomainWidgets";
 export { NotificationPanel } from "./components/NotificationPanel";
+export { LogoutModal } from "./components/LogoutModal";
 export {
   ScreenTransition,
   StaggerItem,
@@ -62,3 +63,5 @@ export {
 export { WireframeOverlays } from "./components/WireframeOverlays";
 export { SearchableSelect } from "./components/SearchableSelect";
 export { useLiveResource, LiveIndicator } from "./hooks/useLiveResource.jsx";
+export { isDateToday } from "./lib/dates";
+

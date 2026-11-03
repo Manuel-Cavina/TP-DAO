@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { http, onUnauthorized, setCsrfToken } from "../../core/http";
+import { http, onUnauthorized, setCsrfToken, setSessionToken } from "../../core/http";
 
 export const AuthContext = createContext(null);
 
@@ -35,16 +35,21 @@ export function AuthProvider({ children }) {
           if (data.csrf_token) {
             setCsrfToken(data.csrf_token);
           }
+          if (data.token) {
+            setSessionToken(data.token);
+          }
         } else {
           setUser(null);
           setScope(null);
           setCsrfToken(null);
+          setSessionToken(null);
         }
       } catch {
         if (!isCurrent) return;
         setUser(null);
         setScope(null);
         setCsrfToken(null);
+        setSessionToken(null);
       } finally {
         if (isCurrent) {
           setIsLoading(false);
@@ -59,6 +64,7 @@ export function AuthProvider({ children }) {
         setUser(null);
         setScope(null);
         setCsrfToken(null);
+        setSessionToken(null);
       }
     });
 
@@ -82,6 +88,9 @@ export function AuthProvider({ children }) {
       if (data.csrf_token) {
         setCsrfToken(data.csrf_token);
       }
+      if (data.token) {
+        setSessionToken(data.token);
+      }
       return normalized;
     } catch (err) {
       const message = err?.message || "Error al iniciar sesión.";
@@ -100,6 +109,7 @@ export function AuthProvider({ children }) {
       setScope(null);
       setError(null);
       setCsrfToken(null);
+      setSessionToken(null);
     }
   }, []);
 

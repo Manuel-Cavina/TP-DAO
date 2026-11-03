@@ -54,9 +54,9 @@
    * 4. ARC ACCENT & INTERACTIVE CONTROLS (Default: operational graphite)
    *    Switchable via [data-accent="neutral|blue|violet|green|amber"]
    * ------------------------------------------------------------------------ */
-  --accent: #262623;
-  --accent-strong: #141413;
-  --accent-subtle: rgba(20, 20, 19, 0.08);
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-subtle: rgba(37, 99, 235, 0.10);
   --accent-foreground: #ffffff;
   --focus-ring: rgba(20, 20, 19, 0.22);
 
@@ -155,15 +155,18 @@
   /* ------------------------------------------------------------------------
    * 9. ARC MOTION & FOCUS TOKENS
    * ------------------------------------------------------------------------ */
-  --ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
 
   --duration-instant: 90ms;
-  --duration-fast: 140ms;
-  --duration-normal: 200ms;
+  --duration-fast: 160ms;
+  --duration-normal: 240ms;
+  --duration-standard: 240ms;
   --duration-slow: 300ms;
+  --duration-considered: 480ms;
+  --duration-spring: 580ms;
 
   --focus-outline: 2px solid var(--focus-ring);
   --focus-offset: 2px;
@@ -207,6 +210,7 @@
  * ARC DARK MODE ([data-theme="dark"] or .dark)
  * ========================================================================== */
 [data-theme="dark"],
+:root[data-theme="dark"],
 .dark {
   color-scheme: dark;
 
@@ -237,9 +241,9 @@
   --border-subtle: var(--neutral-3);
   --border-strong: var(--neutral-5);
 
-  --accent: #e7e7e1;
-  --accent-strong: #f5f5f2;
-  --accent-subtle: rgba(245, 245, 242, 0.12);
+  --accent: #3b82f6;
+  --accent-strong: #2563eb;
+  --accent-subtle: rgba(59, 130, 246, 0.18);
   --accent-foreground: #ffffff;
   --focus-ring: rgba(245, 245, 242, 0.28);
 

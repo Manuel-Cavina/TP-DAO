@@ -17,7 +17,7 @@ export function StockRoutes() {
     <Routes>
       <Route index element={<Navigate to="stock" replace />} />
       <Route path="stock" element={<StockPage />} />
-      <Route path="ingresos" element={<IngresosPage />} />
+      <Route path="ingresos" element={<Navigate to="/stock/stock" replace />} />
       <Route path="alertas" element={<AlertasPage />} />
       <Route path="ubicaciones" element={<UbicacionesPage />} />
       <Route path="*" element={<Navigate to="stock" replace />} />

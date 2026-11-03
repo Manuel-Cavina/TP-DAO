@@ -1,6 +1,5 @@
 import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
-import { LogisticaPage } from "./pages/LogisticaPage";
+import { Routes, Route, Navigate, useSearchParams } from "react-router-dom";
 import { CrearOrdenPage } from "./pages/CrearOrdenPage";
 import { OrdenDetallePage } from "./pages/OrdenDetallePage";
 import { EmpaquetadoPage } from "./pages/EmpaquetadoPage";
@@ -9,32 +8,60 @@ import { RecepcionPage } from "./pages/RecepcionPage";
 import { OperacionesPage } from "./pages/OperacionesPage";
 import { BultoDetallePage } from "./pages/BultoDetallePage";
 import { TrazabilidadPage } from "./pages/TrazabilidadPage";
+import { OrdenesHistorialPage } from "./pages/OrdenesHistorialPage";
+import { LogisticaPage } from "./pages/LogisticaPage";
 
 export const LOGISTICA_NAV = {
   key: "logistica",
-  label: "Logística y remitos",
+  label: "Operaciones",
   icon: "truck",
-  path: "/logistica",
+  path: "/logistica/operaciones",
 };
+
+function LegacyEmpaquetadoRedirect() {
+  const [params] = useSearchParams();
+  const ordenId = params.get("ordenId");
+  if (ordenId) {
+    return <Navigate to={`/logistica/ordenes/${ordenId}?tab=empaque`} replace />;
+  }
+  return <Navigate to="/logistica/operaciones" replace />;
+}
+
+function LegacyRecepcionRedirect() {
+  const [params] = useSearchParams();
+  const ordenId = params.get("ordenId");
+  if (ordenId) {
+    return <Navigate to={`/logistica/ordenes/${ordenId}?tab=recepcion`} replace />;
+  }
+  return <Navigate to="/logistica/operaciones" replace />;
+}
 
 export function LogisticaRoutes() {
   return (
     <Routes>
-      <Route index element={<LogisticaPage initialTab="remitos" />} />
-      <Route path="remitos" element={<LogisticaPage initialTab="remitos" />} />
-      <Route path="remitos/:numero" element={<RemitoDetallePage />} />
-      <Route path="ordenes" element={<LogisticaPage initialTab="ordenes" />} />
+      {/* 1. Item principal: Tablero Operativo */}
+      <Route index element={<Navigate to="/logistica/operaciones" replace />} />
+      <Route path="operaciones" element={<OperacionesPage />} />
+      <Route path="kanban" element={<OperacionesPage />} />
+
+      {/* 2. Item principal: Historial de Órdenes */}
+      <Route path="ordenes" element={<OrdenesHistorialPage />} />
+      <Route path="historial" element={<OrdenesHistorialPage />} />
+
+      {/* Flujos integrados en Orden y Trazabilidad */}
       <Route path="ordenes/nueva" element={<CrearOrdenPage />} />
       <Route path="ordenes/crear" element={<CrearOrdenPage />} />
       <Route path="ordenes/:id" element={<OrdenDetallePage />} />
-      <Route path="wizard" element={<CrearOrdenPage />} />
-      <Route path="operaciones" element={<OperacionesPage />} />
-      <Route path="kanban" element={<OperacionesPage />} />
       <Route path="bultos/:id" element={<BultoDetallePage />} />
       <Route path="trazabilidad" element={<TrazabilidadPage />} />
-      <Route path="empaquetado" element={<EmpaquetadoPage />} />
-      <Route path="recepcion" element={<RecepcionPage />} />
-      <Route path="*" element={<Navigate to="" replace />} />
+      <Route path="remitos/:numero" element={<RemitoDetallePage />} />
+
+      {/* Redirecciones de rutas obsoletas hacia la nueva estructura */}
+      <Route path="remitos" element={<Navigate to="/logistica/operaciones" replace />} />
+      <Route path="empaquetado" element={<LegacyEmpaquetadoRedirect />} />
+      <Route path="recepcion" element={<LegacyRecepcionRedirect />} />
+      <Route path="wizard" element={<Navigate to="/logistica/ordenes/nueva" replace />} />
+      <Route path="*" element={<Navigate to="/logistica/operaciones" replace />} />
     </Routes>
   );
 }
@@ -49,6 +76,7 @@ export {
   OperacionesPage,
   BultoDetallePage,
   TrazabilidadPage,
+  OrdenesHistorialPage,
 };
 export * from "./services";
 export * from "./hooks/useRemitos";

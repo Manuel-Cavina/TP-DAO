@@ -16,10 +16,10 @@ export function ReportesHeader({ loading, onRefresh }) {
         />
         <div>
           <h1 className="stocky-brand-title">
-            Stocky · Sistema de Ventas e Inventario: Centro de Distribución a Locales
+            Reportes y auditoría de existencias
           </h1>
           <p className="stocky-brand-subtitle">
-            Módulo Analítico Integral · R1 Estado y Valorización de Stock · R2 Auditoría Forense de Mermas
+            Estado de stock, valorización patrimonial y auditoría forense de mermas
           </p>
         </div>
       </div>

@@ -81,7 +81,14 @@ export function ProductosPage() {
     {
       key: "proveedorId",
       header: "Proveedor",
-      render: (id) => provMap.get(id) || <span className="text-muted">Directo</span>,
+      render: (id) => {
+        const name = provMap.get(id);
+        return name ? (
+          <span className="text-secondary block truncate max-w-120" title={name}>{name}</span>
+        ) : (
+          <span className="text-muted">Directo</span>
+        );
+      },
     },
     {
       key: "precioVenta",
@@ -156,7 +163,7 @@ export function ProductosPage() {
             <span>·</span>
             <span>Productos</span>
           </div>
-          <h1 className="text-xl">Catálogo de Productos</h1>
+          <h1 className="text-xl">Catálogo de productos</h1>
           <p className="text-sm text-secondary">
             Artículos comercializables, márgenes de utilidad y umbrales mínimos de existencia.
           </p>

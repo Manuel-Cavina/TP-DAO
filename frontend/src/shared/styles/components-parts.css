@@ -125,7 +125,7 @@
 .erp-table td.is-sorted-col { background: var(--accent-subtle); }
 
 /* Motion containers */
-.arc-screen-flow { display: flex; flex-direction: column; gap: var(--space-5); }
+.arc-screen-flow { display: flex; flex-direction: column; gap: var(--space-5); flex: 1 1 auto; width: 100%; min-width: 0; }
 .arc-drawer__titles { display: flex; flex-direction: column; gap: 3px; }
 .arc-drawer__title { font-size: var(--text-lg); }
 .arc-modal__body { max-height: 70vh; }
