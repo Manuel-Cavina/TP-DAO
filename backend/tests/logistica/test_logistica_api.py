@@ -18,6 +18,8 @@ from bootstrap.application_factory import Application_Factory
 from config.database.database_engine_singleton import Database_Engine_Singleton
 from config.database.request_session_context import Request_Session_Context
 from modules.seguridad.application import Auth_Service
+from modules.seguridad.domain.usuario import ROL_OPERADOR, Asignacion_Operador, Usuario
+from modules.seguridad.infrastructure.seguridad_repository import Seguridad_Repository
 
 CD_ID = 1
 LOCAL_ID = 2
@@ -103,6 +105,29 @@ class TestLogisticaAPI(unittest.TestCase):
         if aprobar:
             self._post(f"/bultos/{bulto['id']}/aprobar")
         return bulto["id"]
+
+    def _cliente_operador(self, login: str, asignacion: Asignacion_Operador | None) -> tuple[TestClient, dict]:
+        sesion = Database_Engine_Singleton.obtener_session_factory().crear_sesion()
+        token = Request_Session_Context.establecer_sesion(sesion)
+        try:
+            Seguridad_Repository().guardar_usuario(
+                Usuario(
+                    nombre=login,
+                    login=login,
+                    password_hash=Auth_Service.hashear_password("stocky-demo"),
+                    rol=ROL_OPERADOR,
+                    activo=True,
+                    asignacion=asignacion,
+                )
+            )
+            sesion.commit()
+        finally:
+            Request_Session_Context.restablecer(token)
+            sesion.close()
+        cliente = TestClient(self.app)
+        res = cliente.post("/api/seguridad/login", json={"login": login, "password": "stocky-demo"})
+        self.assertEqual(res.status_code, 200, res.text)
+        return cliente, {"X-CSRF-Token": res.json()["csrf_token"]}
 
     def test_health_check(self) -> None:
         response = self.client.get("/")
@@ -250,6 +275,71 @@ class TestLogisticaAPI(unittest.TestCase):
             f"{BASE}/remitos", params={"orden_id": orden["id"]}, json={"numero": "R-3", "bultos_ids": [b1, b2]}
         )
         self.assertEqual((completo.status_code, segundo.status_code), (201, 409))
+
+    def test_operador_ajeno_al_origen_no_empaqueta_ni_despacha(self) -> None:
+        """Regresion: empaquetado y despacho validan el alcance del operador sobre el origen (CD)."""
+        orden = self._post(
+            "/ordenes", {"origen_id": CD_ID, "destino_id": LOCAL_ID, "items": [{"producto_id": AGUA, "cantidad": 2}]}, 201
+        )
+        bulto_listo = self._bulto_precintado(orden["id"], AGUA, 1, "SEAL-1")
+        bulto_nuevo = self._post(
+            f"/ordenes/{orden['id']}/bultos", {"items": [{"producto_id": AGUA, "cantidad": 1}]}, 201
+        )["id"]
+        self._post("/precintos", {"codigo": "SEAL-2"}, 201)
+        self._post(f"/bultos/{bulto_nuevo}/precintar", {"codigo_precinto": "SEAL-2"})
+        self._post(f"/bultos/{bulto_nuevo}/aprobar")
+        remito = self.client.post(
+            f"{BASE}/remitos", params={"orden_id": orden["id"]}, json={"numero": "R-1", "bultos_ids": [bulto_listo, bulto_nuevo]}
+        )
+        self.assertEqual(remito.status_code, 201, remito.text)
+
+        with sqlite3.connect(self.db_path) as conexion:
+            conexion.execute("INSERT INTO ubicaciones (id, tipo, nombre, direccion) VALUES (3, 'CD', 'CD Sur', 'Ruta 3')")
+        ajeno, csrf = self._cliente_operador(
+            "ajeno@stocky.local",
+            Asignacion_Operador(reporting_cd_id=3, authorised_branch_ids=[LOCAL_ID], activo=True),
+        )
+        id_inexistente = 999
+        pedidos = [
+            (f"/ordenes/{orden['id']}/bultos", {"items": [{"producto_id": AGUA, "cantidad": 1}]}),
+            (f"/bultos/{bulto_listo}/precintar", {"codigo_precinto": "SEAL-X"}),
+            (f"/ordenes/{orden['id']}/bultos/precintar", [{"bulto_id": bulto_listo, "codigo_precinto": "SEAL-X"}]),
+            (f"/bultos/{bulto_listo}/aprobar", None),
+            (f"/ordenes/{orden['id']}/bultos/aprobar-elegibles", None),
+            (f"/remitos?orden_id={orden['id']}", {"numero": "R-9", "bultos_ids": [bulto_listo]}),
+            ("/remitos/R-1/despachar", None),
+            (f"/bultos/{id_inexistente}/verificar", {"codigo_precinto_recibido": "X", "esta_intacto": True}),
+        ]
+        for url, body in pedidos:
+            with self.subTest(url=url):
+                res = ajeno.post(f"{BASE}{url}", json=body, headers=csrf)
+                self.assertEqual(res.status_code, 403, res.text)
+        self.assertEqual(self.client.get(f"{BASE}/remitos/R-1").json()["estado"], "EMITIDO")
+
+        sin_asignacion, csrf_sin = self._cliente_operador("sin@stocky.local", None)
+        res = sin_asignacion.post(f"{BASE}/precintos", json={"codigo": "SEAL-Y"}, headers=csrf_sin)
+        self.assertEqual(res.status_code, 403, res.text)
+
+    def test_operador_del_origen_puede_empaquetar_y_despachar(self) -> None:
+        orden = self._post(
+            "/ordenes", {"origen_id": CD_ID, "destino_id": LOCAL_ID, "items": [{"producto_id": AGUA, "cantidad": 1}]}, 201
+        )
+        operador, csrf = self._cliente_operador(
+            "propio@stocky.local",
+            Asignacion_Operador(reporting_cd_id=CD_ID, authorised_branch_ids=[LOCAL_ID], activo=True),
+        )
+
+        def post(url: str, body: dict | None = None, estado: int = 200) -> dict:
+            res = operador.post(f"{BASE}{url}", json=body, headers=csrf)
+            self.assertEqual(res.status_code, estado, res.text)
+            return res.json()
+
+        bulto = post(f"/ordenes/{orden['id']}/bultos", {"items": [{"producto_id": AGUA, "cantidad": 1}]}, 201)
+        post("/precintos", {"codigo": "SEAL-OK"}, 201)
+        post(f"/bultos/{bulto['id']}/precintar", {"codigo_precinto": "SEAL-OK"})
+        post(f"/bultos/{bulto['id']}/aprobar")
+        post(f"/remitos?orden_id={orden['id']}", {"numero": "R-OK", "bultos_ids": [bulto["id"]]}, 201)
+        self.assertEqual(post("/remitos/R-OK/despachar")["estado"], "DESPACHADO")
 
 
 if __name__ == "__main__":

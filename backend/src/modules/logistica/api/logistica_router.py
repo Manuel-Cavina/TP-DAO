@@ -63,6 +63,11 @@ Solo_Admin = [Depends(requerir_rol(ROL_ADMIN))]
 Id_Path = Annotated[int, Path(gt=0, le=2**63 - 1)]
 
 
+def _ubicacion_de_trabajo(usuario: Usuario) -> int | None:
+    """CD de la asignacion del operador; None para el Administrador, que no tiene restriccion."""
+    return usuario.asignacion.reporting_cd_id if usuario.asignacion is not None else None
+
+
 # Inyeccion de dependencias desacoplada para FastAPI. Las rutas no capturan BusinessError:
 # el handler global traduce cada excepcion tipada a 400, 404 o 409.
 # Al publicar Integrante 1 su Stock_Service, solo se reemplaza el adaptador aqui.
@@ -256,8 +261,11 @@ def listar_bultos_por_orden(
 )
 def registrar_precinto(
     req: Registrar_Precinto_Request_DTO,
+    usuario: Usuario = Depends(obtener_usuario_actual),
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> Precinto_DTO:
+    # El precinto aun no pertenece a una orden: se exige una asignacion activa a un CD.
+    validar_alcance_operador(usuario, _ubicacion_de_trabajo(usuario))
     precinto = service.registrar_precinto(req.codigo)
     return Precinto_Mapper.a_dto(precinto)
 
@@ -271,8 +279,10 @@ def registrar_precinto(
 def crear_bulto(
     orden_id: Id_Path,
     req: Crear_Bulto_Request_DTO,
+    usuario: Usuario = Depends(obtener_usuario_actual),
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> Bulto_DTO:
+    validar_alcance_operador(usuario, service.obtener_origen_orden(orden_id))
     bulto = service.crear_bulto(
         orden_id=orden_id,
         items=[it.model_dump() for it in req.items],
@@ -288,8 +298,10 @@ def crear_bulto(
 def precintar_bulto(
     bulto_id: Id_Path,
     req: Precintar_Bulto_Request_DTO,
+    usuario: Usuario = Depends(obtener_usuario_actual),
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> Bulto_DTO:
+    validar_alcance_operador(usuario, service.obtener_origen_bulto(bulto_id))
     bulto = service.precintar_bulto(
         bulto_id=bulto_id,
         codigo_precinto=req.codigo_precinto,
@@ -305,8 +317,10 @@ def precintar_bulto(
 def precintar_bultos_lote(
     orden_id: Id_Path,
     payload: list[Item_Precintar_Bulto_DTO] | Precintar_Lote_Request_DTO,
+    usuario: Usuario = Depends(obtener_usuario_actual),
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> list[Bulto_DTO]:
+    validar_alcance_operador(usuario, service.obtener_origen_orden(orden_id))
     items_raw = payload.items if isinstance(payload, Precintar_Lote_Request_DTO) else payload
     items = [{"bulto_id": it.bulto_id, "codigo_precinto": it.codigo_precinto} for it in items_raw]
     bultos = service.precintar_bultos_lote(orden_id=orden_id, items=items)
@@ -322,8 +336,10 @@ def aprobar_bulto(
     bulto_id: Id_Path,
     request: Request,
     req: Aprobar_Bulto_Request_DTO | None = None,
+    usuario: Usuario = Depends(obtener_usuario_actual),
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> Bulto_DTO:
+    validar_alcance_operador(usuario, service.obtener_origen_bulto(bulto_id))
     actor_req = getattr(request.state, "usuario", None)
     actor_login = actor_req.login if actor_req else (req.actor if req else None)
     observacion = req.observacion if (req and req.observacion) else ""
@@ -344,8 +360,10 @@ def aprobar_bultos_elegibles(
     orden_id: Id_Path,
     request: Request,
     req: Aprobar_Bulto_Request_DTO | None = None,
+    usuario: Usuario = Depends(obtener_usuario_actual),
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> Aprobar_Elegibles_Response_DTO:
+    validar_alcance_operador(usuario, service.obtener_origen_orden(orden_id))
     actor_req = getattr(request.state, "usuario", None)
     actor_login = actor_req.login if actor_req else (req.actor if req else None)
     observacion = req.observacion if (req and req.observacion) else ""
@@ -384,8 +402,10 @@ def obtener_bulto(
 def generar_remito(
     orden_id: int = Query(..., gt=0, le=2**63 - 1, description="ID de la orden de reposicion"),
     req: Generar_Remito_Request_DTO = ...,
+    usuario: Usuario = Depends(obtener_usuario_actual),
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> Remito_DTO:
+    validar_alcance_operador(usuario, service.obtener_origen_orden(orden_id))
     remito = service.generar_remito(
         numero=req.numero,
         orden_id=orden_id,
@@ -452,8 +472,11 @@ def obtener_remito(
 )
 def despachar_remito(
     numero: str,
+    usuario: Usuario = Depends(obtener_usuario_actual),
     service: Despacho_Service = Depends(get_despacho_service),
 ) -> Remito_DTO:
+    remito_prev = service.obtener_remito(numero)
+    validar_alcance_operador(usuario, remito_prev.origen_id)
     remito = service.despachar_remito(numero)
     return Remito_Mapper.a_dto(remito)
 
@@ -491,8 +514,7 @@ def verificar_bulto(
     service: Recepcion_Service = Depends(get_recepcion_service),
 ) -> Bulto_DTO:
     destino_id = service.obtener_destino_bulto(bulto_id)
-    if destino_id is not None:
-        validar_alcance_operador(usuario, destino_id)
+    validar_alcance_operador(usuario, destino_id)
 
     bulto = service.verificar_bulto(
         bulto_id=bulto_id,

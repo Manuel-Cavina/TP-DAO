@@ -340,6 +340,14 @@ class Empaquetado_Service:
         )
         return self._remito_repository.guardar(remito)
 
+    def obtener_origen_orden(self, orden_id: int) -> int:
+        """Devuelve la ubicacion de origen (CD) de una orden, donde se empaqueta y despacha."""
+        return self._obtener_orden(orden_id).origen_id
+
+    def obtener_origen_bulto(self, bulto_id: int) -> int:
+        """Devuelve la ubicacion de origen (CD) de la orden a la que pertenece el bulto."""
+        return self.obtener_origen_orden(self.obtener_bulto(bulto_id).orden_id)
+
     def obtener_bulto(self, bulto_id: int) -> Bulto:
         """Obtiene un bulto por su identificador."""
         bulto = self._bulto_repository.obtener_por_id(bulto_id)
