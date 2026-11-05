@@ -7,6 +7,7 @@ export function OrdenDespachoTab({
   destinoNombre,
   estaCompletamenteEmpaquetada,
   bultosTodosPrecintados,
+  bultosTodosAprobados,
   despachando,
   onEmitirRemitoClick,
   onDespacharClick,
@@ -88,7 +89,15 @@ export function OrdenDespachoTab({
         </div>
       </div>
 
-      {!remito && (
+      {!remito && !bultosTodosAprobados && (
+        <div className="card p-4">
+          <span className="text-sm text-secondary">
+            Hay bultos pendientes de aprobación. Aprobalos en la pestaña de empaque para emitir el remito formal.
+          </span>
+        </div>
+      )}
+
+      {!remito && bultosTodosAprobados && (
         <div className="card p-4 row justify-between align-center wrap gap-3">
           <span className="text-sm text-secondary">
             Los bultos están listos. Emití el remito formal de despacho para iniciar el traslado.

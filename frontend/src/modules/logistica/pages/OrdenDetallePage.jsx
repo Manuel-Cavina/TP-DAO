@@ -386,6 +386,7 @@ export function OrdenDetallePage() {
           destinoNombre={destinoNombre}
           estaCompletamenteEmpaquetada={estaCompletamenteEmpaquetada}
           bultosTodosPrecintados={bultosTodosPrecintados}
+          bultosTodosAprobados={todosBultosAprobados}
           despachando={despachando}
           onEmitirRemitoClick={remitoModal.onOpen}
           onDespacharClick={handleDespachar}
