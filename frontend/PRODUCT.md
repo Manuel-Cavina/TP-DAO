@@ -1,7 +1,7 @@
 # ERP AYA · Especificación de Producto, Historias de Usuario y Flujos (`PRODUCT.md`)
 
 > **Ubicación canónica:** `frontend/PRODUCT.md`  
-> **Fuentes de verdad:** `docs/tema3.pdf` (Consigna Oficial TP Integrador 2026 · Tema 3) · `docs/implementacion.md` · `docs/convenciones.md` · `docs/specs/`  
+> **Fuentes de verdad:** `docs/tema3.pdf` (Consigna Oficial TP Integrador 2026 · Tema 3) · `docs/implementacion.md` · `docs/convenciones.md`  
 > **Idea central de la consigna:** *"Nada ingresa a stock vendible sin verificación."*
 
 ---

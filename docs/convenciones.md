@@ -4,7 +4,7 @@
 >
 > **OBJETIVO:** Documento normativo para los 4 integrantes del equipo y los asistentes/agentes de IA en VS Code. Todo código generado o modificado debe cumplir con las reglas de este archivo.
 >
-> **Documentos relacionados:** [implementacion.md](implementacion.md) (división de trabajo, procesos, excepciones y reportes por módulo) y [migracion_orm_sqlalchemy.md](specs/migracion_orm_sqlalchemy.md) (persistencia, inicialización y transacciones ORM).
+> **Documentos relacionados:** [implementacion.md](implementacion.md) (división de trabajo, procesos, excepciones y reportes por módulo).
 
 ---
 

@@ -13,7 +13,6 @@ con distintos medios de pago, devoluciones, caja y reportes.
 | [docs/tema3.pdf](docs/tema3.pdf) | Consigna original. |
 | [docs/implementacion.md](docs/implementacion.md) | Procesos, reglas, contratos y división por integrante. |
 | [docs/convenciones.md](docs/convenciones.md) | Arquitectura, nombres, errores y persistencia (normativo). |
-| [docs/specs/](docs/specs/) | Especificaciones y decisiones de cada módulo. |
 
 ---
 

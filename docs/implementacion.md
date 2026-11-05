@@ -4,7 +4,7 @@ Sistema orientado a objetos para gestionar compras, logística interna, ventas, 
 
 > **Idea central de la consigna:** _nada ingresa a stock vendible sin verificación._ Cada decisión de diseño de este documento protege esa regla.
 
-**Documentos relacionados:** [convenciones.md](convenciones.md) (arquitectura, nombres, errores y persistencia) · [migracion_orm_sqlalchemy.md](specs/migracion_orm_sqlalchemy.md) (ORM, bootstrap y transacciones) · [tema3.pdf](tema3.pdf) (consigna original).
+**Documentos relacionados:** [convenciones.md](convenciones.md) (arquitectura, nombres, errores y persistencia) · [tema3.pdf](tema3.pdf) (consigna original).
 
 ---
 
@@ -311,7 +311,7 @@ Los contratos de aplicación no reciben conexiones ni sesiones. La petición com
 
 | Fase | Qué se hace | Quién | Bloquea a |
 |---|---|---|---|
-| **0. Especificación** | Contratos ORM, modelo de datos, fases y reglas de colaboración definidos en `docs/specs/migracion_orm_sqlalchemy.md`. | Arquitectura + equipo | Todas las fases técnicas |
+| **0. Especificación** | Contratos ORM, modelo de datos, fases y reglas de colaboración definidos en `docs/convenciones.md` y `backend/src/config/database/`. | Arquitectura + equipo | Todas las fases técnicas |
 | **1. Bootstrap** | Engine Singleton, Session Factory, middleware, handlers y creación de esquema ORM. PR exclusivo de configuración. | `database-bootstrap` | Migraciones de módulos |
 | **2. Módulos ORM** | Catálogo, stock, logística y ventas migran en PRs independientes y paralelizables. | Un agente por módulo | Seed y reportes |
 | **3. Integración** | Registro final de modelos, seed ORM, reportes y pruebas entre módulos. | `integration-orm` | Calidad |
