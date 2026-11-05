@@ -158,7 +158,6 @@ class Registrar_Precinto_Request_DTO(BaseModel):
 class Generar_Remito_Request_DTO(BaseModel):
     numero: str | None = Field(None, min_length=1, max_length=50)
     bultos_ids: list[Id_Positivo] = Field(min_length=1)
-    validar_aprobacion: bool = False
 
 
 class Verificar_Bulto_Request_DTO(BaseModel):

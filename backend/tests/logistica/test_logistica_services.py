@@ -59,10 +59,15 @@ class TestLogisticaServices(Sqlite_Test_Case):
             CD_ID, LOCAL_ID, [{"producto_id": p, "cantidad": c} for p, c in items]
         )
 
-    def _bulto_precintado(self, orden_id: int, producto_id: int, cantidad: int, precinto: str):
+    def _bulto_precintado(
+        self, orden_id: int, producto_id: int, cantidad: int, precinto: str, aprobar: bool = True
+    ):
         bulto = self.empaquetado.crear_bulto(orden_id, [{"producto_id": producto_id, "cantidad": cantidad}])
         self.empaquetado.registrar_precinto(precinto)
-        return self.empaquetado.precintar_bulto(bulto.id, precinto)
+        precintado = self.empaquetado.precintar_bulto(bulto.id, precinto)
+        if aprobar:
+            self.empaquetado.aprobar_bulto(bulto.id)
+        return precintado
 
     def _ops(self, tipo: str) -> list[tuple[str, int, int, int]]:
         return [op for op in self.stock.operaciones if op[0] == tipo]
@@ -142,38 +147,34 @@ class TestLogisticaServices(Sqlite_Test_Case):
             self.empaquetado.crear_bulto(orden.id, items)
         self.assertEqual(self._ops("RESERVAR"), [])
 
-    def test_orden_no_se_despacha_mientras_queden_bultos_o_unidades(self) -> None:
+    def test_orden_no_se_remita_hasta_empaquetar_todo_lo_solicitado(self) -> None:
         orden = self._orden([(PRODUCTO_A, 10)])
         b1 = self._bulto_precintado(orden.id, PRODUCTO_A, 4, "PREC-1")
         b2 = self._bulto_precintado(orden.id, PRODUCTO_A, 4, "PREC-2")
 
-        self.empaquetado.generar_remito("REM-1", orden.id, [b1.id])
-        self.despacho.despachar_remito("REM-1")
-        self.assertEqual(self.reposicion.obtener_orden(orden.id).estado, "EN_PREPARACION")
+        with self.assertRaises(Remito_Incompleto_Exception):
+            self.empaquetado.generar_remito("REM-1", orden.id, [b1.id, b2.id])
 
         b3 = self._bulto_precintado(orden.id, PRODUCTO_A, 2, "PREC-3")
-        self.empaquetado.generar_remito("REM-2", orden.id, [b2.id])
-        self.despacho.despachar_remito("REM-2")
-        self.assertEqual(self.reposicion.obtener_orden(orden.id).estado, "EN_PREPARACION")
+        with self.assertRaises(Remito_Incompleto_Exception):
+            self.empaquetado.generar_remito("REM-1", orden.id, [b1.id])
 
-        self.empaquetado.generar_remito("REM-3", orden.id, [b3.id])
-        self.despacho.despachar_remito("REM-3")
+        self.empaquetado.generar_remito("REM-1", orden.id, [b1.id, b2.id, b3.id])
+        self.despacho.despachar_remito("REM-1")
         self.assertEqual(self.reposicion.obtener_orden(orden.id).estado, "DESPACHADA")
 
-    def test_orden_se_cierra_recien_con_todos_sus_remitos_cerrados(self) -> None:
+    def test_orden_se_cierra_al_cerrar_su_remito_unico(self) -> None:
         orden = self._orden([(PRODUCTO_A, 2)])
         b1 = self._bulto_precintado(orden.id, PRODUCTO_A, 1, "PREC-1")
         b2 = self._bulto_precintado(orden.id, PRODUCTO_A, 1, "PREC-2")
-        for numero, bulto, precinto in (("REM-1", b1, "PREC-1"), ("REM-2", b2, "PREC-2")):
-            self.empaquetado.generar_remito(numero, orden.id, [bulto.id])
-            self.despacho.despachar_remito(numero)
-            self.recepcion.recibir_remito(numero)
-            self.recepcion.verificar_bulto(bulto.id, precinto, True)
-
-        self.recepcion.cerrar_remito("REM-1")
+        self.empaquetado.generar_remito("REM-1", orden.id, [b1.id, b2.id])
+        self.despacho.despachar_remito("REM-1")
+        self.recepcion.recibir_remito("REM-1")
+        self.recepcion.verificar_bulto(b1.id, "PREC-1", True)
+        self.recepcion.verificar_bulto(b2.id, "PREC-2", True)
         self.assertEqual(self.reposicion.obtener_orden(orden.id).estado, "DESPACHADA")
 
-        self.recepcion.cerrar_remito("REM-2")
+        self.recepcion.cerrar_remito("REM-1")
         self.assertEqual(self.reposicion.obtener_orden(orden.id).estado, "CERRADA")
 
     def test_no_se_puede_cerrar_remito_con_bulto_sin_verificar(self) -> None:
@@ -208,18 +209,22 @@ class TestLogisticaServices(Sqlite_Test_Case):
         with self.assertRaises(Precinto_Duplicado_Exception):
             self.empaquetado.registrar_precinto("PREC-UNICO")
 
-    def test_remito_duplicado_y_bulto_en_dos_remitos(self) -> None:
+    def test_remito_duplicado_segundo_remito_y_bultos_invalidos(self) -> None:
         orden = self._orden([(PRODUCTO_A, 2)])
+        otra = self._orden([(PRODUCTO_A, 1)])
         b1 = self._bulto_precintado(orden.id, PRODUCTO_A, 1, "PREC-1")
         b2 = self._bulto_precintado(orden.id, PRODUCTO_A, 1, "PREC-2")
-        self.empaquetado.generar_remito("REM-1", orden.id, [b1.id])
+        b3 = self._bulto_precintado(otra.id, PRODUCTO_A, 1, "PREC-3")
+        self.empaquetado.generar_remito("REM-1", orden.id, [b1.id, b2.id])
 
         with self.assertRaises(Remito_Duplicado_Exception):
-            self.empaquetado.generar_remito("REM-1", orden.id, [b2.id])
+            self.empaquetado.generar_remito("REM-1", otra.id, [b3.id])
+        with self.assertRaises(Remito_Duplicado_Exception):
+            self.empaquetado.generar_remito("REM-2", orden.id, [b1.id, b2.id])
         with self.assertRaises(Remito_Incompleto_Exception):
-            self.empaquetado.generar_remito("REM-2", orden.id, [b1.id])
+            self.empaquetado.generar_remito("REM-2", otra.id, [b3.id, b3.id])
         with self.assertRaises(Remito_Incompleto_Exception):
-            self.empaquetado.generar_remito("REM-2", orden.id, [b2.id, b2.id])
+            self.empaquetado.generar_remito("REM-2", otra.id, [b1.id])
 
     def test_ruta_y_productos_validados_contra_integrante_1(self) -> None:
         with self.assertRaises(Ubicacion_No_Encontrada_Exception):

@@ -92,12 +92,16 @@ class TestLogisticaAPI(unittest.TestCase):
         self.assertEqual(res.status_code, estado, res.text)
         return res.json()
 
-    def _bulto_precintado(self, orden_id: int, producto_id: int, cantidad: int, precinto: str) -> int:
+    def _bulto_precintado(
+        self, orden_id: int, producto_id: int, cantidad: int, precinto: str, aprobar: bool = True
+    ) -> int:
         bulto = self._post(
             f"/ordenes/{orden_id}/bultos", {"items": [{"producto_id": producto_id, "cantidad": cantidad}]}, 201
         )
         self._post("/precintos", {"codigo": precinto}, 201)
         self._post(f"/bultos/{bulto['id']}/precintar", {"codigo_precinto": precinto})
+        if aprobar:
+            self._post(f"/bultos/{bulto['id']}/aprobar")
         return bulto["id"]
 
     def test_health_check(self) -> None:
@@ -202,10 +206,50 @@ class TestLogisticaAPI(unittest.TestCase):
         )
         b1 = self._bulto_precintado(orden["id"], AGUA, 1, "SEAL-1")
         b2 = self._bulto_precintado(orden["id"], AGUA, 1, "SEAL-2")
-        primero = self.client.post(f"{BASE}/remitos", params={"orden_id": orden["id"]}, json={"numero": "R-1", "bultos_ids": [b1]})
-        repetido = self.client.post(f"{BASE}/remitos", params={"orden_id": orden["id"]}, json={"numero": "R-1", "bultos_ids": [b2]})
+        primero = self.client.post(f"{BASE}/remitos", params={"orden_id": orden["id"]}, json={"numero": "R-1", "bultos_ids": [b1, b2]})
+        repetido = self.client.post(f"{BASE}/remitos", params={"orden_id": orden["id"]}, json={"numero": "R-1", "bultos_ids": [b1, b2]})
 
         self.assertEqual((primero.status_code, repetido.status_code), (201, 409))
+
+    def test_remito_exige_bultos_aprobados_aunque_no_se_pida_validacion(self) -> None:
+        """Regresion: el remito no puede emitirse con bultos sin aprobar (el bypass ya no existe)."""
+        orden = self._post(
+            "/ordenes", {"origen_id": CD_ID, "destino_id": LOCAL_ID, "items": [{"producto_id": AGUA, "cantidad": 2}]}, 201
+        )
+        b1 = self._bulto_precintado(orden["id"], AGUA, 2, "SEAL-1", aprobar=False)
+
+        sin_aprobar = self.client.post(
+            f"{BASE}/remitos", params={"orden_id": orden["id"]}, json={"numero": "R-1", "bultos_ids": [b1]}
+        )
+        self.assertEqual(sin_aprobar.status_code, 400, sin_aprobar.text)
+        self.assertEqual(self.client.get(f"{BASE}/remitos").json(), [])
+
+        self._post(f"/bultos/{b1}/aprobar")
+        aprobado = self.client.post(
+            f"{BASE}/remitos", params={"orden_id": orden["id"]}, json={"numero": "R-1", "bultos_ids": [b1]}
+        )
+        self.assertEqual(aprobado.status_code, 201, aprobado.text)
+
+    def test_orden_admite_un_unico_remito_completo(self) -> None:
+        """Regresion: no se emiten remitos parciales ni un segundo remito para la misma orden."""
+        orden = self._post(
+            "/ordenes", {"origen_id": CD_ID, "destino_id": LOCAL_ID, "items": [{"producto_id": AGUA, "cantidad": 2}]}, 201
+        )
+        b1 = self._bulto_precintado(orden["id"], AGUA, 1, "SEAL-1")
+        b2 = self._bulto_precintado(orden["id"], AGUA, 1, "SEAL-2")
+
+        parcial = self.client.post(
+            f"{BASE}/remitos", params={"orden_id": orden["id"]}, json={"numero": "R-1", "bultos_ids": [b1]}
+        )
+        self.assertEqual(parcial.status_code, 400, parcial.text)
+
+        completo = self.client.post(
+            f"{BASE}/remitos", params={"orden_id": orden["id"]}, json={"numero": "R-2", "bultos_ids": [b1, b2]}
+        )
+        segundo = self.client.post(
+            f"{BASE}/remitos", params={"orden_id": orden["id"]}, json={"numero": "R-3", "bultos_ids": [b1, b2]}
+        )
+        self.assertEqual((completo.status_code, segundo.status_code), (201, 409))
 
 
 if __name__ == "__main__":

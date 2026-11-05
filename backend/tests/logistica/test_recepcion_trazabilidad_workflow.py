@@ -237,7 +237,6 @@ class Test_Recepcion_Trazabilidad_Workflow(Sqlite_Test_Case):
             numero=numero,
             orden_id=orden.id,
             bultos_ids=bulto_ids,
-            validar_aprobacion=True,
         )
         self.despacho_service.despachar_remito(numero)
         self.session.commit()

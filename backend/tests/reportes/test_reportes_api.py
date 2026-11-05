@@ -95,6 +95,7 @@ class TestReportesAPI(unittest.TestCase):
             bulto = cls._post(f"/api/logistica/ordenes/{orden['id']}/bultos", {"items": [{"producto_id": producto_id, "cantidad": cantidad}]})
             cls._post("/api/logistica/precintos", {"codigo": precinto})
             cls._post(f"/api/logistica/bultos/{bulto['id']}/precintar", {"codigo_precinto": precinto})
+            cls._post(f"/api/logistica/bultos/{bulto['id']}/aprobar")
             bultos.append((bulto["id"], precinto))
         cls.bulto_rechazado = bultos[2][0]
         cls._post("/api/logistica/remitos", {"numero": "R-1", "bultos_ids": [b for b, _ in bultos]}, orden_id=orden["id"])

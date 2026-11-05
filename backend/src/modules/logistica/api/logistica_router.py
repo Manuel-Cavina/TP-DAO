@@ -384,15 +384,12 @@ def obtener_bulto(
 def generar_remito(
     orden_id: int = Query(..., gt=0, le=2**63 - 1, description="ID de la orden de reposicion"),
     req: Generar_Remito_Request_DTO = ...,
-    validar_aprobacion: bool = Query(False, description="Validar que todos los bultos esten aprobados"),
     service: Empaquetado_Service = Depends(get_empaquetado_service),
 ) -> Remito_DTO:
-    es_estricto = req.validar_aprobacion or validar_aprobacion
     remito = service.generar_remito(
         numero=req.numero,
         orden_id=orden_id,
         bultos_ids=req.bultos_ids,
-        validar_aprobacion=es_estricto,
     )
     return Remito_Mapper.a_dto(remito)
 
