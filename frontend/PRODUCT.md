@@ -1,7 +1,5 @@
 # ERP AYA · Especificación de Producto, Historias de Usuario y Flujos (`PRODUCT.md`)
 
-> **Stocky feature authority (2026-10-20):** `specs/001-stocky-operational-ux/spec.md` is the approved scope for the redesign. It adds authenticated Administrator/Operator experiences, one complete delivery note per order, package approval evidence, batch seal control, live traceability, professional R1/R2 PDFs, and the integration of the Sales/Cash UI with the official persisted backend merged from `main`.
-
 > **Ubicación canónica:** `frontend/PRODUCT.md`  
 > **Fuentes de verdad:** `docs/tema3.pdf` (Consigna Oficial TP Integrador 2026 · Tema 3) · `docs/implementacion.md` · `docs/convenciones.md` · `docs/specs/`  
 > **Idea central de la consigna:** *"Nada ingresa a stock vendible sin verificación."*
