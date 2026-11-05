@@ -1,3 +1,4 @@
+import "../logistics-workbench.css";
 import React, { useCallback, useMemo, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Alert, Button, Modal, StatusBadge, TextInput, TextareaField, useLiveResource } from "../../../shared";
@@ -68,7 +69,7 @@ export function BultoDetallePage() {
   if (error && !data) return <Alert tone="danger" title="No se pudo cargar el bulto" description={error.message} action={<Button variant="secondary" size="sm" onClick={refresh}>Reintentar</Button>} />;
   if (!bulto) return <Alert tone="warning" title="Bulto no encontrado" description="El backend no devolvió un bulto para este identificador." />;
 
-  return <div className="stack gap-5">
+  return <div className="logistics-workbench stack gap-5">
     {error && <Alert tone="warning" title="Datos posiblemente desactualizados" description={error.message} action={<Button variant="secondary" size="sm" onClick={refresh}>Reintentar</Button>} />}
     <div className="erp-flow-header">
       <div><div className="erp-breadcrumb"><span>Bultos</span><span>·</span><span>{code(bulto.id)}</span></div><div className="row gap-2 align-center"><h1 className="text-xl">Bulto {code(bulto.id)}</h1><StatusBadge status={bulto.estado} /></div><p className="text-sm text-secondary">{precinto ? `Precinto ${precinto}` : "Sin precinto asignado"}{data.remito ? ` · ${data.remito.numero}` : ""}{bulto.orden_id ? ` · Orden OR-${String(bulto.orden_id).padStart(6, "0")}` : ""}</p></div>

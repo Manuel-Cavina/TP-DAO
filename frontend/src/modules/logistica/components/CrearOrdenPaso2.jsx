@@ -20,7 +20,6 @@ export function CrearOrdenPaso2({
   const cdObj = ubicaciones.find((u) => String(u.id) === String(effectiveOrigenId));
   const localObj = ubicaciones.find((u) => String(u.id) === String(effectiveDestinoId));
 
-  const totalBultosEstimados = Math.max(1, Math.ceil(totalUnidades / 15));
 
   return (
     <div className="card p-6 stack gap-5">
@@ -71,7 +70,7 @@ export function CrearOrdenPaso2({
         </div>
       </div>
 
-      <div className="grid-4 gap-3">
+      <div className="grid-2 gap-3">
         <div className="p-4 rounded-xl border bg-surface stack gap-1">
           <span className="text-xs text-muted">Renglones únicos</span>
           <span className="text-2xl font-medium tabular-nums">{consolidatedItems.length}</span>
@@ -82,16 +81,7 @@ export function CrearOrdenPaso2({
           <span className="text-2xl font-medium tabular-nums">{totalUnidades}</span>
           <span className="text-xs text-secondary">Total consolidado</span>
         </div>
-        <div className="p-4 rounded-xl border bg-surface stack gap-1">
-          <span className="text-xs text-muted">Bultos estimados</span>
-          <span className="text-2xl font-medium tabular-nums">~{totalBultosEstimados}</span>
-          <span className="text-xs text-secondary">Acondicionamiento sugerido</span>
-        </div>
-        <div className="p-4 rounded-xl border bg-surface stack gap-1">
-          <span className="text-xs text-muted">Disponibilidad en origen</span>
-          <span className="text-2xl font-medium text-success tabular-nums">100%</span>
-          <span className="text-xs text-secondary">Stock cubierto en CD</span>
-        </div>
+
       </div>
 
       <div className="stack gap-3">
@@ -100,7 +90,7 @@ export function CrearOrdenPaso2({
           <span className="text-xs text-secondary">{consolidatedItems.length} producto(s) en orden</span>
         </div>
 
-        <div className="rounded-xl border overflow-hidden">
+        <div className="logistics-review-table rounded-xl border">
           <table className="w-full text-sm border-collapse text-left">
             <thead>
               <tr className="bg-surface-muted text-xs text-secondary border-b">
@@ -138,11 +128,11 @@ export function CrearOrdenPaso2({
                     </td>
                     <td className="p-3 text-right tabular-nums text-xs">
                       <div>Disponible: <span className="font-medium">{cdStock} un.</span></div>
-                      <div className="text-secondary">Post-reserva: <span className="font-medium">{cdRestante} un.</span></div>
+                      <div className="text-secondary">Después del despacho (proyección): <span className="font-medium">{cdRestante} un.</span></div>
                     </td>
                     <td className="p-3 text-right tabular-nums text-xs">
                       <div>Actual: <span className="font-medium">{localStock} un.</span></div>
-                      <div className="text-secondary">Proyectado: <span className="font-medium text-success">{localProyectado} un.</span></div>
+                      <div className="text-secondary">Tras verificar y cerrar (proyección): <span className="font-medium text-success">{localProyectado} un.</span></div>
                     </td>
                     <td className="p-3 text-right font-medium tabular-nums text-base">
                       {it.cantidad} un.
@@ -172,7 +162,7 @@ export function CrearOrdenPaso2({
             <span>No duplicidad de stock</span>
           </div>
           <p className="text-xs text-secondary leading-relaxed">
-            El stock se reserva de inmediato en origen (CD) pero no suma al saldo disponible en destino hasta la recepción física con precintos intactos.
+            Crear la orden no acredita stock en destino. El despacho descuenta el origen; el cierre acredita únicamente las unidades de bultos verificados.
           </p>
         </div>
 

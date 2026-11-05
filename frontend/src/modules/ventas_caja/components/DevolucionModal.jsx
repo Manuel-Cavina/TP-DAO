@@ -103,7 +103,7 @@ export function DevolucionModal({
           <Alert
             tone="info"
             title="Sin ventas disponibles"
-            description="No hay comprobantes emitidos en este local y período."
+            description="No hay comprobantes del local dentro de los últimos 30 días. El servidor valida el plazo exacto al confirmar."
           />
         ) : (
           <>

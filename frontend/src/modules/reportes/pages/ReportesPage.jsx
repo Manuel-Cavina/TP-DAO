@@ -91,6 +91,13 @@ export function ReportesPage({ initialReport = "ventas" }) {
   const [mermaDrillDownError, setMermaDrillDownError] = useState(null);
 
   const queryRequestId = useRef(0);
+  const stockDetailRequestId = useRef(0);
+  const mermaDetailRequestId = useRef(0);
+
+  useEffect(() => () => {
+    stockDetailRequestId.current += 1;
+    mermaDetailRequestId.current += 1;
+  }, []);
 
   // Sincronizar ruta con activeReport
   useEffect(() => {
@@ -219,62 +226,73 @@ export function ReportesPage({ initialReport = "ventas" }) {
 
   // Apertura de drill-downs
   const handleOpenStockDrillDown = async (productoId) => {
+    const requestId = ++stockDetailRequestId.current;
     setSelectedProductId(productoId);
     setStockModalOpen(true);
     setStockDrillDownLoading(true);
     setStockDrillDownError(null);
+    setStockDrillDownData(null);
     try {
       const data = await reportesService.getR1DrillDown(productoId);
+      if (requestId !== stockDetailRequestId.current) return;
       setStockDrillDownData(data);
     } catch (err) {
+      if (requestId !== stockDetailRequestId.current) return;
       setStockDrillDownError(err);
     } finally {
-      setStockDrillDownLoading(false);
+      if (requestId === stockDetailRequestId.current) setStockDrillDownLoading(false);
     }
   };
 
   const handleOpenMermaDrillDown = async (bultoId) => {
+    const requestId = ++mermaDetailRequestId.current;
     setSelectedBultoId(bultoId);
     setMermaModalOpen(true);
     setMermaDrillDownLoading(true);
     setMermaDrillDownError(null);
+    setMermaDrillDownData(null);
     try {
       const currentData = cacheByTab[activeReport];
       const row = currentData?.filas?.find((item) => item.bulto_id === bultoId);
       const data = await reportesService.getR2DrillDown(bultoId, row);
+      if (requestId !== mermaDetailRequestId.current) return;
       setMermaDrillDownData(data);
     } catch (err) {
+      if (requestId !== mermaDetailRequestId.current) return;
       setMermaDrillDownError(err);
     } finally {
-      setMermaDrillDownLoading(false);
+      if (requestId === mermaDetailRequestId.current) setMermaDrillDownLoading(false);
     }
   };
 
   const reportTitles = {
     ventas: {
-      title: "Ventas e ingresos por período, local y medio de pago",
+      title: "Ventas e ingresos",
       question: "¿Cuánto vendió cada local y con qué medio de pago, neto de devoluciones?",
     },
     productos: {
-      title: "Productos más vendidos y margen estimado",
+      title: "Productos y margen",
       question: "¿Qué productos se venden más y cuáles dejan pérdida?",
     },
     transito: {
-      title: "Tiempo de tránsito CD a locales",
+      title: "Tiempo de tránsito",
       question: "¿Cuántas horas tarda un bulto desde que sale del CD hasta que llega al local?",
     },
     stock: {
-      title: "¿Dónde está el stock y cuál es su valorización?",
-      question: "Salud de stock: Auditoría integral de existencias físicas y valorización patrimonial por centro y sucursales.",
+      title: "Stock y valorización",
+      question: "¿Dónde está el stock y cuál es su valorización?",
     },
     mermas: {
-      title: "¿Dónde se originaron las mermas y violaciones de precintos?",
-      question: "Mermas y precintos: Peritaje de roturas de precinto (Regla V1) y trazabilidad forense de bultos rechazados en destino.",
+      title: "Mermas y precintos",
+      question: "¿Dónde se originaron las mermas y violaciones de precintos?",
     },
   };
 
   const currentInfo = reportTitles[activeReport] || reportTitles.ventas;
   const currentReportData = cacheByTab[activeReport];
+  const appliedLocationId = activeReport === "stock" ? currentApplied?.ubicacionId : currentApplied?.localId;
+  const appliedLocation = locations.find((item) => String(item.id) === String(appliedLocationId));
+  const appliedCategory = categories.find((item) => String(item.id) === String(currentApplied?.categoriaId));
 
   return (
     <div className="stocky-reports-page">
@@ -289,18 +307,12 @@ export function ReportesPage({ initialReport = "ventas" }) {
       <div className="stocky-report-screen stack gap-4">
         {/* Cabecera Oficial Stocky con verificación de operador */}
         <ReportesHeader
-          loading={loading}
-          onRefresh={handleGenerate}
+          title={currentInfo.title}
+          description={currentInfo.question}
         />
 
-        {/* Tarjeta de contexto con pregunta estructurada */}
-        <div className="card p-4">
-          <h2 className="text-lg font-medium">{currentInfo.title}</h2>
-          <p className="text-xs text-secondary">{currentInfo.question}</p>
-        </div>
-
         {/* Selector unificado de los 5 reportes */}
-        <div className="stocky-toolbar-card no-print">
+        <div className="stocky-report-switcher no-print">
           <SegmentedControl
             ariaLabel="Selección de reporte gerencial"
             value={activeReport}
@@ -356,28 +368,30 @@ export function ReportesPage({ initialReport = "ventas" }) {
 
         {/* Estado pendiente previo: antes de tocar 'Generar reporte' */}
         {!hasGeneratedCurrentTab && !loading && !error && !hasInvalidRange && (
-          <div className="card p-5 text-center stack gap-3 align-center justify-center">
-            <Icon name="chart" size={32} className="text-secondary" />
+          <div className="stocky-report-empty row gap-3 align-center">
+            <Icon name="chart" size={24} className="text-secondary" />
             <div className="stack gap-1">
               <h3 className="text-base font-medium text-foreground">Reporte listo para configurar</h3>
               <p className="text-xs text-secondary">
-                Selecciona la temporalidad, sede y filtros requeridos en la barra superior. Luego presiona el botón para procesar los datos en vivo sin consumir consultas en vano.
+                Define el período y la sede. Genera el reporte para consultar los resultados.
               </p>
             </div>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleGenerate}
-              icon={<Icon name="arrow-right" size="sm" />}
-            >
-              Generar reporte ahora
-            </Button>
           </div>
         )}
 
         {/* Contenido analítico generado bajo demanda */}
         {(hasGeneratedCurrentTab || loading) && !error && !hasInvalidRange && (
           <>
+            {currentApplied && (
+              <div className="stocky-applied-scope" role="status">
+                <strong>Resultado generado</strong>
+                <span>{appliedLocation?.nombre || (appliedLocationId ? `Sede #${appliedLocationId}` : "Todas las sedes")}</span>
+                {activeReport !== "stock" && <span className="tabular-nums">{currentApplied.desde} al {currentApplied.hasta}</span>}
+                {activeReport === "stock" && <span>{appliedCategory?.nombre || "Todas las categorías"}{currentApplied.soloBajoMinimo ? " · Solo bajo mínimo" : " · Todo el stock"}</span>}
+                {activeReport === "productos" && <span>Primeros {currentApplied.top} productos</span>}
+                {isDirty && <span className="text-warning">Filtros nuevos sin aplicar</span>}
+              </div>
+            )}
             <ReportesKpiStrip
               kpis={currentReportData?.kpis || []}
               loading={loading}
@@ -405,7 +419,7 @@ export function ReportesPage({ initialReport = "ventas" }) {
       {/* Drill-down de Ficha de Stock Multisede */}
       <ModalFichaStock
         open={stockModalOpen}
-        onClose={() => setStockModalOpen(false)}
+        onClose={() => { stockDetailRequestId.current += 1; setStockModalOpen(false); }}
         productoId={selectedProductId}
         data={stockDrillDownData}
         loading={stockDrillDownLoading}
@@ -416,7 +430,7 @@ export function ReportesPage({ initialReport = "ventas" }) {
       {/* Drill-down de Peritaje Forense de Bulto y Precinto */}
       <ModalAuditoriaMerma
         open={mermaModalOpen}
-        onClose={() => setMermaModalOpen(false)}
+        onClose={() => { mermaDetailRequestId.current += 1; setMermaModalOpen(false); }}
         bultoId={selectedBultoId}
         data={mermaDrillDownData}
         loading={mermaDrillDownLoading}

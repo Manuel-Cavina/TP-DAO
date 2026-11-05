@@ -1,3 +1,4 @@
+import "../logistics-workbench.css";
 import React, { useState, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -169,7 +170,7 @@ export function RemitoDetallePage() {
   }
 
   return (
-    <div className="stack gap-5">
+    <div className="logistics-workbench stack gap-5">
       {/* Header con breadcrumb y frescura */}
       <div className="erp-flow-header">
         <div>

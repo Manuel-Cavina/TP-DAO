@@ -1,3 +1,4 @@
+import "../logistics-workbench.css";
 import React, { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -32,7 +33,7 @@ export function OperacionesPage() {
   // Tablero activo: "ordenes" | "remitos"
   const [activeBoard, setActiveBoard] = useState("ordenes");
   // Modo de visualizacion: "kanban" | "list"
-  const [viewMode, setViewMode] = useState("kanban");
+  const [viewMode, setViewMode] = useState("list");
   // Filtro de destino (Local)
   const [filtroDestino, setFiltroDestino] = useState("");
 
@@ -151,7 +152,7 @@ export function OperacionesPage() {
   };
 
   return (
-    <div className="stack gap-5">
+    <div className="logistics-workbench stack gap-5">
       {error && <Alert tone="danger" title="No se pudieron actualizar las operaciones" description={error.message || "Las acciones permanecen bloqueadas hasta actualizar los datos."} action={<Button variant="secondary" size="sm" onClick={refresh}>Reintentar</Button>} />}
       {/* Header con breadcrumb y frescura */}
       <div className="erp-flow-header">
@@ -164,10 +165,10 @@ export function OperacionesPage() {
             <span>Operaciones logísticas</span>
           </div>
           <div className="row gap-3 align-center mt-1">
-            <h1 className="text-xl">Tableros de operaciones</h1>
+            <h1 className="text-xl">Trabajo de distribución</h1>
           </div>
           <p className="text-xs text-secondary mt-1">
-            Flujo operativo en vivo: órdenes y remitos en curso o concluidos durante la jornada de hoy.
+            Órdenes para preparar y remitos para recibir. Abra un registro para completar su siguiente acción.
           </p>
         </div>
 
@@ -213,7 +214,7 @@ export function OperacionesPage() {
             </Button>
           </div>
 
-          {/* Selector de vista: Kanban o Lista accesible */}
+          {/* Selector de vista: Kanban o Lista de trabajo */}
           <div className="row gap-1 bg-surface-muted p-1 rounded">
             <Button
               size="sm"

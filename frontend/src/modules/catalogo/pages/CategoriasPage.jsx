@@ -8,6 +8,7 @@ import {
 import { useDisclosure } from "../../../shared/hooks";
 import { useCategorias } from "../hooks/useCategorias";
 import { CategoriaModal } from "../components/CategoriaModal";
+import "../catalog-workbench.css";
 
 export function CategoriasPage() {
   const [search, setSearch] = useState("");
@@ -102,7 +103,7 @@ export function CategoriasPage() {
   ];
 
   return (
-    <div className="stack gap-5">
+    <div className="catalog-workbench stack gap-4">
       <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">
@@ -110,9 +111,9 @@ export function CategoriasPage() {
             <span>·</span>
             <span>Categorías</span>
           </div>
-          <h1 className="text-xl">Categorías de catálogo</h1>
+          <h1 className="text-xl">Categorías</h1>
           <p className="text-sm text-secondary">
-            Familias y agrupaciones para organización taxonómica de los artículos comerciales.
+            Agrupaciones para organizar y filtrar los productos.
           </p>
         </div>
         <div>

@@ -127,17 +127,17 @@ export function CrearOrdenPaso1({
   const selectedCdObj = centrosDistribucion.find((cd) => String(cd.id) === String(effectiveOrigenId));
 
   return (
-    <div className="stack gap-5">
-      <div className="card p-5 stack gap-4">
+    <div className="logistics-create stack gap-5">
+      <div className="logistics-route-form stack gap-3">
         <div>
-          <h2 className="text-lg font-medium">Paso 1: Configuración de ruta y artículos</h2>
+          <h2 className="text-lg font-medium">Ruta de reposición</h2>
           <p className="text-sm text-secondary">
             Seleccione la sucursal receptora y la casa central abastecedora. El stock disponible se verifica en tiempo real contra el Centro de Distribución emisor.
           </p>
         </div>
 
         <div className="grid-2 gap-4">
-          <FormField label="Sucursal destino única (Local comercial receptor)" required>
+          <FormField label="Sucursal destino" required>
             <Select
               options={locales.map((l) => ({ value: String(l.id), label: `${l.nombre} (ID #${l.id})` }))}
               value={effectiveDestinoId}
@@ -147,7 +147,7 @@ export function CrearOrdenPaso1({
             />
           </FormField>
 
-          <FormField label="Casa central de reposición (CD abastecedor de origen)" required>
+          <FormField label="Centro de distribución de origen" required>
             <Select
               options={centrosDistribucion.map((cd) => ({
                 value: String(cd.id),
@@ -172,11 +172,13 @@ export function CrearOrdenPaso1({
         )}
       </div>
 
-      <div className="erp-split-grid">
-        <div className="stack gap-4">
+      <div className="logistics-create-split">
+        <div className="logistics-product-source stack gap-4">
           
           {/* 1. Sugerencias prioritarias de reposición (Arriba en la columna izquierda) */}
-          <div className="card p-4 stack gap-3">
+          <details className="logistics-suggestions">
+            <summary>Necesidades y sugerencias de reposición ({pendingNeedsToShow.length + nearMinToShow.length})</summary>
+            <div className="stack gap-3">
             <div className="row justify-between align-center">
               <div className="row gap-2 align-center">
                 <Zap width={16} height={16} className="text-accent" aria-hidden="true" />
@@ -192,7 +194,7 @@ export function CrearOrdenPaso1({
             {pendingNeedsToShow.length === 0 && nearMinToShow.length === 0 ? (
               <div className="row gap-2 align-center p-3 rounded-lg bg-surface-muted text-xs text-secondary border">
                 <Check width={16} height={16} className="text-success" aria-hidden="true" />
-                <span>Todas las necesidades pendientes y alertas de stock han sido incorporadas al carrito.</span>
+                <span>No hay sugerencias disponibles para agregar. Consulte el catálogo o revise el stock del CD.</span>
               </div>
             ) : (
               <div className="stack gap-3">
@@ -221,7 +223,7 @@ export function CrearOrdenPaso1({
                           </div>
 
                           <Button
-                            variant="primary"
+                            variant="secondary"
                             size="sm"
                             onClick={() => onToggleNec(nec.id)}
                           >
@@ -275,8 +277,9 @@ export function CrearOrdenPaso1({
             )}
           </div>
 
+          </details>
           {/* 2. Búsqueda de artículos en catálogo y filtros de categoría (Debajo de las sugerencias) */}
-          <div className="card p-4 stack gap-3">
+          <div className="logistics-catalog-filters stack gap-3">
             <SearchField
               label="Búsqueda de artículos en catálogo"
               placeholder="Buscar por código SKU, nombre o descripción..."
@@ -308,9 +311,9 @@ export function CrearOrdenPaso1({
           </div>
 
           {/* 3. Listado explorador de productos */}
-          <div className="card p-4 stack gap-3">
+          <div className="logistics-catalog stack gap-3">
             <div className="row justify-between align-center">
-              <span className="text-sm font-medium">Catálogo disponible para reposición</span>
+              <h2 className="text-md font-medium">Catálogo disponible para reposición</h2>
               <span className="text-xs text-secondary">
                 Mostrando {filteredProducts.length} artículo(s)
               </span>

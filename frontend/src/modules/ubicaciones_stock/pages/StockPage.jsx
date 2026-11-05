@@ -167,7 +167,7 @@ export function StockPage() {
                 ? "text-danger"
                 : r.isBajoMinimo
                 ? "text-warning"
-                : "text-success"
+                : "text-foreground"
             }`}
           >
             {v} u.
@@ -218,7 +218,7 @@ export function StockPage() {
               size="sm"
               onClick={() => handleOpenRestock(r)}
             >
-              Restock
+              Registrar ingreso
             </Button>
           );
         }
@@ -256,7 +256,7 @@ export function StockPage() {
             <span>{activeSede?.label || activeSede?.nombre || "Sede activa"}</span>
           </div>
           <div className="row align-center gap-3 wrap">
-            <h1 className="text-xl font-medium">Matriz de stock por ubicación</h1>
+            <h1 className="text-xl font-medium">Stock por ubicación</h1>
             <LiveIndicator
               freshnessSeconds={freshnessSeconds}
               isStale={isStale}
@@ -273,7 +273,7 @@ export function StockPage() {
               iconLeft="plus"
               onClick={() => handleOpenRestock(null)}
             >
-              Restockear Casa Central
+              Registrar ingreso al CD
             </Button>
           ) : (
             <Button
@@ -283,46 +283,18 @@ export function StockPage() {
                 navigate(`/logistica/ordenes/nueva?destinoId=${activeUbicacionId}`)
               }
             >
-              Pedir reposición a CD
+              Preparar reposición
             </Button>
           )}
         </div>
       </div>
 
-      <div className="grid-4 gap-3">
-        <MetricCard
-          label="Sede en foco"
-          value={(activeSede?.label || activeSede?.nombre || "Sede").split(" ")[0]}
-          subtext={isCD ? "Ámbito mayorista CD" : "Ámbito minorista Local"}
-          badgeText={isCD ? "Casa Central" : "Sucursal"}
-          badgeTone={isCD ? "cd" : "local"}
-        />
-        <MetricCard
-          label="Existencias disponibles"
-          value={`${totalDisponible} u.`}
-          subtext={`${stockRows.length} artículos catalogados`}
-        />
-        <MetricCard
-          label={isCD ? "Demanda diferida de sedes" : "Unidades en tránsito"}
-          value={isCD ? `${totalDemandaSedes} u.` : `${totalEnTransito} u.`}
-          subtext={
-            isCD
-              ? "Requeridas por sucursales"
-              : "Remitidos pendientes de recepción"
-          }
-          badgeTone={isCD && totalDemandaSedes > 0 ? "warning" : "neutral"}
-        />
-        <MetricCard
-          label="Bajo nivel mínimo"
-          value={articulosBajoMinimo}
-          subtext={
-            articulosBajoMinimo > 0
-              ? "Disparan alertas activas"
-              : "Existencias equilibradas"
-          }
-          badgeTone={articulosBajoMinimo > 0 ? "danger" : "success"}
-        />
-      </div>
+      <dl className="stock-summary" aria-label="Resumen de existencias de la ubicación">
+        <div><dt>Ubicación consultada</dt><dd>{activeSede?.label || activeSede?.nombre || "Sede"}</dd></div>
+        <div><dt>Disponible · {stockRows.length} artículos</dt><dd className="tabular-nums">{totalDisponible} u.</dd></div>
+        <div><dt>{isCD ? "Demanda pendiente de sucursales" : "En tránsito a esta sede"}</dt><dd className="tabular-nums">{isCD ? totalDemandaSedes : totalEnTransito} u.</dd></div>
+        <div><dt>Artículos bajo mínimo</dt><dd className={`tabular-nums ${articulosBajoMinimo > 0 ? "text-warning" : ""}`}>{articulosBajoMinimo}</dd></div>
+      </dl>
 
       {!isCD && alertas.length > 0 && (
         <Alert
@@ -331,7 +303,7 @@ export function StockPage() {
           description="Hay productos por debajo de su nivel mínimo en esta sede."
           action={
             <Button
-              variant="primary"
+              variant="secondary"
               size="sm"
               iconRight="arrow-right"
               onClick={() =>
@@ -340,7 +312,7 @@ export function StockPage() {
                 )
               }
             >
-              Generar pedido
+              Preparar reposición
             </Button>
           }
         />
@@ -396,7 +368,7 @@ export function StockPage() {
         error={errorStock}
         onRetry={reloadStock}
         emptyTitle="Sin existencias registradas en esta sede"
-        emptyDescription="Creá una orden o restockeá la sede para registrar existencias."
+        emptyDescription={isCD ? "Registra un ingreso de mercadería en este centro de distribución." : "Prepara una reposición. El stock del local se acredita al cerrar la recepción verificada."}
       />
 
       {/* Drawer de Restock de Casa Central */}
@@ -413,8 +385,11 @@ export function StockPage() {
             ? Math.max(1, drawerTargetProduct.demandaSedes || drawerTargetProduct.deficit || 100)
             : 100
         }
-        stockActual={drawerTargetProduct?.disponible || 0}
-        demandaSedes={drawerTargetProduct?.demandaSedes || 0}
+        stockPorProducto={new Map(stockRows.map((row) => [row.productoId, row]))}
+        stockLoading={loadingStock}
+        stockError={errorStock}
+        stockStale={isStale}
+        onRetryStock={reloadStock}
         onSuccess={reloadStock}
       />
     </div>

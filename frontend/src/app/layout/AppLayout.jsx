@@ -1,6 +1,7 @@
 import React from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { AppShell, TASK_GROUPS } from "../../shared/components/AppShell";
+import { AppShell } from "../../shared/components/AppShell";
+import { matchNavigation } from "../../shared/lib/navigation";
 import { ScreenTransition } from "../../shared/components/Motion";
 import { ErrorBoundary } from "../providers/ErrorBoundary";
 import { useAuth } from "../auth/AuthProvider";
@@ -23,42 +24,8 @@ export function AppLayout() {
     actionLabel: "Abrir alerta",
   }));
 
-  // Derive active task group and active task sub-item from current pathname
-  let activeGroup = null;
-  let activeItem = null;
-
-  for (const group of TASK_GROUPS) {
-    for (const item of group.items) {
-      const itemBase = item.path.split("?")[0];
-      const isExact = item.path.includes("?") ? fullPath === item.path : pathname === item.path;
-      const isPrefix = itemBase !== "/" && itemBase !== "/logistica" && pathname.startsWith(itemBase + "/");
-      if (isExact || isPrefix) {
-        activeGroup = group;
-        activeItem = item;
-        break;
-      }
-    }
-    if (activeGroup) break;
-  }
-
-  if (!activeGroup) {
-    if (pathname.startsWith("/catalogo")) activeGroup = TASK_GROUPS.find((g) => g.id === "maestros");
-    else if (pathname.startsWith("/stock/ubicaciones") || pathname.startsWith("/red")) activeGroup = TASK_GROUPS.find((g) => g.id === "maestros");
-    else if (pathname.startsWith("/stock")) activeGroup = TASK_GROUPS.find((g) => g.id === "inventario");
-    else if (pathname.startsWith("/logistica")) activeGroup = TASK_GROUPS.find((g) => g.id === "distribucion");
-    else if (pathname.startsWith("/ventas")) activeGroup = TASK_GROUPS.find((g) => g.id === "ventas");
-    else if (pathname.startsWith("/reportes")) activeGroup = TASK_GROUPS.find((g) => g.id === "control");
-    else if (pathname === "/dashboard") activeGroup = TASK_GROUPS.find((g) => g.id === "inicio");
-  }
-
-  const routeTitle =
-    pathname === "/dashboard"
-      ? "Panel de control"
-      : activeGroup && activeItem
-      ? `${activeGroup.label} · ${activeItem.label}`
-      : activeGroup
-      ? activeGroup.label
-      : "Stocky ERP";
+  const navigation = matchNavigation(fullPath);
+  const routeTitle = navigation ? `${navigation.group.label} · ${navigation.item.label}` : "Stocky ERP";
 
   const isMultiNodeFlow =
     pathname.startsWith("/logistica") ||
@@ -71,7 +38,7 @@ export function AppLayout() {
       currentPath={fullPath}
       routeTitle={routeTitle}
       onNavigate={(path) => navigate(path)}
-      activeModule={activeGroup?.id || "inventario"}
+      activeModule={navigation?.group.id || "inicio"}
       onSearch={(query) => navigate(`/logistica/trazabilidad?q=${encodeURIComponent(query)}`)}
       notifications={notifications}
       notificationsError={alertasError}

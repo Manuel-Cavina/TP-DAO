@@ -1,14 +1,7 @@
-/**
- * Stocky · Sistema de Ventas e Inventario: Centro de Distribución a Locales
- * Módulo de Reportes Analíticos (R1 & R2)
- * tokens.css compliant styling
- */
-
+/* Report layouts use the shared semantic theme. */
 @import "./reportes-details.css";
 
-/* -------------------------------------------------------------------------
- * 1. CABECERA BRANDING OFICIAL STOCKY
- * ------------------------------------------------------------------------- */
+/* Report heading */
 
 .stocky-report-header {
   display: flex;
@@ -16,10 +9,11 @@
   justify-content: space-between;
   gap: 16px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
-  padding: 16px 20px;
-  box-shadow: var(--shadow-control);
+  border: 0;
+  border-radius: 0;
+  padding: 0 0 var(--space-4);
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
 }
 
 .stocky-brand-block {
@@ -36,7 +30,7 @@
 }
 
 .stocky-brand-title {
-  font-size: 1.15rem;
+  font-size: var(--text-2xl);
   font-weight: var(--font-medium);
   color: var(--foreground);
   line-height: 1.25;
@@ -44,7 +38,7 @@
 }
 
 .stocky-brand-subtitle {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
   margin-top: 2px;
 }
@@ -82,7 +76,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
-  padding: 14px 18px;
+  padding: var(--space-3) var(--space-4);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -134,7 +128,7 @@
   padding: 18px;
   display: flex;
   flex-direction: column;
-  min-height: 380px;
+  min-height: 280px;
   position: relative;
   overflow: hidden;
 }
@@ -155,7 +149,7 @@
 .stocky-chart-canvas {
   width: 100%;
   flex: 1;
-  min-height: 300px;
+  min-height: 220px;
 }
 
 /* Fallback visual cuando Plotly no está cargado */
@@ -489,4 +483,17 @@
   fill: var(--foreground) !important;
 }
 
-.stocky-chart-dual-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 12px; }
+.stocky-chart-dual-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: var(--space-4); }
+.stocky-report-screen, .stocky-report-screen > *, .stocky-brand-block { min-width: 0; }
+.stocky-report-switcher { overflow-x: auto; max-width: 100%; }
+.stocky-report-empty { padding: var(--space-4); border: 1px dashed var(--border); border-radius: var(--radius-panel); }
+.stocky-report-empty > svg { flex-shrink: 0; }
+.stocky-applied-scope { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); font-size: var(--text-xs); color: var(--text-secondary); padding-block: var(--space-2); border-bottom: 1px solid var(--border); }
+.stocky-applied-scope strong { font-weight: var(--font-medium); color: var(--foreground); }
+.stocky-filter-controls, .stocky-filter-row, .stocky-toolbar-card input, .stocky-toolbar-card select { min-width: 0; max-width: 100%; }
+@media (max-width: 768px) {
+  .stocky-report-header { padding: 0 0 var(--space-3); }
+  .stocky-brand-title { font-size: var(--text-xl); }
+  .stocky-header-actions { width: auto; }
+  .stocky-operator-pill { white-space: normal; }
+}

@@ -1,3 +1,4 @@
+import "../logistics-workbench.css";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "../../../shared/components/Button";
@@ -21,7 +22,6 @@ import { readApprovalOutcome } from "../mappers/sealControl";
 import { Alert } from "../../../shared/components/Feedback";
 import { useAuth } from "../../../app/auth/AuthProvider";
 import { puedeOperarEnUbicacion, MENSAJE_FUERA_DE_ALCANCE } from "../../../app/auth/rolePolicy";
-
 export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -29,30 +29,24 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
   const { ordenes, reload: reloadOrd } = useOrdenes();
   const { ubicaciones } = useUbicaciones();
   const { user, scope } = useAuth();
-
   const effectiveOrdenId = ordenId ? String(ordenId) : searchParams.get("ordenId");
   const returnTo = searchParams.get("returnTo");
   const [selectedOrdenFallback, setSelectedOrdenId] = useState(effectiveOrdenId || "");
   const selectedOrdenId = effectiveOrdenId || selectedOrdenFallback;
-
   const [creandoBulto, setCreandoBulto] = useState(false);
   const [errorBulto, setErrorBulto] = useState("");
   const [bultoSeleccionado, setBultoSeleccionado] = useState(null);
   const detalleModal = useDisclosure(false);
-
   const [approvalOutcome, setApprovalOutcome] = useState(null);
   const [aprobandoId, setAprobandoId] = useState(null);
   const [aprobandoLote, setAprobandoLote] = useState(false);
   const [errorAprobacion, setErrorAprobacion] = useState("");
   const aprobacionModal = useDisclosure(false);
-
   const remitoModal = useDisclosure(false);
   const [generandoRemito, setGenerandoRemito] = useState(false);
   const [errorOperacion, setErrorOperacion] = useState("");
-
   const ubicMap = useMemo(() => new Map(ubicaciones.map((u) => [u.id, u.nombre])), [ubicaciones]);
   const ordenesDisponibles = useMemo(() => ordenes.filter((o) => o.estado === "PENDIENTE" || o.estado === "EN_PREPARACION"), [ordenes]);
-
   useEffect(() => {
     if (effectiveOrdenId) {
       setSelectedOrdenId(effectiveOrdenId);
@@ -62,15 +56,12 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
       setSearchParams({ ordenId: firstId });
     }
   }, [effectiveOrdenId, ordenesDisponibles, selectedOrdenId, setSearchParams]);
-
   const activeOrden = useMemo(() => ordenes.find((o) => String(o.id) === String(selectedOrdenId)) || null, [ordenes, selectedOrdenId]);
-
   const fetchBultos = useCallback(async ({ signal }) => {
     const res = await logisticaService.listarBultosPorOrden(selectedOrdenId, { signal });
     const list = Array.isArray(res) ? res : res?.data || [];
     return list.map(mapBultoToUI);
   }, [selectedOrdenId]);
-
   const { data: bultosData, isLoading: loadingBultos, isStale, error: bultosError, refresh: loadBultos } = useLiveResource(fetchBultos, {
     resourceKey: `packaging:${selectedOrdenId}`,
     enabled: Boolean(selectedOrdenId),
@@ -78,7 +69,6 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
   const bultos = bultosData || [];
   const puedeOperarOrigen = puedeOperarEnUbicacion(user, scope, activeOrden?.origenId);
   const aprobadosSet = useMemo(() => new Set(bultos.filter((b) => b.aprobado).map((b) => b.id)), [bultosData]);
-
   useEffect(() => {
     setApprovalOutcome(null);
     setErrorOperacion("");
@@ -87,7 +77,6 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
     remitoModal.onClose();
     detalleModal.onClose();
   }, [selectedOrdenId]);
-
   const itemsPendientes = useMemo(() => {
     if (!activeOrden?.detalles) return [];
     return activeOrden.detalles.map((det) => {
@@ -262,14 +251,16 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
       mono: true,
       render: (v) => v ? <span className="font-mono text-sm font-medium">{v}</span> : <span className="text-muted text-xs">Sin precinto</span>,
     },
-    { key: "estado", header: "Estado", render: (v) => <StatusBadge status={v} /> },
+    { key: "estado", header: "Estado físico", render: (v) => <StatusBadge status={v} /> },
     {
       key: "aprobacion",
-      header: "Aprobación (US4)",
+      header: "Aprobación para despacho",
       render: (_, row) =>
         aprobadosSet.has(row.id) || row.aprobado ? (
           <span className="badge badge--success text-xs">Aprobado</span>
-        ) : row.estado === "PRECINTADO" && puedeOperarOrigen ? (
+        ) : !puedeOperarOrigen ? (
+          <span className="text-muted text-xs">Fuera de tu alcance operativo</span>
+        ) : row.estado === "PRECINTADO" ? (
           <Button
             variant={esPrioridadAprobacion && bultosElegiblesParaAprobar.length === 1 ? "primary" : "secondary"}
             size="sm"
@@ -295,7 +286,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
   ];
 
   return (
-    <div className="stack gap-5">
+    <div className="logistics-workbench stack gap-5">
       {!embedded && (
         <div className="erp-flow-header">
           <div>
@@ -393,8 +384,13 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
         </div>
       )}
 
+      {activeOrden && <div className="logistics-quantity-strip" aria-label="Avance de empaquetado">
+        <span>Solicitadas <strong>{totalSolicitadas} u.</strong></span>
+        <span>Empaquetadas <strong>{totalEmpaquetadas} u.</strong></span>
+        <span>Pendientes <strong>{Math.max(0, totalSolicitadas - totalEmpaquetadas)} u.</strong></span>
+      </div>}
       {activeOrden && (
-        <div className="grid-2 gap-4">
+        <div className="logistics-packing-split">
           <EmpaquetadoForm
             itemsPendientes={itemsPendientes}
             onCrearBulto={handleCrearBulto}

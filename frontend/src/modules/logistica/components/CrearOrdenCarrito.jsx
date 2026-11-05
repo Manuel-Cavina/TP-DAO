@@ -17,10 +17,10 @@ export function CrearOrdenCarrito({
   onProceed,
 }) {
   return (
-    <div className="card p-5 stack gap-4 erp-sticky-cart">
+    <div className="card p-4 stack gap-4 logistics-order-cart">
       <div className="row justify-between align-center">
         <div>
-          <h3 className="text-base font-medium">Carrito de reposición</h3>
+          <h3 className="text-base font-medium">Artículos seleccionados</h3>
           <span className="text-xs text-secondary">Renglones a consolidar en la orden</span>
         </div>
         <Badge tone="neutral" size="md">

@@ -82,13 +82,13 @@ export function OrdenDespachoTab({
           <h3 className="text-md font-medium">Impacto operativo y en stock</h3>
           <div className="stack gap-1 text-xs text-secondary">
             <p>
-              · <strong>En CD Origen ({origenNombre}):</strong> El stock queda reservado durante la preparación y se descuenta al despachar el remito.
+              · <strong>En CD Origen ({origenNombre}):</strong> El stock de origen se descuenta al despachar el remito.
             </p>
             <p>
               · <strong>En tránsito:</strong> La mercadería permanece en custodia legal bajo el amparo de remito y precintos numerados.
             </p>
             <p>
-              · <strong>En Destino ({destinoNombre}):</strong> La mercadería <strong>NO</strong> suma al stock disponible hasta que los bultos sean verificados con precinto intacto (Regla V1).
+              · <strong>En Destino ({destinoNombre}):</strong> La mercadería <strong>NO</strong> suma al stock disponible hasta verificar los bultos y cerrar el remito. Los bultos rechazados se registran como merma.
             </p>
           </div>
         </div>

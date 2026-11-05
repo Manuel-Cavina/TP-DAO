@@ -1,0 +1,14 @@
+/* Master data uses the shell's full canvas and one aligned filter row. */
+.catalog-workbench { min-width: 0; }
+.catalog-workbench > * { min-width: 0; }
+.catalog-workbench > .erp-flow-header { flex-wrap: wrap; }
+.catalog-workbench > .erp-flow-header > .row { flex-wrap: wrap; }
+.catalog-workbench .erp-table { min-width: 680px; }
+.catalog-workbench--products .erp-table { min-width: 1120px; }
+.catalog-workbench--products .erp-table td:nth-child(3) { min-width: 200px; }
+.catalog-workbench .erp-table td { vertical-align: middle; }
+.catalog-workbench .erp-table td .tabular-nums { white-space: nowrap; }
+@media (max-width: 768px) {
+  .catalog-workbench > .row > * { min-width: 0; max-width: 100%; }
+  .catalog-workbench > .row { align-items: stretch; }
+}

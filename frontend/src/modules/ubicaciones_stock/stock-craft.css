@@ -2,7 +2,8 @@
 .stock-flow-wrap {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: var(--space-4);
+  min-width: 0;
 }
 
 .stock-action-cell {
@@ -47,4 +48,26 @@
   padding-top: 1rem;
   border-top: 1px solid var(--border);
   margin-top: auto;
+}
+
+.stock-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; border-block: 1px solid var(--border); }
+.stock-summary > div { min-width: 0; padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle); }
+.stock-summary > div:first-child { padding-left: 0; }
+.stock-summary > div:last-child { border-right: 0; }
+.stock-summary dt { font-size: var(--text-xs); color: var(--text-secondary); }
+.stock-summary dd { margin: var(--space-1) 0 0; font-size: var(--text-base); font-weight: var(--font-medium); overflow-wrap: anywhere; }
+.stock-filter-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding: 0; border: 0; background: transparent; }
+.stock-filter-row > * { min-width: 0; }
+.stock-filter-row > :last-child { flex: 1 1 240px; }
+.stock-flow-wrap .erp-table { min-width: 760px; }
+.stock-flow-wrap .erp-table td:nth-child(3), .stock-flow-wrap .erp-table td:nth-child(4), .stock-flow-wrap .erp-table td:nth-child(5) { white-space: nowrap; }
+.inventory-workbench { min-width: 0; }
+.inventory-workbench > .grid-4 { gap: var(--space-3); }
+@media (max-width: 800px) {
+  .stock-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stock-summary > div:nth-child(odd) { padding-left: 0; }
+  .stock-summary > div:nth-child(even) { border-right: 0; }
+  .stock-filter-row > :first-child { flex-basis: 100%; overflow-x: auto; }
+  .stock-filter-row > .erp-select-wrap { flex: 1 1 180px; }
+  .stock-flow-wrap .erp-flow-header > .row { flex-wrap: wrap; }
 }

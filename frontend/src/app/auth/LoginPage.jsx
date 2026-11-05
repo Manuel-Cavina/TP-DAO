@@ -1,3 +1,4 @@
+import "./login.css";
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
@@ -81,7 +82,7 @@ export function LoginPage() {
             <img src="/brand/stocky-full.png" alt="Stocky" className="login-logo-image" />
           </div>
           <div>
-            <h1>Operación trazable desde el centro hasta cada local.</h1>
+            <h2>El trabajo de cada sede, en un mismo lugar.</h2>
             <p className="muted login-story-desc">
               Preparación, precintos, remitos, recepción y stock en un flujo verificable.
             </p>
@@ -163,7 +164,7 @@ export function LoginPage() {
               />
               {fieldErrors.password && <span id="loginPasswordError" className="field-error">{fieldErrors.password}</span>}
               <span className="field-help">
-                Mínimo 8 caracteres. Nunca se muestra ni se registra en el prototipo.
+                Mínimo 8 caracteres.
               </span>
             </div>
             <button
@@ -174,7 +175,7 @@ export function LoginPage() {
               {isSubmitting ? "Ingresando..." : `Ingresar como ${role.toLowerCase()}`}
             </button>
             <p className="micro login-micro-note">
-              Cuentas mínimas previstas: 1 administrador y 1 operador. En producción, permisos verificados también por backend.
+              Entorno de demostración. Los permisos se verifican al iniciar sesión.
             </p>
           </form>
         </div>

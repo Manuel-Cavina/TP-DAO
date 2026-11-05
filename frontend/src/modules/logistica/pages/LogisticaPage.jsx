@@ -1,3 +1,4 @@
+import "../logistics-workbench.css";
 import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -231,7 +232,7 @@ export function LogisticaPage({ initialTab = "remitos" }) {
   const pageSubtitle = activeTab === "ordenes" ? "Órdenes activas e historial por destino" : activeTab === "necesidades" ? "Necesidades que aún no se convirtieron en una orden" : "Emisión, tránsito e historial de remitos";
 
   return (
-    <div className="stack gap-5">
+    <div className="logistics-workbench stack gap-5">
       <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">

@@ -1,0 +1,56 @@
+/* The shared shell owns page gutters. Logistics only composes the working sheet. */
+.logistics-workbench { min-width: 0; gap: 24px; }
+.logistics-workbench > .erp-flow-header { padding: 0; border: 0; background: none; box-shadow: none; border-radius: 0; }
+.logistics-workbench .erp-flow-header h1 { margin: 0; font-size: var(--text-2xl, 28px); font-weight: 500; }
+.logistics-workbench .erp-breadcrumb { margin-bottom: 8px; }
+.logistics-workbench .card { box-shadow: none; }
+.logistics-workbench .grid-2 > *, .logistics-workbench .grid-3 > * { min-width: 0; }
+.logistics-order-context { display: grid; grid-template-columns: 1fr 1fr 1.15fr 1fr; gap: 24px; padding: 16px 0; border-block: 1px solid var(--border); }
+.logistics-order-context > div { display: flex; flex-wrap: wrap; align-content: start; align-items: center; gap: 8px; min-width: 0; }
+.logistics-order-context > div > span:first-child { flex-basis: 100%; color: var(--text-secondary); font-size: var(--text-xs, 12px); }
+.logistics-order-context strong { font-size: var(--text-sm, 14px); font-weight: 500; overflow-wrap: anywhere; }
+.logistics-order-context > div > span:last-child { color: var(--text-secondary); font-size: var(--text-xs, 12px); }
+.logistics-workflow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.logistics-workflow button { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; min-height: 56px; padding: 8px 12px; background: none; border: 0; border-radius: var(--radius-control, 10px); color: var(--foreground); text-align: left; font: inherit; cursor: pointer; }
+.logistics-workflow button:hover { background: var(--surface-muted); }
+.logistics-workflow button[aria-current] { background: var(--accent-subtle); color: var(--accent); }
+.logistics-workflow button > span { font-size: var(--text-sm, 14px); font-weight: 500; }
+.logistics-workflow small { font-size: var(--text-xs, 12px); color: var(--text-secondary); }
+.logistics-quantity-strip { display: flex; flex-wrap: wrap; gap: 32px; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: var(--text-sm, 14px); color: var(--text-secondary); }
+.logistics-quantity-strip strong { color: var(--foreground); font-weight: 500; margin-left: 8px; font-variant-numeric: tabular-nums; }
+.logistics-packing-split { display: grid; grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.15fr); gap: 16px; align-items: start; }
+.logistics-record-link { padding: 0; background: none; border: 0; text-align: left; color: var(--accent); font: inherit; font-weight: 500; cursor: pointer; }
+.logistics-create { gap: 16px; }
+.logistics-route-form { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.logistics-route-form > div:first-child p { margin-top: 4px; }
+.logistics-create-split { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
+.logistics-product-source { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+.logistics-catalog-filters { grid-row: 1; }
+.logistics-catalog { grid-row: 2; }
+.logistics-suggestions { grid-row: 3; border: 1px solid var(--border); border-radius: var(--radius-control, 10px); padding: 12px; }
+.logistics-suggestions summary { cursor: pointer; color: var(--foreground); font-size: var(--text-sm, 14px); font-weight: 500; }
+.logistics-suggestions[open] > div { padding-top: 16px; }
+.logistics-order-cart { position: sticky; top: 16px; }
+.logistics-review-table { overflow-x: auto; }
+.logistics-review-table table { min-width: 680px; }
+.logistics-workbench .erp-stepper { display: flex; gap: 16px; padding: 0; background: none; box-shadow: none; }
+.logistics-workbench .erp-stepper__step { flex: 1; padding: 8px 0; background: none; border: 0; border-bottom: 2px solid var(--border); border-radius: 0; }
+.logistics-workbench .erp-stepper__step.is-current { border-bottom-color: var(--accent); }
+.logistics-workbench .erp-stepper__desc { display: none; }
+@media (max-width: 1100px) {
+  .logistics-order-context { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .logistics-packing-split { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+  .logistics-create-split { grid-template-columns: minmax(0, 1fr); }
+  .logistics-order-cart { position: static; }
+  .logistics-workflow { display: flex; overflow-x: auto; }
+  .logistics-workflow button { flex: 0 0 160px; }
+}
+@media (max-width: 600px) {
+  .logistics-order-context { grid-template-columns: minmax(0, 1fr); }
+  .logistics-workbench .erp-flow-header { align-items: start; }
+  .logistics-quantity-strip { gap: 12px; flex-direction: column; }
+  .logistics-workbench .erp-stepper__step span { white-space: normal; }
+  .logistics-create .row { flex-wrap: wrap; }
+}

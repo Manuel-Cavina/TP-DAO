@@ -1,3 +1,4 @@
+import "../logistics-workbench.css";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
@@ -243,7 +244,7 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
   ];
 
   return (
-    <div className="stack gap-5">
+    <div className="logistics-workbench stack gap-5">
       {loadingRemito && !activeRemito && <div role="status" className="erp-callout">Cargando el remito seleccionado…</div>}
       {isStale && activeRemito && <div role="alert" className="erp-callout">Datos sin confirmar. Actualice el remito antes de continuar. <Button variant="secondary" size="sm" onClick={loadActiveRemito}>Actualizar</Button></div>}
       {!embedded && <div className="erp-flow-header">
@@ -342,7 +343,7 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
             <p className="text-sm text-secondary">Registre el arribo del transporte a la sucursal destino para descargar y habilitar el control de precintos.</p>
           </div>
           <Button variant="primary" iconLeft="package" disabled={isStale || loadingRemito} onClick={handleRecibirRemito} loading={recibiendo} loadingLabel="Registrando arribo...">
-            Registrar recepción en local
+            Registrar arribo en destino
           </Button>
         </div>
       )}
@@ -351,7 +352,7 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
         <>
           <div className="grid-4 gap-3">
             <MetricCard label="Total bultos" value={activeRemito.totalBultos} subtext="En este envío" />
-            <MetricCard label="Verificados" value={activeRemito.bultosVerificados} subtext="Stock vendible" badgeTone={activeRemito.bultosVerificados > 0 ? "success" : "neutral"} />
+            <MetricCard label="Verificados" value={activeRemito.bultosVerificados} subtext={isCerrado ? "Acreditados al cerrar" : "Acreditación al cierre"} badgeTone={activeRemito.bultosVerificados > 0 ? "success" : "neutral"} />
             <MetricCard label="Rechazados" value={activeRemito.bultosRechazados} subtext="Merma formal" badgeTone={activeRemito.bultosRechazados > 0 ? "danger" : "neutral"} />
             <MetricCard label="Pendientes" value={activeRemito.bultosPendientes} subtext="Requieren control" badgeTone={activeRemito.bultosPendientes > 0 ? "warning" : "success"} />
           </div>
@@ -395,7 +396,7 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
                   <h2 className="text-md">Cierre formal de remito e impacto de stock</h2>
                   <p className="text-sm text-secondary">La acreditación al stock disponible vendible del local o el registro de merma se efectivizan exclusivamente al cerrar el remito.</p>
                 </div>
-                <Button variant="primary" iconLeft="check" disabled={!canCerrarRemito || cerrando} loading={cerrando} loadingLabel="Procesando cierre..." onClick={preCierreModal.onOpen}>
+                <Button variant={canCerrarRemito ? "primary" : "secondary"} iconLeft="check" disabled={!canCerrarRemito || cerrando} loading={cerrando} loadingLabel="Procesando cierre..." onClick={preCierreModal.onOpen}>
                   Cerrar remito e impactar stock
                 </Button>
               </div>
@@ -419,7 +420,7 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
           <div className="row justify-between w-full">
             <Button variant="ghost" onClick={verificarModal.onClose} disabled={verificando}>Cancelar</Button>
             <Button variant={estaIntacto ? "primary" : "danger"} onClick={handleSubmitVerificar} disabled={!resultadoPrecinto || isStale} loading={verificando} loadingLabel="Registrando control...">
-              {estaIntacto ? "Acreditar como verificado" : "Rechazar bulto por merma"}
+              {estaIntacto ? "Registrar bulto verificado" : "Rechazar bulto por merma"}
             </Button>
           </div>
         }
@@ -431,13 +432,9 @@ export function RecepcionPage({ remitoNumero, embedded = false, onChange }) {
               <span className="text-xs text-muted">Precinto esperado según remito</span>
               <span className="font-mono text-sm font-medium">{targetBulto?.codigoPrecinto || "Sin código registrado"}</span>
             </div>
-            {targetBulto?.codigoPrecinto && (
-              <Button type="button" variant="secondary" size="sm" iconLeft="check" onClick={() => { setCodigoIngresado(targetBulto.codigoPrecinto); setResultadoPrecinto("INTACTO"); setVerifError(""); }}>
-                Coincide con precinto esperado
-              </Button>
-            )}
+
           </div>
-          <TextInput id="reception-seal-read" label="Código de precinto físico observado" hint="Verifique la faja física del bulto o use el botón superior si coincide con la esperada." mono value={codigoIngresado} onChange={(e) => setCodigoIngresado(e.target.value)} placeholder="p. ej. PRC-2026-0001" required />
+          <TextInput id="reception-seal-read" label="Código de precinto físico observado" hint="Lea el código en el bulto físico y compare con el esperado. La inspección no acredita stock hasta cerrar el remito." mono value={codigoIngresado} onChange={(e) => setCodigoIngresado(e.target.value)} placeholder="p. ej. PRC-2026-0001" required />
           <SegmentedControl ariaLabel="Resultado de la inspección física" value={resultadoPrecinto} onChange={setResultadoPrecinto} options={[{ value: "INTACTO", label: "Intacto" }, { value: "VIOLADO", label: "Violado" }]} />
           {(resultadoPrecinto === "VIOLADO" || (codigoIngresado.trim() && targetBulto?.codigoPrecinto && codigoIngresado.trim() !== targetBulto.codigoPrecinto)) && (
             <FormField label="Motivo de rechazo" htmlFor="reception-rejection-reason" required hint="Describa el daño o anomalía observada (máx 250 caracteres).">

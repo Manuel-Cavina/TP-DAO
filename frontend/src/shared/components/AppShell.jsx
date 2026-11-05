@@ -7,70 +7,10 @@ import { NotificationPanel } from "./NotificationPanel";
 import { LogoutModal } from "./LogoutModal";
 import { navigationFocusTarget } from "../lib/navigationFocus";
 
-export const TASK_GROUPS = [
-  {
-    id: "inicio",
-    label: "Inicio",
-    icon: "chart",
-    defaultPath: "/dashboard",
-    items: [{ id: "inicio-panel", label: "Panel operativo", path: "/dashboard" }],
-  },
-  {
-    id: "maestros",
-    label: "Maestros",
-    icon: "package",
-    defaultPath: "/catalogo/productos",
-    items: [
-      { id: "maestros-productos", label: "Productos", path: "/catalogo/productos" },
-      { id: "maestros-categorias", label: "Categorías", path: "/catalogo/categorias" },
-      { id: "maestros-proveedores", label: "Proveedores", path: "/catalogo/proveedores" },
-      { id: "maestros-ubicaciones", label: "Centros y locales", path: "/stock/ubicaciones" },
-    ],
-  },
-  {
-    id: "inventario",
-    label: "Inventario",
-    icon: "warehouse",
-    defaultPath: "/stock/stock",
-    items: [
-      { id: "inventario-stock", label: "Stock por ubicación", path: "/stock/stock" },
-      { id: "inventario-alertas", label: "Alertas de reposición", path: "/stock/alertas" },
-      { id: "inventario-movimientos", label: "Movimientos", path: "/logistica/trazabilidad" },
-    ],
-  },
-  {
-    id: "distribucion",
-    label: "Distribución",
-    icon: "truck",
-    defaultPath: "/logistica/operaciones",
-    items: [
-      { id: "operaciones-tablero", label: "Tablero operativo", path: "/logistica/operaciones" },
-      { id: "distribucion-ordenes", label: "Historial de órdenes", path: "/logistica/ordenes" },
-    ],
-  },
-  {
-    id: "ventas",
-    label: "Ventas y caja",
-    icon: "credit-card",
-    defaultPath: "/ventas",
-    items: [
-      { id: "ventas-pos", label: "Punto de venta", path: "/ventas" },
-      { id: "ventas-caja", label: "Comprobantes y caja", path: "/ventas?tab=facturas" },
-      { id: "ventas-devoluciones", label: "Devoluciones", path: "/ventas?tab=devoluciones" },
-    ],
-  },
-  {
-    id: "control",
-    label: "Control",
-    icon: "chart",
-    defaultPath: "/reportes/ventas",
-    items: [
-      { id: "control-trazabilidad", label: "Trazabilidad", path: "/logistica/trazabilidad" },
-      { id: "control-reportes", label: "Reportes gerenciales", path: "/reportes/ventas" },
-    ],
-  },
-];
+import { ADMIN_TASK_GROUPS, matchNavigation } from "../lib/navigation";
 
+export const TASK_GROUPS = ADMIN_TASK_GROUPS;
+export const DEFAULT_LOCATIONS = [];
 export const ERP_MODULES = [
   { key: "catalogo", label: "Catálogo", icon: "package" },
   { key: "ubicaciones_stock", label: "Inventario", icon: "warehouse" },
@@ -79,40 +19,14 @@ export const ERP_MODULES = [
   { key: "reportes", label: "Reportes", icon: "chart" },
 ];
 
-const GROUP_LABELS = { maestros: "Catálogo", distribucion: "Operaciones" };
-const ITEM_LABELS = {
-  "inventario-stock": "Inventario por sede",
-  "inventario-ingresos": "Recepción de proveedores",
-  "inventario-alertas": "Reposición",
-  "distribucion-ordenes": "Historial de órdenes",
-  "operaciones-tablero": "Tablero operativo",
-};
-
-// La navegación no inventa sedes: SedeProvider carga sólo las disponibles desde la API.
-const NAV_GROUP_ORDER = ["inicio", "distribucion", "ventas", "inventario", "maestros", "control"];
-
-export const DEFAULT_LOCATIONS = [];
-
-function getActiveGroupId(currentPath, activeModule) {
-  const currentBase = (currentPath || "").split("?")[0];
-  const group = TASK_GROUPS.find(
-    (candidate) =>
-      candidate.items.some((item) => {
-        const itemBase = item.path.split("?")[0];
-        return currentBase === itemBase || (itemBase !== "/logistica" && currentBase.startsWith(`${itemBase}/`));
-      }) ||
-      (candidate.id === "distribucion" && activeModule === "logistica") ||
-      (candidate.id === "inventario" && activeModule === "ubicaciones_stock") ||
-      (candidate.id === "ventas" && activeModule === "ventas_caja") ||
-      (candidate.id === "control" && activeModule === "reportes")
-  );
-  return group?.id || null;
-}
-
 export function AppShell({
   currentPath = "/dashboard",
   onNavigate,
   activeModule = "inicio",
+  taskGroups = TASK_GROUPS,
+  routeTitle,
+  contextLabel = "Administración de la red",
+  showActivity = true,
   onSelectModule,
   onSearch,
   notifications = [],
@@ -131,7 +45,10 @@ export function AppShell({
   const mainRef = useRef(null);
   const menuTriggerRef = useRef(null);
   const [search, setSearch] = useState("");
-  const [expandedGroups, setExpandedGroups] = useState(() => new Set([getActiveGroupId(currentPath, activeModule)].filter(Boolean)));
+  const [expandedGroups, setExpandedGroups] = useState(() => new Set([matchNavigation(currentPath, taskGroups)?.group.id].filter(Boolean)));
+  const [theme, setTheme] = useState("light");
+  useEffect(() => { setTheme(document.documentElement.dataset.theme || "light"); }, []);
+  const activeNavigation = matchNavigation(currentPath, taskGroups);
   const [activityOpen, setActivityOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -170,9 +87,9 @@ export function AppShell({
   }, [isMobile, mobileOpen]);
 
   useEffect(() => {
-    const activeGroup = getActiveGroupId(currentPath, activeModule);
+    const activeGroup = matchNavigation(currentPath, taskGroups)?.group.id;
     if (activeGroup) setExpandedGroups((current) => new Set([...current, activeGroup]));
-  }, [currentPath, activeModule]);
+  }, [currentPath, activeModule, taskGroups]);
 
   const handleNavigate = (path, groupId) => {
     if (onNavigate) onNavigate(path);
@@ -203,10 +120,10 @@ export function AppShell({
           <img className="erp-sidebar__brand-image" src="/brand/stocky-logo.png" alt="Stocky" />
           <div><div className="erp-sidebar__brand-title">Stocky</div><div className="erp-sidebar__brand-sub">Operación y distribución</div></div>
         </div>
-        <div className="erp-sidebar__section-label">Operación</div>
+        <div className="erp-sidebar__scope">{contextLabel}</div>
         <nav className="erp-sidebar__nav">
-          {TASK_GROUPS.filter((group) => group.id !== "recepcion").sort((a, b) => NAV_GROUP_ORDER.indexOf(a.id) - NAV_GROUP_ORDER.indexOf(b.id)).map((group) => {
-            const active = getActiveGroupId(currentPath, activeModule) === group.id;
+          {taskGroups.map((group) => {
+            const active = matchNavigation(currentPath, taskGroups)?.group.id === group.id;
             const isExpanded = expandedGroups.has(group.id);
             return (
               <div key={group.id} className="erp-sidebar__group">
@@ -216,14 +133,14 @@ export function AppShell({
                   className={`erp-sidebar__group-header ${active ? "is-active" : ""}`.trim()}
                   onClick={() => group.items.length === 1 ? handleNavigate(group.defaultPath, group.id) : toggleGroup(group.id)}
                 >
-                  <span className="erp-sidebar__item-left"><Icon name={group.icon} size={16} className="erp-sidebar__item-icon" /><span>{GROUP_LABELS[group.id] || group.label}</span></span>
+                  <span className="erp-sidebar__item-left"><Icon name={group.icon} size={16} className="erp-sidebar__item-icon" /><span>{group.label}</span></span>
                   {group.items.length > 1 && <Icon name={isExpanded ? "chevron-down" : "chevron-right"} size={14} className="erp-sidebar__group-toggle" />}
                 </button>
                 {isExpanded && group.items.length > 1 && (
                   <div className="erp-sidebar__subnav">
-                    {group.items.filter((item) => item.id !== "inventario-movimientos").map((item) => {
-                      const selected = currentPath === item.path || (item.path !== "/logistica" && currentPath.startsWith(`${item.path}/`));
-                      return <button key={item.id} type="button" aria-current={selected ? "page" : undefined} className={`erp-sidebar__subitem ${selected ? "is-active" : ""}`.trim()} onClick={() => handleNavigate(item.path, group.id)}>{ITEM_LABELS[item.id] || item.label}</button>;
+                    {group.items.map((item) => {
+                      const selected = activeNavigation?.item.id === item.id;
+                      return <button key={item.id} type="button" aria-current={selected ? "page" : undefined} className={`erp-sidebar__subitem ${selected ? "is-active" : ""}`.trim()} onClick={() => handleNavigate(item.path, group.id)}>{item.label}</button>;
                     })}
                   </div>
                 )}
@@ -252,26 +169,28 @@ export function AppShell({
         <header className="erp-topbar">
           <div className="erp-topbar__left">
             <Button variant="ghost" size="sm" iconLeft="menu" aria-label="Abrir navegación" aria-expanded={mobileOpen} aria-controls="stocky-navigation" onClick={(event) => { menuTriggerRef.current = event.currentTarget; setMobileOpen(true); }} className="erp-topbar__menu-btn" />
-            <form className="erp-topbar__search" onSubmit={submitSearch}>
+            <span className="erp-topbar__route">{routeTitle || activeNavigation?.item.label || "Stocky"}</span>
+            {onSearch && <form className="erp-topbar__search" onSubmit={submitSearch}>
               <Icon name="search" size={16} />
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar orden, remito, bulto, precinto o SKU (/)" aria-label="Búsqueda global" />
-            </form>
+            </form>}
           </div>
           <div className="erp-topbar__right">
             <Button
               variant="ghost"
               size="sm"
-              iconLeft="moon"
-              aria-label="Tema oscuro (Arc Dark)"
-              title="Tema oscuro (Arc Dark)"
+              iconLeft={theme === "light" ? "moon" : "sun"}
+              aria-label={theme === "light" ? "Activar tema oscuro" : "Activar tema claro"}
+              title={theme === "light" ? "Activar tema oscuro" : "Activar tema claro"}
               onClick={() => {
                 const current = document.documentElement.dataset.theme;
                 const next = current === "light" ? "dark" : "light";
                 document.documentElement.dataset.theme = next;
-                localStorage.setItem("theme", next);
+                setTheme(next);
+                try { localStorage.setItem("theme", next); } catch { /* Theme still works when storage is unavailable. */ }
               }}
             />
-            <Button
+            {showActivity && <Button
               variant="ghost"
               size="sm"
               iconLeft="bell"
@@ -284,7 +203,7 @@ export function AppShell({
                   {notifications.filter((n) => !n.read).length}
                 </span>
               )}
-            </Button>
+            </Button>}
           </div>
         </header>
         <main className="erp-workspace">{children}</main>

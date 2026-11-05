@@ -335,22 +335,22 @@
   width: 100%;
   padding: 8px 10px;
   border-radius: var(--radius-panel);
-  border: 1px solid #28292d;
-  background: #18191c;
+  border: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .erp-sidebar .erp-user-chip__name {
-  color: #f4f4f2;
+  color: var(--foreground);
 }
 
 .erp-sidebar .erp-user-chip__role {
-  color: #8c8d92;
+  color: var(--text-muted);
 }
 
 .erp-sidebar .erp-avatar {
-  background: #25262b;
-  border-color: #35363c;
-  color: #e4e4e7;
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
 }
 
 /* ==========================================================================

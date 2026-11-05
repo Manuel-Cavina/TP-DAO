@@ -59,28 +59,28 @@ export function ReportesFiltrosBar({
               <span className="text-xs text-secondary font-medium">Período:</span>
               <div className="row wrap align-center gap-1" role="group" aria-label="Presets de fecha">
                 <Button
-                  variant={activePreset === "30d" ? "primary" : "ghost"}
+                  variant={activePreset === "30d" ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => onApplyPreset("30d")}
                 >
                   Últimos 30 días
                 </Button>
                 <Button
-                  variant={activePreset === "7d" ? "primary" : "ghost"}
+                  variant={activePreset === "7d" ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => onApplyPreset("7d")}
                 >
                   Últimos 7 días
                 </Button>
                 <Button
-                  variant={activePreset === "mes" ? "primary" : "ghost"}
+                  variant={activePreset === "mes" ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => onApplyPreset("mes")}
                 >
                   Este mes
                 </Button>
                 <Button
-                  variant={activePreset === "anio" ? "primary" : "ghost"}
+                  variant={activePreset === "anio" ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => onApplyPreset("anio")}
                 >
@@ -188,7 +188,7 @@ export function ReportesFiltrosBar({
                     onChange={handleSoloBajoMinimoChange}
                     ariaLabel="Mostrar solo productos bajo mínimo"
                   />
-                  <span className="text-danger font-medium">Solo bajo mínimo (Observer)</span>
+                  <span className="text-secondary font-medium">Solo bajo mínimo</span>
                 </label>
               )}
 

@@ -73,7 +73,7 @@ export function RemitoKanban({
 
         const origenNombre = ubicMap.get(r.origenId) || `CD #${r.origenId}`;
         const destinoNombre = ubicMap.get(r.destinoId) || `Local #${r.destinoId}`;
-        const fechaRaw = r.fecha || r.creadoEn || r.fechaEmision || "2026-10-28T10:30:00";
+        const fechaRaw = r.fecha || r.creadoEn || r.fechaEmision;
         const fecha = fechaRaw ? new Date(fechaRaw).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }) : "Sin fecha";
 
         return {
@@ -149,12 +149,13 @@ export function RemitoKanban({
         mono: true,
         sortable: true,
         render: (v, row) => (
-          <strong
-            className="font-mono text-sm cursor-pointer"
+          <button
+            type="button"
+            className="logistics-record-link"
             onClick={() => openOrder(row)}
           >
             {row.numero}
-          </strong>
+          </button>
         ),
       },
       {
@@ -165,7 +166,7 @@ export function RemitoKanban({
       },
       {
         key: "owner",
-        header: "Responsable",
+        header: "Área de trabajo",
         sortable: true,
         render: (v) => <span className="text-xs text-secondary">{v}</span>,
       },

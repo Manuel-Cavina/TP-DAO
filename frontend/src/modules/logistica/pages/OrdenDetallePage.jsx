@@ -1,3 +1,5 @@
+import "../logistics-workbench.css";
+import { OrderWorkflowRail } from "../components/OrderWorkflowRail";
 import React, { useState, useMemo, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -195,7 +197,7 @@ export function OrdenDetallePage() {
   }
 
   return (
-    <div className="stack gap-5">
+    <div className="logistics-workbench stack gap-5">
       <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">
@@ -216,7 +218,7 @@ export function OrdenDetallePage() {
         <div className="row gap-2 align-center">
           {!puedeOperarOrigen ? null : activeTab === "empaque" ? (
             estaCompletamenteEmpaquetada && bultosTodosPrecintados && todosBultosAprobados && !remito ? (
-              <Button variant="primary" iconRight="arrow-right" onClick={remitoModal.onOpen}>
+              <Button variant="primary" iconRight="arrow-right" disabled={isStale || isLoading} onClick={remitoModal.onOpen}>
                 Emitir remito único ({bultos.length} bultos)
               </Button>
             ) : null
@@ -247,7 +249,7 @@ export function OrdenDetallePage() {
               )}
 
               {isPendienteOrPreparando && estaCompletamenteEmpaquetada && bultosTodosPrecintados && todosBultosAprobados && !remito && (
-                <Button variant="primary" iconRight="arrow-right" onClick={remitoModal.onOpen}>
+                <Button variant="primary" iconRight="arrow-right" disabled={isStale || isLoading} onClick={remitoModal.onOpen}>
                   Emitir remito de despacho
                 </Button>
               )}
@@ -255,7 +257,7 @@ export function OrdenDetallePage() {
           )}
 
           {puedeOperarOrigen && isPendienteOrPreparando && remito && remito.estado === "EMITIDO" && (
-            <Button variant="primary" iconRight="truck" loading={despachando} onClick={handleDespachar}>
+            <Button variant="primary" iconRight="truck" loading={despachando} disabled={isStale || isLoading} onClick={handleDespachar}>
               Despachar remito {remito.numero}
             </Button>
           )}
@@ -274,17 +276,13 @@ export function OrdenDetallePage() {
         </div>
       </div>
 
-      <SegmentedControl
-        value={activeTab}
-        onChange={setActiveTab}
-        options={[
-          { value: "resumen", label: "Resumen" },
-          { value: "empaque", label: "Empaque y precintos", count: bultos.length },
-          { value: "despacho", label: "Remito y despacho" },
-          { value: "recepcion", label: "Recepción" },
-          { value: "historial", label: "Historial" },
-        ]}
-      />
+      <section className="logistics-order-context" aria-label="Contexto de la orden">
+        <div><span>Origen · Centro de distribución</span><strong>{origenNombre}</strong></div>
+        <div><span>Destino · Sucursal</span><strong>{destinoNombre}</strong></div>
+        <div><span>Documento de traslado</span>{remito ? <><strong>{remito.numero}</strong><StatusBadge status={remito.documentoEstado || remito.estado} /></> : <strong>Remito aún no emitido</strong>}</div>
+        <div><span>Unidades empaquetadas / solicitadas</span><strong className="tabular-nums">{totalEmpaquetadas} / {totalSolicitadas}</strong><span>{bultos.length} bulto(s) · {bultos.filter((b) => b.aprobado).length} aprobado(s)</span></div>
+      </section>
+      <OrderWorkflowRail activeTab={activeTab} onSelect={setActiveTab} orden={orden} remito={remito} />
 
       {!puedeOperarOrigen && (isPendienteOrPreparando || remito?.estado === "EMITIDO") && (
         <Alert tone="warning" title="Acciones de empaque y despacho no disponibles" description={MENSAJE_FUERA_DE_ALCANCE} />
@@ -298,24 +296,7 @@ export function OrdenDetallePage() {
           tone={currentGuidance.tone}
           title={currentGuidance.title}
           description={currentGuidance.description}
-          action={
-            <div className="row gap-1">
-              {currentGuidance.targetLabel && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={currentGuidance.onAction || (() => setActiveTab(currentGuidance.targetTab))}
-                >
-                  {currentGuidance.targetLabel}
-                </Button>
-              )}
-              {activeTab !== "historial" && (
-                <Button variant="ghost" size="sm" onClick={() => setActiveTab("historial")}>
-                  Trazabilidad
-                </Button>
-              )}
-            </div>
-          }
+
         />
       )}
 

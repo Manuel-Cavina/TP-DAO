@@ -12,6 +12,7 @@ import { useDisclosure } from "../../../shared/hooks";
 import { useUbicaciones } from "../hooks/useUbicaciones";
 import { UbicacionModal } from "../components/UbicacionModal";
 import { useSede } from "../../../app/providers/SedeProvider";
+import "../stock-craft.css";
 
 export function UbicacionesPage() {
   const [filterView, setFilterView] = useState("todas");

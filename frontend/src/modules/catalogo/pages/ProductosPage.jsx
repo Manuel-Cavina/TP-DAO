@@ -16,6 +16,7 @@ import { useProveedores } from "../hooks/useProveedores";
 import { ProductoDrawer } from "../components/ProductoDrawer";
 import { ActualizacionMasivaModal } from "../components/ActualizacionMasivaModal";
 import { filterProducts } from "../mappers/productFilters";
+import "../catalog-workbench.css";
 
 export function ProductosPage() {
   const [search, setSearch] = useState("");
@@ -121,7 +122,9 @@ export function ProductosPage() {
       key: "nivelMinimo",
       header: "Stock mín.",
       align: "right",
-      render: (v) => <span className="tabular-nums font-medium">{v || 1} u.</span>,
+      render: (v) => v == null
+        ? <span className="text-muted" title="El nivel mínimo se consulta en el stock de cada ubicación">Por ubicación</span>
+        : <span className="tabular-nums font-medium">{v} u.</span>,
     },
     {
       key: "activo",
@@ -155,7 +158,7 @@ export function ProductosPage() {
   ];
 
   return (
-    <div className="stack gap-5">
+    <div className="catalog-workbench catalog-workbench--products stack gap-4">
       <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">
@@ -163,9 +166,9 @@ export function ProductosPage() {
             <span>·</span>
             <span>Productos</span>
           </div>
-          <h1 className="text-xl">Catálogo de productos</h1>
+          <h1 className="text-xl">Productos</h1>
           <p className="text-sm text-secondary">
-            Artículos comercializables, márgenes de utilidad y umbrales mínimos de existencia.
+            {filteredProductos.length} productos en esta vista. Precios, costos y niveles mínimos.
           </p>
         </div>
         <div className="row gap-2 align-center">
@@ -215,6 +218,7 @@ export function ProductosPage() {
           {categorias.length > 0 && (
             <div className="w-48">
               <Select
+                ariaLabel="Filtrar productos por categoría"
                 value={selectedCategoria}
                 onChange={setSelectedCategoria}
                 options={[

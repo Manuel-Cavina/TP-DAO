@@ -2,10 +2,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Drawer, DrawerContent } from "../../../components/arc/drawer/drawer";
 import { Button } from "../../../shared/components/Button";
 import { Select } from "../../../shared/components/Select";
-import { NumberInput, TextInput } from "../../../shared/components/FormControls";
+import { NumberInput } from "../../../shared/components/FormControls";
 import { Badge } from "../../../shared/components/Badge";
 import { Alert } from "../../../shared/components/Feedback";
-import { useProveedores } from "../../catalogo/hooks/useProveedores";
 import { useProductos } from "../../catalogo/hooks/useProductos";
 import { useUbicaciones } from "../hooks/useUbicaciones";
 import { stockService } from "../services";
@@ -17,19 +16,17 @@ export function RestockCdDrawer({
   cdId,
   initialProductoId = "",
   initialCantidad = 100,
-  demandaSedes = 0,
-  stockActual = 0,
+  stockPorProducto = new Map(),
+  stockLoading = false,
+  stockError = null,
+  stockStale = false,
+  onRetryStock,
   onSuccess,
 }) {
-  const { proveedores = [] } = useProveedores({ activos: true });
   const { productos = [] } = useProductos({ activos: true });
   const { ubicaciones = [] } = useUbicaciones({ activas: true });
 
-  const [origenTipo, setOrigenTipo] = useState("proveedor"); // "proveedor" | "inter_cd"
-  const [selectedProveedorId, setSelectedProveedorId] = useState("");
   const [selectedProductoId, setSelectedProductoId] = useState("");
-  const [selectedOrigenCdId, setSelectedOrigenCdId] = useState("");
-  const [comprobante, setComprobante] = useState("");
   const [cantidad, setCantidad] = useState("100");
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -42,20 +39,14 @@ export function RestockCdDrawer({
   }, [ubicaciones]);
 
   const targetCd = useMemo(() => {
-    return cdsActivos.find((c) => String(c.id) === String(cdId)) || cdsActivos[0];
+    return cdsActivos.find((c) => String(c.id) === String(cdId));
   }, [cdsActivos, cdId]);
-
-  const otherCds = useMemo(() => {
-    return cdsActivos.filter((c) => String(c.id) !== String(targetCd?.id));
-  }, [cdsActivos, targetCd]);
 
   // Inicializar formulario al abrir
   useEffect(() => {
     if (open) {
       setErrorMsg("");
       setSuccessMsg("");
-      setOrigenTipo("proveedor");
-      setComprobante("");
       setCantidad(String(Math.max(1, initialCantidad)));
 
       if (initialProductoId) {
@@ -64,22 +55,21 @@ export function RestockCdDrawer({
         setSelectedProductoId(String(productos[0].id));
       }
 
-      if (proveedores.length > 0) {
-        setSelectedProveedorId(String(proveedores[0].id));
-      }
-
-      if (otherCds.length > 0) {
-        setSelectedOrigenCdId(String(otherCds[0].id));
-      }
     }
-  }, [open, initialProductoId, initialCantidad, productos, proveedores, otherCds]);
+  }, [open, initialProductoId, initialCantidad, productos]);
 
   const selectedProduct = useMemo(() => {
     return productos.find((p) => String(p.id) === String(selectedProductoId));
   }, [productos, selectedProductoId]);
 
-  const cantNum = Math.max(0, parseInt(cantidad, 10) || 0);
-  const nuevoStockProyectado = stockActual + cantNum;
+  const cantNum = Number(cantidad);
+  const cantidadValida = Number.isSafeInteger(cantNum) && cantNum > 0;
+  // La proyección pertenece al artículo elegido, no a la fila que abrió el drawer.
+  const selectedStock = stockPorProducto.get(Number(selectedProductoId));
+  const stockActual = selectedStock?.disponible;
+  const demandaSedes = selectedStock?.demandaSedes || 0;
+  const stockDisponible = !stockLoading && !stockError && !stockStale && Boolean(selectedStock);
+  const nuevoStockProyectado = stockDisponible && cantidadValida ? stockActual + cantNum : null;
   const coberturaDemanda = demandaSedes > 0 && nuevoStockProyectado >= demandaSedes;
 
   const handleSubmit = async (e) => {
@@ -88,12 +78,16 @@ export function RestockCdDrawer({
       setErrorMsg("No hay un Centro de Distribución destino seleccionado.");
       return;
     }
-    if (!selectedProductoId) {
+    if (!selectedProduct) {
       setErrorMsg("Seleccioná un artículo comercial.");
       return;
     }
-    if (cantNum <= 0) {
-      setErrorMsg("La cantidad recibida debe ser mayor a 0.");
+    if (!cantidadValida) {
+      setErrorMsg("La cantidad recibida debe ser un entero positivo válido.");
+      return;
+    }
+    if (!stockDisponible || submitting || successMsg) {
+      setErrorMsg("Actualiza el stock del artículo antes de confirmar el ingreso.");
       return;
     }
 
@@ -101,30 +95,19 @@ export function RestockCdDrawer({
     setErrorMsg("");
 
     try {
-      if (origenTipo === "proveedor") {
-        await stockService.ingresoCD({
-          producto_id: Number(selectedProductoId),
-          cd_id: Number(targetCd.id),
-          cantidad: cantNum,
-        });
+      await stockService.ingresoCD({
+        producto_id: Number(selectedProductoId),
+        cd_id: Number(targetCd.id),
+        cantidad: cantNum,
+      });
 
-        setSuccessMsg(
-          `Ingreso registrado: ${cantNum} u. de ${selectedProduct?.nombre || "artículo"} acreditadas en ${targetCd.nombre}.`
-        );
-        onSuccess?.();
-        setTimeout(() => {
-          onClose();
-        }, 1200);
-      } else {
-        // En caso de inter-CD, informamos registro exitoso
-        setSuccessMsg(
-          `Solicitud inter-CD registrada desde ${otherCds.find((c) => String(c.id) === String(selectedOrigenCdId))?.nombre || "otro CD"} hacia ${targetCd.nombre}.`
-        );
-        onSuccess?.();
-        setTimeout(() => {
-          onClose();
-        }, 1200);
-      }
+      setSuccessMsg(
+        `Ingreso registrado: ${cantNum} u. de ${selectedProduct.nombre} acreditadas en ${targetCd.nombre}.`
+      );
+      onSuccess?.();
+      setTimeout(() => {
+        onClose();
+      }, 1200);
     } catch (err) {
       setErrorMsg(err.message || "Error al registrar el ingreso a Casa Central.");
     } finally {
@@ -135,94 +118,30 @@ export function RestockCdDrawer({
   return (
     <Drawer open={open} onOpenChange={(v) => !v && onClose()}>
       <DrawerContent
-        title="Restockear Casa Central"
-        description={`Ingreso directo de existencias a ${targetCd?.nombre || "Casa Central"}`}
+        title="Registrar ingreso al CD"
+        description={`Destino: ${targetCd?.nombre || "Centro de distribución"}`}
         side="right"
       >
         <div className="restock-drawer-panel">
           {errorMsg && (
-            <Alert tone="danger" title="Error en restock" description={errorMsg} />
+            <Alert tone="danger" title="No se pudo registrar el ingreso" description={errorMsg} />
           )}
           {successMsg && (
             <Alert tone="success" title="Operación exitosa" description={successMsg} />
           )}
 
-          {/* Selector de origen */}
-          <div className="stack gap-1.5">
-            <label className="text-xs font-medium text-secondary">
-              Fuente de reabastecimiento:
-            </label>
-            <div className="restock-strategy-toggle">
-              <Button
-                variant={origenTipo === "proveedor" ? "primary" : "secondary"}
-                size="sm"
-                onClick={() => setOrigenTipo("proveedor")}
-              >
-                Proveedor externo
-              </Button>
-              <Button
-                variant={origenTipo === "inter_cd" ? "primary" : "secondary"}
-                size="sm"
-                disabled={otherCds.length === 0}
-                onClick={() => setOrigenTipo("inter_cd")}
-              >
-                Otra Casa Central
-              </Button>
-            </div>
-          </div>
-
-          {/* Formulario según tipo de origen */}
-          {origenTipo === "proveedor" ? (
-            <div className="stack gap-3 border-t pt-3">
-              <span className="text-xs font-medium text-foreground">
-                1. Datos del proveedor y comprobante
-              </span>
-              <Select
-                ariaLabel="Proveedor de mercadería"
-                label="Proveedor habilitado"
-                options={proveedores.map((p) => ({
-                  value: String(p.id),
-                  label: `${p.nombre || p.razonSocial || "Proveedor"} (CUIT: ${p.cuit || "S/D"})`,
-                }))}
-                value={selectedProveedorId}
-                onChange={setSelectedProveedorId}
-                placeholder="Seleccionar proveedor"
-              />
-
-              <TextInput
-                label="Número de remito o factura de compra"
-                value={comprobante}
-                onChange={(e) => setComprobante(e.target.value)}
-                placeholder="Ej. REM-009845 o FAC-00129"
-              />
-            </div>
-          ) : (
-            <div className="stack gap-3 border-t pt-3">
-              <span className="text-xs font-medium text-foreground">
-                1. Casa Central de origen
-              </span>
-              <Select
-                ariaLabel="Casa Central de origen"
-                label="CD despachante"
-                options={otherCds.map((c) => ({
-                  value: String(c.id),
-                  label: c.nombre,
-                }))}
-                value={selectedOrigenCdId}
-                onChange={setSelectedOrigenCdId}
-                placeholder="Seleccionar CD origen"
-              />
-            </div>
-          )}
+          <p className="text-sm text-secondary">
+            Este registro aumenta las existencias del CD seleccionado. No registra una compra ni un comprobante de proveedor. Las transferencias entre centros no están disponibles.
+          </p>
 
           {/* Selección de artículo y cantidad */}
           <div className="stack gap-3 border-t pt-3">
             <span className="text-xs font-medium text-foreground">
-              2. Artículo y cantidad recibida
+              Artículo y cantidad recibida
             </span>
 
             <Select
-              ariaLabel="Artículo a restockear"
+              ariaLabel="Artículo del ingreso"
               label="Artículo comercial"
               options={productos.map((p) => ({
                 value: String(p.id),
@@ -244,6 +163,15 @@ export function RestockCdDrawer({
           </div>
 
           {/* Tarjeta de impacto proyectado */}
+          {!stockDisponible && (
+            <Alert
+              tone={stockError ? "danger" : "info"}
+              title={stockLoading ? "Cargando stock del artículo" : "Stock actual no disponible"}
+              description={stockError?.message || "Actualiza las existencias para consultar la proyección y confirmar el ingreso."}
+              action={onRetryStock && <Button variant="secondary" size="sm" onClick={onRetryStock}>Actualizar stock</Button>}
+            />
+          )}
+          {stockDisponible && (
           <div className="restock-impact-card stack gap-2">
             <span className="text-xs font-medium text-secondary">
               Impacto proyectado en Casa Central:
@@ -263,7 +191,7 @@ export function RestockCdDrawer({
             <div className="row justify-between text-xs font-medium border-t pt-1.5 mt-1">
               <span className="text-foreground">Nuevo stock en Casa Central:</span>
               <span className="tabular-nums text-success font-medium">
-                {nuevoStockProyectado} u. (+{cantNum})
+                {nuevoStockProyectado == null ? "Ingresa una cantidad entera positiva" : `${nuevoStockProyectado} u. (+${cantNum})`}
               </span>
             </div>
             {demandaSedes > 0 && (
@@ -276,6 +204,7 @@ export function RestockCdDrawer({
               </div>
             )}
           </div>
+          )}
 
           {/* Botones de acción */}
           <div className="restock-footer-actions">
@@ -286,9 +215,9 @@ export function RestockCdDrawer({
               variant="primary"
               onClick={handleSubmit}
               loading={submitting}
-              disabled={submitting || cantNum <= 0}
+              disabled={submitting || !cantidadValida || !stockDisponible || !targetCd || !selectedProduct || Boolean(successMsg)}
             >
-              Confirmar e ingresar stock
+              Confirmar ingreso al CD
             </Button>
           </div>
         </div>

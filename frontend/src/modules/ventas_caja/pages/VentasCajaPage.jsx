@@ -22,22 +22,15 @@ import "../ventas-pos.css";
 
 export function VentasCajaPage() {
   const { sede, sedeId, sedes, setSedeId } = useSede();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const urlTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState(
     urlTab === "facturas" || urlTab === "devoluciones" ? urlTab : "pos"
   );
 
   useEffect(() => {
-    if (urlTab === "facturas" || urlTab === "devoluciones" || urlTab === "pos") {
-      setActiveTab(urlTab);
-    }
+    setActiveTab(urlTab === "facturas" || urlTab === "devoluciones" ? urlTab : "pos");
   }, [urlTab]);
-
-  const handleTabChange = (newTab) => {
-    setActiveTab(newTab);
-    setSearchParams(newTab === "pos" ? {} : { tab: newTab });
-  };
   const [lastInvoice, setLastInvoice] = useState(null);
   const [facturaParaDevolver, setFacturaParaDevolver] = useState(null);
   const devModal = useDisclosure(false);
@@ -106,12 +99,14 @@ export function VentasCajaPage() {
 
     // Default "hoy"
     const isoToday = formatYMD(today);
-    return { desde: isoToday, hasta: isoToday, periodoLabel: "Hoy (Turno)" };
+    return { desde: isoToday, hasta: isoToday, periodoLabel: "Hoy" };
   }, [periodoPreset]);
 
   const {
     ventas,
     devoluciones,
+    ventasParaDevolver,
+    devolucionesPrevias,
     caja,
     periodo,
     loading,
@@ -163,6 +158,10 @@ export function VentasCajaPage() {
   const visibleVentas = useMemo(
     () => ventas.map(enrichInvoice),
     [ventas, productById]
+  );
+  const facturasDevolvibles = useMemo(
+    () => ventasParaDevolver.map(enrichInvoice),
+    [ventasParaDevolver, productById]
   );
 
   const handleCheckout = async (form) => {
@@ -261,7 +260,7 @@ export function VentasCajaPage() {
   ];
 
   return (
-    <div className="stack gap-4">
+    <div className={`sales-workbench stack gap-4 sales-workbench--${activeTab}`}>
       <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">
@@ -269,7 +268,7 @@ export function VentasCajaPage() {
             <span>·</span>
             <span>{localSeleccionado?.label || "Seleccioná un local"}</span>
           </div>
-          <h1 className="text-xl">Punto de venta</h1>
+          <h1 className="text-xl">{activeTab === "facturas" ? "Comprobantes y caja" : activeTab === "devoluciones" ? "Devoluciones" : "Punto de venta"}</h1>
         </div>
         <div className="row align-center gap-2">
           {localOptions.length > 0 && (
@@ -284,11 +283,11 @@ export function VentasCajaPage() {
               />
             </div>
           )}
-          {localSeleccionado && (
+          {localSeleccionado && activeTab !== "pos" && (
             <Button
               variant="secondary"
               iconLeft="refresh"
-              disabled={visibleVentas.length === 0}
+              disabled={facturasDevolvibles.length === 0 || loading}
               onClick={() => openDevolucion(null)}
             >
               Registrar devolución
@@ -335,7 +334,8 @@ export function VentasCajaPage() {
             />
           )}
 
-          {/* Barra de Período y Estado de Caja */}
+          {activeTab !== "pos" && <>
+          {/* The cash period filters movements, never the sellable catalog. */}
           <div className="pos-period-bar row justify-between align-center wrap gap-2 p-2.5 rounded">
             <div className="row align-center gap-2">
               <span className="text-xs text-secondary font-medium">Período de caja:</span>
@@ -343,7 +343,7 @@ export function VentasCajaPage() {
                 value={periodoPreset}
                 onChange={setPeriodoPreset}
                 options={[
-                  { value: "hoy", label: "Hoy (Turno)" },
+                  { value: "hoy", label: "Hoy" },
                   { value: "ayer", label: "Último día" },
                   { value: "mes", label: "Este mes" },
                 ]}
@@ -359,12 +359,12 @@ export function VentasCajaPage() {
             </div>
           </div>
 
-          {loading && !hasData ? (
+          {activeTab === "facturas" && (!hasData ? (
             <div className="erp-section-card text-sm text-muted" aria-live="polite">
-              Cargando caja del local seleccionado...
+              {loading ? "Cargando caja del local y período seleccionados..." : "Los datos de caja del período no están disponibles."}
             </div>
           ) : (
-            <div className="grid-3 gap-3">
+            <div className="sales-cash-summary grid-3 gap-3">
               <MetricCard
                 label="Saldo neto de caja"
                 value={<AnimatedCounter value={Number(caja.saldo) || 0} prefix="$ " locale="es-AR" />}
@@ -385,17 +385,14 @@ export function VentasCajaPage() {
                 badgeTone="warning"
               />
             </div>
-          )}
+          ))}
+          </>}
 
-          <SegmentedControl
-            value={activeTab}
-            onChange={handleTabChange}
-            options={[
-              { value: "pos", label: "Terminal POS" },
-              { value: "facturas", label: "Comprobantes y caja", count: visibleVentas.length },
-              { value: "devoluciones", label: "Devoluciones", count: devoluciones.length },
-            ]}
-          />
+          {activeTab === "devoluciones" && (
+            <p className="text-sm text-secondary">
+              Movimientos del período seleccionado. Para registrar una devolución se consulta el comprobante original y sus cantidades pendientes, independientemente de este período.
+            </p>
+          )}
 
           {activeTab === "pos" && (
             <PosTerminal
@@ -443,8 +440,8 @@ export function VentasCajaPage() {
         open={devModal.open}
         onClose={closeDevolucion}
         localId={localId}
-        facturas={visibleVentas}
-        devoluciones={devoluciones}
+        facturas={facturasDevolvibles}
+        devoluciones={devolucionesPrevias}
         facturaInicial={facturaParaDevolver}
         onSubmit={handleReturn}
         pending={devPending}

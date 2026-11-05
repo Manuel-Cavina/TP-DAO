@@ -83,7 +83,7 @@ export function OrdenKanban({
 
         const origenNombre = ubicMap.get(o.origenId) || `CD #${o.origenId}`;
         const destinoNombre = ubicMap.get(o.destinoId) || `Local #${o.destinoId}`;
-        const fechaRaw = o.fecha || o.creadoEn || o.fechaCreacion || "2026-10-28T10:30:00";
+        const fechaRaw = o.fecha || o.creadoEn || o.fechaCreacion;
         const fecha = fechaRaw ? new Date(fechaRaw).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }) : "Sin fecha";
 
         return {
@@ -99,6 +99,7 @@ export function OrdenKanban({
           totalSol,
           totalEmp,
           bultosCount: bultos.length,
+          approvalsPending: bultos.filter((b) => !b.aprobado).length,
           owner: "Operador de Logística",
           avatar: "OP",
           fecha,
@@ -153,12 +154,13 @@ export function OrdenKanban({
         mono: true,
         sortable: true,
         render: (v, row) => (
-          <strong
-            className="font-mono text-sm cursor-pointer"
+          <button
+            type="button"
+            className="logistics-record-link"
             onClick={() => navigate(`/logistica/ordenes/${row.ordenId}`)}
           >
             {row.code}
-          </strong>
+          </button>
         ),
       },
       {
@@ -169,7 +171,7 @@ export function OrdenKanban({
       },
       {
         key: "owner",
-        header: "Responsable",
+        header: "Área de trabajo",
         sortable: true,
         render: (v) => <span className="text-xs text-secondary">{v}</span>,
       },
@@ -204,7 +206,7 @@ export function OrdenKanban({
           <div className="row gap-2 align-center wrap">
             <StatusBadge status={row.estadoReal} />
             <Badge tone="neutral" dot={false}>
-              {ORDEN_STAGES[row.stage]?.title || row.badgeText}
+              {row.stage === 3 && row.approvalsPending > 0 ? "Aprobación pendiente" : ORDEN_STAGES[row.stage]?.title || row.badgeText}
             </Badge>
           </div>
         ),
@@ -215,12 +217,12 @@ export function OrdenKanban({
         align: "right",
         sortable: false,
         render: (_, row) => {
-          const tab = row.stage <= 2 ? "empaque" : row.stage === 3 ? "despacho" : "recepcion";
+          const tab = row.stage <= 2 || (row.stage === 3 && row.approvalsPending > 0) ? "empaque" : row.stage === 3 ? "despacho" : "recepcion";
           const actionText =
             row.stage <= 2
               ? "Gestionar empaque"
               : row.stage === 3
-              ? "Emitir remito"
+              ? row.approvalsPending > 0 ? "Revisar aprobación" : "Revisar despacho"
               : row.stage === 4
               ? "Gestionar recepción"
               : "Ver orden";
@@ -237,7 +239,7 @@ export function OrdenKanban({
               {row.stage < 5 && (
                 <Button
                   size="sm"
-                  variant="primary"
+                  variant="secondary"
                   iconLeft={icon}
                   onClick={() => navigate(`/logistica/ordenes/${row.ordenId}?tab=${tab}`)}
                 >
@@ -348,7 +350,7 @@ export function OrdenKanban({
                         {c.stage <= 2
                           ? "Gestionar bultos"
                           : c.stage === 3
-                          ? "Emitir remito"
+                          ? row.approvalsPending > 0 ? "Revisar aprobación" : "Revisar despacho"
                           : c.stage === 4
                           ? "Gestionar recepción"
                           : "Ver orden"}

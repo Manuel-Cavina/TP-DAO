@@ -70,17 +70,17 @@ export function PosCatalogo({
   }, [productos, selectedCategoria, search]);
 
   return (
-    <div className="erp-section-card pos-column">
+    <section className="erp-section-card pos-column pos-catalog-column" aria-label="Catálogo para la venta">
       {/* Cabecera de la sección */}
       <div className="row justify-between align-center mb-3">
         <div>
-          <h3 className="text-md font-medium">1. Selección de artículos</h3>
+          <h2 className="text-md font-medium">Artículos disponibles</h2>
           <p className="text-xs text-muted">
             Stock de: <strong className="text-foreground">{localNombre}</strong>
           </p>
         </div>
         <Badge tone="info" className="tabular-nums">
-          {filteredProducts.length} disponibles
+          {filteredProducts.length} artículos
         </Badge>
       </div>
 
@@ -90,9 +90,10 @@ export function PosCatalogo({
         <input
           ref={searchInputRef}
           type="search"
+          aria-label="Buscar productos para la venta"
           value={search}
           onChange={(event) => setSearch(event.target.value.slice(0, 80))}
-          placeholder="Buscar por código SKU o nombre (Presiona '/')"
+          placeholder="Buscar por SKU o nombre"
           className="erp-search-box__input"
         />
         {search && (
@@ -115,6 +116,7 @@ export function PosCatalogo({
             <button
               key={cat.id}
               type="button"
+              aria-pressed={isSelected}
               onClick={() => setSelectedCategoria(cat.id)}
               className={`pos-category-chip ${isSelected ? "active" : ""}`}
             >
@@ -159,10 +161,10 @@ export function PosCatalogo({
             return (
               <div
                 key={product.id}
-                className="pos-product-item erp-callout row justify-between align-center"
+                className="pos-product-item row justify-between align-center"
               >
                 <div className="stack gap-1">
-                  <span className="font-medium text-xs text-foreground">
+                  <span className="pos-product-name font-medium text-sm text-foreground">
                     {product.nombre}
                   </span>
                   <div className="row align-center gap-2">
@@ -176,7 +178,7 @@ export function PosCatalogo({
                           ? "danger"
                           : isLowStock
                           ? "warning"
-                          : "success"
+                          : "neutral"
                       }
                     >
                       {isOutOfStock
@@ -215,6 +217,6 @@ export function PosCatalogo({
           })
         )}
       </div>
-    </div>
+    </section>
   );
 }

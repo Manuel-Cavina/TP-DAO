@@ -18,17 +18,17 @@
    * 1. ARC NEUTRAL RAMP (Light Mode)
    * ------------------------------------------------------------------------ */
   --neutral-0: #ffffff;
-  --neutral-1: #fbfbfa;
-  --neutral-2: #f6f6f4;
-  --neutral-3: #f0f0ed;
-  --neutral-4: #e6e6e2;
-  --neutral-5: #d6d6d1;
+  --neutral-1: #f2f5f8;
+  --neutral-2: #f6f8fa;
+  --neutral-3: #edf1f5;
+  --neutral-4: #e1e7ee;
+  --neutral-5: #aebdce;
   --neutral-6: #b8b8b1;
-  --neutral-7: #8c8c85;
-  --neutral-8: #65655f;
+  --neutral-7: #627188;
+  --neutral-8: #526278;
   --neutral-9: #464641;
   --neutral-10: #262623;
-  --neutral-11: #141413;
+  --neutral-11: #172b45;
 
   /* ------------------------------------------------------------------------
    * 2. ARC SEMANTIC SURFACES & TEXT
@@ -37,7 +37,7 @@
   --surface: var(--neutral-0);
   --surface-raised: var(--neutral-0);
   --surface-muted: var(--neutral-2);
-  --surface-glass: rgba(255, 255, 255, 0.82);
+  --surface-glass: var(--surface);
 
   --foreground: var(--neutral-11);
   --text-secondary: var(--neutral-8);
@@ -54,9 +54,9 @@
    * 4. ARC ACCENT & INTERACTIVE CONTROLS (Default: operational graphite)
    *    Switchable via [data-accent="neutral|blue|violet|green|amber"]
    * ------------------------------------------------------------------------ */
-  --accent: #2563eb;
-  --accent-strong: #1d4ed8;
-  --accent-subtle: rgba(37, 99, 235, 0.10);
+  --accent: #205ac7;
+  --accent-strong: #17479f;
+  --accent-subtle: #edf3ff;
   --accent-foreground: #ffffff;
   --focus-ring: rgba(20, 20, 19, 0.22);
 
@@ -70,17 +70,17 @@
    * 5. ARC STATUS & ERP DOMAIN SEMANTIC TOKENS
    * ------------------------------------------------------------------------ */
   /* Success · Stock saludable, Bulto Verificado, Remito Cerrado */
-  --success: #15803d;
+  --success: #116c5b;
   --success-subtle: rgba(21, 128, 61, 0.10);
   --success-border: rgba(21, 128, 61, 0.24);
 
   /* Warning · Stock bajo mínimo (Observer Alert), Bulto En Tránsito / Precintado */
-  --warning: #b45309;
+  --warning: #8a590c;
   --warning-subtle: rgba(180, 83, 9, 0.10);
   --warning-border: rgba(180, 83, 9, 0.25);
 
   /* Danger · Bulto Rechazado (Merma), Sin stock, Error de dominio */
-  --danger: #b91c1c;
+  --danger: #b32637;
   --danger-subtle: rgba(185, 28, 28, 0.10);
   --danger-border: rgba(185, 28, 28, 0.24);
 
@@ -103,14 +103,15 @@
    *    Cards rest on 1px solid var(--border) with --shadow-resting.
    *    --shadow-floating is reserved strictly for popovers, menus, dialogs.
    * ------------------------------------------------------------------------ */
-  --shadow-resting: 0 1px 2px rgba(20, 20, 19, 0.04);
+  --shadow-resting: none;
   --shadow-raised: 0 6px 18px rgba(20, 20, 19, 0.06), 0 1px 3px rgba(20, 20, 19, 0.04);
   --shadow-floating: 0 18px 44px rgba(20, 20, 19, 0.12), 0 2px 6px rgba(20, 20, 19, 0.06);
 
   /* ------------------------------------------------------------------------
    * 7. ARC TYPOGRAPHY (Weights 400 and 500 ONLY · Never 600 or 700)
    * ------------------------------------------------------------------------ */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-body: var(--font-sans);
   --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
   --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
@@ -118,7 +119,7 @@
   --font-medium: 500;
 
   --text-xs: 0.75rem;     /* 12px · Metadata, shortcuts, timestamps */
-  --text-sm: 0.8125rem;   /* 13px · Dense ERP tables, controls, chips, badges */
+  --text-sm: 0.875rem;   /* 13px · Dense ERP tables, controls, chips, badges */
   --text-base: 0.875rem;  /* 14px · Standard UI body, inputs, descriptions */
   --text-md: 0.9375rem;   /* 15px · Card titles, section subheadings */
   --text-lg: 1.125rem;    /* 18px · Section headings, modal titles */
@@ -135,9 +136,9 @@
   --radius-surface: 22px;  /* Outer workspace containers, modals, drawers */
   --radius-pill: 999px;    /* Status badges, filter chips, avatars */
 
-  --control-height-sm: 32px;
-  --control-height-md: 36px;
-  --control-height-lg: 42px;
+  --control-height-sm: 36px;
+  --control-height-md: 40px;
+  --control-height-lg: 44px;
 
   --space-1: 0.25rem;  /* 4px */
   --space-2: 0.5rem;   /* 8px */
@@ -149,7 +150,7 @@
   --space-10: 2.5rem;  /* 40px */
 
   /* Layout dimensions */
-  --sidebar-width: 248px;
+  --sidebar-width: 232px;
   --topbar-height: 56px;
 
   /* ------------------------------------------------------------------------
@@ -221,8 +222,8 @@
   --neutral-4: #2a2a26;
   --neutral-5: #3a3a35;
   --neutral-6: #56564f;
-  --neutral-7: #7c7c74;
-  --neutral-8: #a3a39b;
+  --neutral-7: #a2a6af;
+  --neutral-8: #b5b8c0;
   --neutral-9: #c9c9c1;
   --neutral-10: #e7e7e1;
   --neutral-11: #f5f5f2;
@@ -231,7 +232,7 @@
   --surface: var(--neutral-1);
   --surface-raised: var(--neutral-2);
   --surface-muted: var(--neutral-2);
-  --surface-glass: rgba(24, 24, 22, 0.82);
+  --surface-glass: var(--surface);
 
   --foreground: var(--neutral-11);
   --text-secondary: var(--neutral-8);
@@ -242,7 +243,7 @@
   --border-strong: var(--neutral-5);
 
   --accent: #3b82f6;
-  --accent-strong: #2563eb;
+  --accent-strong: #205ac7;
   --accent-subtle: rgba(59, 130, 246, 0.18);
   --accent-foreground: #ffffff;
   --focus-ring: rgba(245, 245, 242, 0.28);
@@ -276,7 +277,7 @@
   --scope-local-subtle: rgba(45, 212, 191, 0.15);
   --scope-local-border: rgba(45, 212, 191, 0.28);
 
-  --shadow-resting: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-resting: none;
   --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.30);
   --shadow-floating: 0 22px 52px rgba(0, 0, 0, 0.62), 0 2px 8px rgba(0, 0, 0, 0.40);
 
@@ -303,11 +304,11 @@
 }
 
 [data-accent="blue"] {
-  --accent: #2563eb;
-  --accent-strong: #1d4ed8;
-  --accent-subtle: rgba(37, 99, 235, 0.10);
+  --accent: #205ac7;
+  --accent-strong: #17479f;
+  --accent-subtle: #edf3ff;
   --accent-foreground: #ffffff;
-  --control-on: #2563eb;
+  --control-on: #205ac7;
   --focus-ring: rgba(37, 99, 235, 0.22);
 }
 
@@ -321,21 +322,26 @@
 }
 
 [data-accent="green"] {
-  --accent: #15803d;
+  --accent: #116c5b;
   --accent-strong: #166534;
   --accent-subtle: rgba(21, 128, 61, 0.10);
   --accent-foreground: #ffffff;
-  --control-on: #15803d;
+  --control-on: #116c5b;
   --focus-ring: rgba(21, 128, 61, 0.22);
 }
 
 [data-accent="amber"] {
   --accent: #d97706;
-  --accent-strong: #b45309;
+  --accent-strong: #8a590c;
   --accent-subtle: rgba(217, 119, 6, 0.12);
   --accent-foreground: #ffffff;
   --control-on: #d97706;
   --focus-ring: rgba(217, 119, 6, 0.22);
+}
+
+:root[data-theme="dark"][data-accent="blue"] {
+  --accent: #5186e6; --accent-strong: #6b99ed; --accent-subtle: #203252;
+  --accent-foreground: #ffffff; --control-on: #5186e6;
 }
 
 /* ==========================================================================

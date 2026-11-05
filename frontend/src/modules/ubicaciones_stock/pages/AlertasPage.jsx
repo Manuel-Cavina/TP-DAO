@@ -13,6 +13,7 @@ import { useAlertasStock } from "../hooks/useAlertasStock";
 import { useUbicaciones } from "../hooks/useUbicaciones";
 import { useProductos } from "../../catalogo/hooks/useProductos";
 import { IngresoCdModal } from "../components/IngresoCdModal";
+import "../stock-craft.css";
 
 /**
  * Vista dedicada de alertas de reposicion por stock bajo minimo (/stock/alertas).
@@ -180,7 +181,7 @@ export function AlertasPage() {
   const handleNavigateCrearOrden = (alerta) => {
     const returnPath = `/stock/alertas?${searchParams.toString()}`;
     navigate(
-      `/logistica/ordenes/crear?productoId=${alerta.productoId}&destinoId=${alerta.ubicacionId}`,
+      `/logistica/ordenes/nueva?productoId=${alerta.productoId}&destinoId=${alerta.ubicacionId}`,
       { state: { returnTo: returnPath } }
     );
   };
@@ -273,7 +274,7 @@ export function AlertasPage() {
             iconRight="arrow-right"
             onClick={() => handleNavigateCrearOrden(r)}
           >
-            Reponer
+            Preparar reposición
           </Button>
         );
       },
@@ -306,7 +307,7 @@ export function AlertasPage() {
   ];
 
   return (
-    <div className="stack gap-5">
+    <div className="inventory-workbench stack gap-4">
       <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">
@@ -360,7 +361,7 @@ export function AlertasPage() {
         <MetricCard
           label="Historial total"
           value={enrichedAlertas.length}
-          subtext="Eventos disparados por Observer"
+          subtext="Alertas registradas"
         />
       </div>
 

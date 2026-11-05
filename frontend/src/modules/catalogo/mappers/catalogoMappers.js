@@ -7,6 +7,7 @@ export function mapProductoToUI(dto) {
   const precio = Number(dto.precio_venta) || 0;
   const costo = Number(dto.costo_unitario) || 0;
   const margen = precio > 0 ? Math.round(((precio - costo) / precio) * 100) : 0;
+  const minimo = dto.nivel_minimo == null || dto.nivel_minimo === "" ? null : Number(dto.nivel_minimo);
 
   return {
     id: dto.id,
@@ -17,7 +18,7 @@ export function mapProductoToUI(dto) {
     categoriaId: dto.categoria_id,
     proveedorId: dto.proveedor_id,
     activo: Boolean(dto.activo),
-    nivelMinimo: Number(dto.nivel_minimo) || 1,
+    nivelMinimo: Number.isFinite(minimo) ? minimo : null,
     margenPct: margen,
   };
 }

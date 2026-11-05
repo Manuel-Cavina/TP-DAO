@@ -1,3 +1,4 @@
+import "../logistics-workbench.css";
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -361,7 +362,7 @@ export function OrdenesHistorialPage() {
   ];
 
   return (
-    <div className="stack gap-5">
+    <div className="logistics-workbench stack gap-5">
       <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">

@@ -1,3 +1,4 @@
+import "../logistics-workbench.css";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Alert, Button, Select, StatusBadge } from "../../../shared";

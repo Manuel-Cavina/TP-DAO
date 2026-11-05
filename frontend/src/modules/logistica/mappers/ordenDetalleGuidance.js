@@ -119,7 +119,9 @@ export function computeGuidanceByTab({
       : remito.estado === "CERRADO"
         ? { tone: "success", title: "Recepción cerrada: no queda trabajo pendiente", description: `${remito.bultosVerificados} bulto(s) verificados y ${remito.bultosRechazados} rechazado(s) quedaron registrados con su impacto de stock.`, targetTab: "historial", targetLabel: "Ver historial" }
         : remito.estado === "RECIBIDO"
-          ? { tone: "warning", title: "Arribo registrado: falta verificar precintos", description: `${remito.bultosPendientes} bulto(s) requieren control físico antes del cierre.`, targetTab: null, targetLabel: null }
+          ? remito.bultosPendientes > 0
+            ? { tone: "warning", title: "Arribo registrado: falta verificar precintos", description: `${remito.bultosPendientes} bulto(s) requieren control físico antes del cierre.`, targetTab: null, targetLabel: null }
+            : { tone: "info", title: "Controles completos: falta cerrar la recepción", description: "Todos los bultos fueron controlados. El cierre del remito confirma su impacto en stock.", targetTab: null, targetLabel: null }
           : { tone: "info", title: "Remito en tránsito", description: "El siguiente paso es registrar el arribo en destino para habilitar el control de precintos.", targetTab: null, targetLabel: null },
     historial: { tone: "info", title: "Trazabilidad completa de la orden", description: "La línea de vida conserva orden, bultos, precintos, remito y cierre. No altera el estado operativo.", targetTab: null, targetLabel: null },
   };

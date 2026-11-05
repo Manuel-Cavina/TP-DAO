@@ -9,6 +9,7 @@ import {
 import { useDisclosure } from "../../../shared/hooks";
 import { useProveedores } from "../hooks/useProveedores";
 import { ProveedorModal } from "../components/ProveedorModal";
+import "../catalog-workbench.css";
 
 export function ProveedoresPage() {
   const [search, setSearch] = useState("");
@@ -29,7 +30,7 @@ export function ProveedoresPage() {
     actualizarFieldErrors: errorsEditProv,
     darDeBaja: darDeBajaProv,
     darDeBajaPending: pendingBajaProv,
-  } = useProveedores({ activos: filterEstado !== "inactivos" });
+  } = useProveedores({ activos: filterEstado === "activos" });
 
   const provModal = useDisclosure(false);
 
@@ -131,7 +132,7 @@ export function ProveedoresPage() {
   ];
 
   return (
-    <div className="stack gap-5">
+    <div className="catalog-workbench stack gap-4">
       <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">
@@ -139,9 +140,9 @@ export function ProveedoresPage() {
             <span>·</span>
             <span>Proveedores</span>
           </div>
-          <h1 className="text-xl">Proveedores comerciales</h1>
+          <h1 className="text-xl">Proveedores</h1>
           <p className="text-sm text-secondary">
-            Empresas y fabricantes autorizados para ingreso de mercadería en centros de distribución.
+            Datos comerciales y de contacto de los proveedores registrados.
           </p>
         </div>
         <div>

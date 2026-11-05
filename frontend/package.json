@@ -7,7 +7,7 @@
     "dev": "vite --port 5173",
     "build": "vite build && node scripts/check_core_regressions.mjs --build",
     "preview": "vite preview --port 4173",
-    "check": "node scripts/check_frontend.mjs && node scripts/check_ventas_caja.mjs && node scripts/check_auth.mjs && node scripts/check_shared_controls.mjs && node scripts/check_core_regressions.mjs && node scripts/check_operational_regressions.mjs && node scripts/check_reportes_regressions.mjs"
+    "check": "node scripts/check_frontend.mjs && node scripts/check_ventas_caja.mjs && node scripts/check_auth.mjs && node scripts/check_shared_controls.mjs && node scripts/check_core_regressions.mjs && node scripts/check_operational_regressions.mjs && node scripts/check_reportes_regressions.mjs && node scripts/check_redesign_core.mjs && node scripts/check_redesign_logistics.mjs && node scripts/check_redesign_modules.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.3.1",

@@ -1,7 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "../../../shared/components/Button";
-import { PaymentStrategySelector } from "../../../shared/components/DomainWidgets";
+import { Select } from "../../../shared/components/Select";
 import { TextInput, NumberInput } from "../../../shared/components/FormControls";
 import { Badge } from "../../../shared/components/Badge";
 import { Alert } from "../../../shared/components/Feedback";
@@ -40,11 +40,11 @@ export function PosCarrito({
   onCobro,
 }) {
   return (
-    <div className="erp-section-card pos-column">
+    <section className="erp-section-card pos-column pos-cart-column" aria-label="Carrito y cobro">
       {/* Cabecera del carrito */}
       <div className="row justify-between align-center mb-2">
         <div className="row align-center gap-2">
-          <h3 className="text-md font-medium">2. Carrito y cobro</h3>
+          <h2 className="text-md font-medium">Carrito y cobro</h2>
           <Badge tone="neutral" className="tabular-nums">
             {totalUnits} un. ({cart.length} líneas)
           </Badge>
@@ -168,7 +168,13 @@ export function PosCarrito({
         </div>
 
         {/* Selector de estrategia de pago */}
-        <PaymentStrategySelector
+        <Select
+          label="Medio de pago"
+          options={[
+            { value: "Pago_Efectivo", label: "Efectivo. Sin recargo" },
+            { value: "Pago_Tarjeta", label: "Tarjeta. De 1 a 12 cuotas" },
+            { value: "Pago_Transferencia", label: "Transferencia" },
+          ]}
           value={strategy}
           onChange={(val) => {
             setStrategy(val);
@@ -278,7 +284,7 @@ export function PosCarrito({
           Revisar y cobrar: ${total.toLocaleString("es-AR")}
         </Button>
       </div>
-    </div>
+    </section>
   );
 }
 

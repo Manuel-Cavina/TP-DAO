@@ -3,6 +3,11 @@ import { readFileSync } from "node:fs";
 import { puedeOperarEnUbicacion } from "../src/app/auth/rolePolicy.js";
 import { filterProducts } from "../src/modules/catalogo/mappers/productFilters.js";
 import { createSealControlRows, validateSealControl, readApprovalOutcome } from "../src/modules/logistica/mappers/sealControl.js";
+import "./flow-regressions/logistics.mjs";
+import "./flow-regressions/returns.mjs";
+import "./flow-regressions/stock.mjs";
+import "./flow-regressions/catalog.mjs";
+import "./flow-regressions/report-race.mjs";
 
 const read = (path) => readFileSync(new URL(`../src/modules/${path}`, import.meta.url), "utf8");
 function loadService(path, name, http) {

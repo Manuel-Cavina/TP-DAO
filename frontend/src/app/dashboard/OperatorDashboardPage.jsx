@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { LogoutModal } from "../../shared";
+import { AppShell } from "../../shared/components/AppShell";
+import { OPERATOR_TASK_GROUPS } from "../../shared/lib/navigation";
 
 // Arc UI Components
 import SegmentedControl from "../../components/arc/segmented-control/segmented-control";
@@ -88,32 +89,9 @@ export function OperatorDashboardPage() {
   };
 
   return (
-    <div className={styles.mobileContainer}>
-      <header className={styles.topBar}>
-        <div className={styles.brandGroup}>
-          <img
-            src="/brand/stocky-icon.png"
-            alt="Stocky"
-            className={styles.brandIcon}
-          />
-          <div className={styles.brandMeta}>
-            <h1 className={styles.brandTitle}>Stocky Operaciones</h1>
-            <p className={styles.brandSubtitle}>
-              {userName} (Operador físico)
-            </p>
-          </div>
-        </div>
-        <div className={styles.topActions}>
-          <span className={styles.avatarBadge}>{initials}</span>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setLogoutOpen(true)}
-          >
-            Salir
-          </Button>
-        </div>
-      </header>
+    <AppShell currentPath="/operador" taskGroups={OPERATOR_TASK_GROUPS} contextLabel="Trabajo logístico asignado" showActivity={false} onNavigate={navigate} onSearch={(query) => navigate(`/logistica/trazabilidad?q=${encodeURIComponent(query)}`)} operatorName={userName} operatorRole="Operador logístico" onLogout={handleConfirmLogout}>
+    <div className={styles.desktopContainer}>
+      <header className={styles.pageHeading}><h1>Mi trabajo</h1><p>Preparación en origen y recepción en las sucursales autorizadas.</p></header>
 
       <section className={styles.contextCard}>
         <div className={styles.contextRow}>
@@ -154,7 +132,7 @@ export function OperatorDashboardPage() {
           <Badge tone={work.total > 0 ? "warning" : "success"} size="sm">
             {work.total > 0
               ? `${work.total} tareas pendientes`
-              : "Operación al día"}
+              : loading || loadError ? "Consultando trabajo" : "Sin acciones pendientes"}
           </Badge>
         </div>
       </section>
@@ -186,6 +164,7 @@ export function OperatorDashboardPage() {
         ]}
       />
 
+      <div className={styles.taskSurface}>
       {activeTab === "trabajo" && (
         <OperatorSummaryTab
           work={work}
@@ -237,6 +216,8 @@ export function OperatorDashboardPage() {
         />
       )}
 
+      </div>
+
       <OperatorControlSheet
         open={sheetControlOpen}
         onOpenChange={setSheetControlOpen}
@@ -258,15 +239,8 @@ export function OperatorDashboardPage() {
       {/* Condición explícita para compatibilidad de regresión T050 */}
       {!loading && !loadError && branches.length > 0 && !work.total && null}
 
-      <LogoutModal
-        open={logoutOpen}
-        onClose={() => !loggingOut && setLogoutOpen(false)}
-        onConfirm={handleConfirmLogout}
-        userName={userName}
-        userRole={scope?.shift_label || "Operador logístico"}
-        isBusy={loggingOut}
-      />
     </div>
+    </AppShell>
   );
 }
 

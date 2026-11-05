@@ -1,3 +1,4 @@
+import "../logistics-workbench.css";
 import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Alert } from "../../../shared/components/Feedback";
@@ -376,7 +377,7 @@ export function CrearOrdenPage() {
   }
 
   return (
-    <div className="stack gap-5">
+    <div className="logistics-workbench stack gap-5">
       <div className="erp-flow-header">
         <div>
           <div className="erp-breadcrumb">
