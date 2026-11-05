@@ -11,6 +11,7 @@ import {
 } from "../../../shared";
 import { useUbicaciones } from "../../ubicaciones_stock/hooks/useUbicaciones";
 import { useAuth } from "../../../app/auth/AuthProvider";
+import { puedeOperarEnUbicacion, MENSAJE_FUERA_DE_ALCANCE } from "../../../app/auth/rolePolicy";
 import { useToast } from "../../../shared/feedback/ToastContext";
 import { logisticaService } from "../services";
 import { mapRemitoToUI } from "../mappers/logisticaMappers";
@@ -25,7 +26,7 @@ import { RemitoTimeline } from "../components/RemitoTimeline";
 export function RemitoDetallePage() {
   const { numero } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, scope } = useAuth();
   const { ubicaciones } = useUbicaciones();
   const { notifySuccess, notifyError } = useToast();
 
@@ -84,8 +85,12 @@ export function RemitoDetallePage() {
       list.push("La frescura de los datos no pudo confirmarse (bloqueo preventivo por red).");
     }
 
+    if (!puedeOperarEnUbicacion(user, scope, remito.origenId)) {
+      list.push(MENSAJE_FUERA_DE_ALCANCE);
+    }
+
     return list;
-  }, [remito, isStale]);
+  }, [remito, isStale, user, scope]);
 
   const esDespachable = remito?.documentoEstado === "EMITIDO" && bloqueadoresDespacho.length === 0;
 

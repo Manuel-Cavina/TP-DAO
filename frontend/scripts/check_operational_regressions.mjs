@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { puedeOperarEnUbicacion } from "../src/app/auth/rolePolicy.js";
 import { filterProducts } from "../src/modules/catalogo/mappers/productFilters.js";
 import { createSealControlRows, validateSealControl, readApprovalOutcome } from "../src/modules/logistica/mappers/sealControl.js";
 
@@ -84,3 +85,16 @@ assert.doesNotMatch(read("logistica/pages/RecepcionPage.jsx"), /setCodigoIngresa
 assert.match(read("logistica/components/ControlPrecintosModal.jsx"), /htmlFor=\{`seal-read-/);
 assert.match(read("logistica/components/ControlPrecintosModal.jsx"), /aria-describedby=/);
 console.log("Operational regression checks passed (behavioral helpers/services + explicitly static UI wiring).");
+
+// Scope rule mirrors backend Usuario.puede_operar: ADMIN unrestricted, operator limited to its CD and authorised branches
+const operador = { role: "OPERADOR" };
+const alcance = { reporting_cd_id: 1, branch_ids: [10, 11] };
+assert.equal(puedeOperarEnUbicacion({ role: "ADMIN" }, null, 99), true, "Admin is unrestricted");
+assert.equal(puedeOperarEnUbicacion(operador, alcance, 1), true, "Operator can act on its reporting CD");
+assert.equal(puedeOperarEnUbicacion(operador, alcance, "1"), true, "Ids compare regardless of type");
+assert.equal(puedeOperarEnUbicacion(operador, { reporting_cd_id: 1, authorised_branch_ids: [10] }, 10), true, "Operator can act on an authorised branch");
+assert.equal(puedeOperarEnUbicacion(operador, alcance, 11), true, "Operator can act on a branch listed in branch_ids");
+assert.equal(puedeOperarEnUbicacion(operador, alcance, 2), false, "Operator cannot act outside its scope");
+assert.equal(puedeOperarEnUbicacion(operador, null, 1), false, "Missing scope denies the operator");
+assert.equal(puedeOperarEnUbicacion(operador, { reporting_cd_id: null, branch_ids: [] }, 1), false, "Empty scope denies the operator");
+assert.equal(puedeOperarEnUbicacion(operador, alcance, undefined), false, "Missing location denies the operator");

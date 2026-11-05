@@ -77,6 +77,7 @@ export function computeGuidanceByTab({
   bultosTodosPrecintados = false,
   onEmitirRemito,
   onDespachar,
+  puedeOperar = true,
 }) {
   if (!orden) return {};
   const bultosTodosAprobados = bultos.length > 0 && bultos.every((b) => b.aprobado);
@@ -84,7 +85,7 @@ export function computeGuidanceByTab({
   const isPendienteOrPreparando =
     orden.estado === "PENDIENTE" || orden.estado === "EN_PREPARACION";
 
-  return {
+  const guidance = {
     resumen: orden.estado === "CERRADA"
       ? { tone: "success", title: "Orden cerrada: no queda trabajo operativo", description: "Empaque, remito y recepción finalizaron. Consultá el historial para la evidencia completa.", targetTab: "historial", targetLabel: "Ver historial" }
       : { tone: "info", title: "Estado actual de la orden", description: `${totalEmpaquetadas} de ${totalSolicitadas} unidades empaquetadas · ${bultos.length} bulto(s) registrado(s).`, targetTab: isPendienteOrPreparando ? "empaque" : "recepcion", targetLabel: isPendienteOrPreparando ? "Continuar empaque" : "Gestionar recepción" },
@@ -121,5 +122,16 @@ export function computeGuidanceByTab({
           ? { tone: "warning", title: "Arribo registrado: falta verificar precintos", description: `${remito.bultosPendientes} bulto(s) requieren control físico antes del cierre.`, targetTab: null, targetLabel: null }
           : { tone: "info", title: "Remito en tránsito", description: "El siguiente paso es registrar el arribo en destino para habilitar el control de precintos.", targetTab: null, targetLabel: null },
     historial: { tone: "info", title: "Trazabilidad completa de la orden", description: "La línea de vida conserva orden, bultos, precintos, remito y cierre. No altera el estado operativo.", targetTab: null, targetLabel: null },
+  };
+  if (puedeOperar) return guidance;
+
+  // Fuera del alcance del operador se conserva el diagnostico pero sin CTAs de empaque ni despacho
+  const sinAccion = (g) => ({ ...g, onAction: null, targetTab: null, targetLabel: null });
+  const enCursoDeOrigen = !remito || remito.estado === "EMITIDO";
+  return {
+    ...guidance,
+    resumen: isPendienteOrPreparando ? sinAccion(guidance.resumen) : guidance.resumen,
+    empaque: enCursoDeOrigen ? sinAccion(guidance.empaque) : guidance.empaque,
+    despacho: enCursoDeOrigen ? sinAccion(guidance.despacho) : guidance.despacho,
   };
 }

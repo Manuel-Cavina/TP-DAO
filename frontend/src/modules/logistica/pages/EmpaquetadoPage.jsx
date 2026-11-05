@@ -18,6 +18,9 @@ import { EmpaquetadoForm } from "../components/EmpaquetadoForm";
 import { BultoDetalleModal } from "../components/BultoDetalleModal";
 import { useLiveResource } from "../../../shared";
 import { readApprovalOutcome } from "../mappers/sealControl";
+import { Alert } from "../../../shared/components/Feedback";
+import { useAuth } from "../../../app/auth/AuthProvider";
+import { puedeOperarEnUbicacion, MENSAJE_FUERA_DE_ALCANCE } from "../../../app/auth/rolePolicy";
 
 export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -25,6 +28,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
   const { notifySuccess, notifyError } = useToast();
   const { ordenes, reload: reloadOrd } = useOrdenes();
   const { ubicaciones } = useUbicaciones();
+  const { user, scope } = useAuth();
 
   const effectiveOrdenId = ordenId ? String(ordenId) : searchParams.get("ordenId");
   const returnTo = searchParams.get("returnTo");
@@ -72,6 +76,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
     enabled: Boolean(selectedOrdenId),
   });
   const bultos = bultosData || [];
+  const puedeOperarOrigen = puedeOperarEnUbicacion(user, scope, activeOrden?.origenId);
   const aprobadosSet = useMemo(() => new Set(bultos.filter((b) => b.aprobado).map((b) => b.id)), [bultosData]);
 
   useEffect(() => {
@@ -103,13 +108,13 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
   const bultosElegiblesParaAprobar = useMemo(() => bultosPrecintados.filter((b) => !aprobadosSet.has(b.id) && !b.aprobado), [bultosPrecintados, aprobadosSet]);
   const todosBultosPrecintados = bultos.length > 0 && bultosPreparados.length === 0;
   const todosBultosAprobados = bultos.length > 0 && todosBultosPrecintados && bultos.every((b) => aprobadosSet.has(b.id) || b.aprobado);
-  const puedeEmitirRemito = empaquetadoCompleto && todosBultosAprobados && !isStale && !loadingBultos;
+  const puedeEmitirRemito = puedeOperarOrigen && empaquetadoCompleto && todosBultosAprobados && !isStale && !loadingBultos;
 
   const esPrioridadArmado = !empaquetadoCompleto;
   const esPrioridadAprobacion = empaquetadoCompleto && todosBultosPrecintados && bultosElegiblesParaAprobar.length > 0;
 
   const handleCrearBulto = async (items) => {
-    if (isStale || loadingBultos) return false;
+    if (!puedeOperarOrigen || isStale || loadingBultos) return false;
     setErrorBulto("");
     if (!items || items.length === 0) {
       setErrorBulto("Debe incorporar al menos un producto al bulto.");
@@ -135,6 +140,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
   };
 
   const handlePrecintarIndividual = async (bultoId, codigo) => {
+    if (!puedeOperarOrigen) throw new Error(MENSAJE_FUERA_DE_ALCANCE);
     if (isStale || loadingBultos) throw new Error("Actualice la orden antes de precintar.");
     setErrorOperacion("");
     try {
@@ -151,6 +157,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
   };
 
   const handlePrecintarLote = async (asignaciones) => {
+    if (!puedeOperarOrigen) throw new Error(MENSAJE_FUERA_DE_ALCANCE);
     if (isStale || loadingBultos) throw new Error("Actualice la orden antes de precintar.");
     setErrorOperacion("");
     try {
@@ -262,7 +269,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
       render: (_, row) =>
         aprobadosSet.has(row.id) || row.aprobado ? (
           <span className="badge badge--success text-xs">Aprobado</span>
-        ) : row.estado === "PRECINTADO" ? (
+        ) : row.estado === "PRECINTADO" && puedeOperarOrigen ? (
           <Button
             variant={esPrioridadAprobacion && bultosElegiblesParaAprobar.length === 1 ? "primary" : "secondary"}
             size="sm"
@@ -362,6 +369,9 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
         </div>
       )}
 
+      {activeOrden && !puedeOperarOrigen && (
+        <Alert tone="warning" title="Acciones de empaque no disponibles" description={MENSAJE_FUERA_DE_ALCANCE} />
+      )}
       {errorOperacion && <div className="p-3 rounded bg-danger-subtle text-danger text-sm">{errorOperacion}</div>}
       {bultosError && (
         <div role="alert" className="erp-callout">
@@ -389,7 +399,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
             itemsPendientes={itemsPendientes}
             onCrearBulto={handleCrearBulto}
             loading={creandoBulto}
-            disabled={isStale || loadingBultos}
+            disabled={isStale || loadingBultos || !puedeOperarOrigen}
             error={errorBulto}
             isPrimaryAction={esPrioridadArmado}
             onAvanzarAPrecintos={() => {
@@ -408,7 +418,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
               </div>
 
               <div className="row gap-2 align-center">
-                {bultosElegiblesParaAprobar.length > 0 && !puedeEmitirRemito && (
+                {puedeOperarOrigen && bultosElegiblesParaAprobar.length > 0 && !puedeEmitirRemito && (
                   <Button
                     variant={esPrioridadAprobacion ? "primary" : "secondary"}
                     size="sm"
@@ -443,7 +453,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
           bultos={bultos}
           onPrecintarIndividual={handlePrecintarIndividual}
           onPrecintarLote={handlePrecintarLote}
-          loading={loadingBultos}
+          loading={loadingBultos || !puedeOperarOrigen}
         />
       )}
 
@@ -479,7 +489,7 @@ export function EmpaquetadoPage({ ordenId, embedded = false, onChange }) {
           ordenId={activeOrden?.id}
           isAprobado={Boolean(bultoSeleccionado.aprobado || aprobadosSet.has(bultoSeleccionado.id))}
           aprobando={aprobandoId === bultoSeleccionado.id}
-          onAprobar={handleAprobarIndividual}
+          onAprobar={puedeOperarOrigen ? handleAprobarIndividual : undefined}
         />
       )}
     </div>

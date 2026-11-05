@@ -1,5 +1,6 @@
 import React from "react";
 import { Button, StatusBadge } from "../../../shared";
+import { MENSAJE_FUERA_DE_ALCANCE } from "../../../app/auth/rolePolicy";
 
 export function OrdenDespachoTab({
   remito,
@@ -9,6 +10,7 @@ export function OrdenDespachoTab({
   bultosTodosPrecintados,
   bultosTodosAprobados,
   despachando,
+  puedeOperar = true,
   onEmitirRemitoClick,
   onDespacharClick,
   onIrAEmpaque,
@@ -23,11 +25,13 @@ export function OrdenDespachoTab({
             Completá el empaque y asigná un precinto a cada bulto antes de emitir el remito.
           </p>
         </div>
-        <div>
-          <Button variant="primary" onClick={onIrAEmpaque}>
-            Completar empaque y precintos
-          </Button>
-        </div>
+        {puedeOperar && (
+          <div>
+            <Button variant="primary" onClick={onIrAEmpaque}>
+              Completar empaque y precintos
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
@@ -59,6 +63,7 @@ export function OrdenDespachoTab({
                   variant="secondary"
                   size="sm"
                   loading={despachando}
+                  disabled={remito.estado === "EMITIDO" && !puedeOperar}
                   onClick={remito.estado === "EMITIDO" ? onDespacharClick : onIrARecepcion}
                 >
                   {remito.estado === "EMITIDO" ? "Despachar traslado" : "Gestionar recepción"}
@@ -97,12 +102,20 @@ export function OrdenDespachoTab({
         </div>
       )}
 
+      {!puedeOperar && (!remito || remito.estado === "EMITIDO") && (
+        <div className="card p-4">
+          <span className="text-sm text-secondary">
+            {MENSAJE_FUERA_DE_ALCANCE}
+          </span>
+        </div>
+      )}
+
       {!remito && bultosTodosAprobados && (
         <div className="card p-4 row justify-between align-center wrap gap-3">
           <span className="text-sm text-secondary">
             Los bultos están listos. Emití el remito formal de despacho para iniciar el traslado.
           </span>
-          <Button variant="primary" onClick={onEmitirRemitoClick}>
+          <Button variant="primary" disabled={!puedeOperar} onClick={onEmitirRemitoClick}>
             Emitir remito formal
           </Button>
         </div>

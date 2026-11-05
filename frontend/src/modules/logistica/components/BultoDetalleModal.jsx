@@ -34,7 +34,7 @@ export function BultoDetalleModal({
           <Button variant="ghost" onClick={onClose}>
             Cerrar
           </Button>
-          {bulto.estado === "PRECINTADO" && !isAprobado && (
+          {bulto.estado === "PRECINTADO" && !isAprobado && onAprobar && (
             <Button
               variant="primary"
               iconLeft="check"

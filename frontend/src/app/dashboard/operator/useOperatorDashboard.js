@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "../../auth/AuthProvider";
+import { puedeOperarEnUbicacion } from "../../auth/rolePolicy";
 import { useToast } from "../../../shared/feedback/ToastContext";
 import { useUbicaciones } from "../../../modules/ubicaciones_stock/hooks/useUbicaciones";
 import { useRemitos } from "../../../modules/logistica/hooks/useRemitos";
@@ -137,9 +138,12 @@ export function useOperatorDashboard() {
     fetchOrdenesActivas();
   }, [fetchOrdenesActivas]);
 
-  // Calcular items y progreso operacional por cada orden activa
+  // Items y progreso por orden activa; solo ordenes cuyo origen esta en el alcance del operador
+  const ordenesEnAlcance = useMemo(
+    () => ordenes.filter((o) => puedeOperarEnUbicacion(user, scope, o.origen_id ?? o.origenId)), [ordenes, user, scope]);
+
   const ordenesDetalladas = useMemo(() => {
-    return ordenes.map((ord) => {
+    return ordenesEnAlcance.map((ord) => {
       const bultos = todosBultosMap[ord.id] || [];
       const embaladosMap = new Map();
       for (const b of bultos) {
@@ -178,7 +182,7 @@ export function useOperatorDashboard() {
         bultos,
       };
     });
-  }, [ordenes, todosBultosMap]);
+  }, [ordenesEnAlcance, todosBultosMap]);
 
   // Órdenes con items pendientes de embalar (restanteTotal > 0)
   const ordenesPorEmbalar = useMemo(() => {
@@ -242,13 +246,11 @@ export function useOperatorDashboard() {
 
   // Remitos listos para salir a transporte
   const remitosPorDespachar = useMemo(() => {
+    const estados = ["GENERADO", "EN_PREPARACION", "EMITIDO"];
     return remitos.filter(
-      (r) =>
-        r.estado === "GENERADO" ||
-        r.estado === "EN_PREPARACION" ||
-        r.estado === "EMITIDO"
+      (r) => estados.includes(r.estado) && puedeOperarEnUbicacion(user, scope, r.origenId)
     );
-  }, [remitos]);
+  }, [remitos, user, scope]);
 
   // Remitos activos en destino para control
   const remitosActivosControl = useMemo(() => {
