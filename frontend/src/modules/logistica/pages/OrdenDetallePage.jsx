@@ -11,6 +11,7 @@ import {
 import { useDisclosure } from "../../../shared/hooks";
 import { useToast } from "../../../shared/feedback/ToastContext";
 import { useAuth } from "../../../app/auth/AuthProvider";
+import { puedeOperarEnUbicacion, MENSAJE_FUERA_DE_ALCANCE } from "../../../app/auth/rolePolicy";
 import { useUbicaciones } from "../../ubicaciones_stock/hooks/useUbicaciones";
 import { useProductos } from "../../catalogo/hooks/useProductos";
 import { logisticaService } from "../services";
@@ -32,7 +33,7 @@ export function OrdenDetallePage() {
   const [accionError, setAccionError] = useState("");
   const remitoModal = useDisclosure(false);
   const { notifySuccess, notifyError } = useToast();
-  const { user } = useAuth();
+  const { user, scope } = useAuth();
   const { ubicaciones } = useUbicaciones();
   const { productos } = useProductos({ activos: true });
 
@@ -69,6 +70,7 @@ export function OrdenDetallePage() {
   });
 
   const orden = data?.orden;
+  const puedeOperarOrigen = puedeOperarEnUbicacion(user, scope, orden?.origenId);
   const bultos = data?.bultos || [];
   const remito = data?.remito || null;
   const activeTab = searchParams.get("tab") || "resumen";
@@ -116,6 +118,7 @@ export function OrdenDetallePage() {
   );
 
   const handleEmitirRemito = async ({ bultosIds }) => {
+    if (!puedeOperarOrigen) return { ok: false, error: MENSAJE_FUERA_DE_ALCANCE };
     setGenerandoRemito(true);
     setAccionError("");
     try {
@@ -137,7 +140,7 @@ export function OrdenDetallePage() {
   };
 
   const handleDespachar = async () => {
-    if (!remito || isStale || isLoading) return;
+    if (!remito || isStale || isLoading || !puedeOperarOrigen) return;
     setDespachando(true);
     setAccionError("");
     try {
@@ -167,8 +170,9 @@ export function OrdenDetallePage() {
         bultosTodosPrecintados,
         onEmitirRemito: remitoModal.onOpen,
         onDespachar: handleDespachar,
+        puedeOperar: puedeOperarOrigen,
       }),
-    [orden, bultos, remito, totalSolicitadas, totalEmpaquetadas, estaCompletamenteEmpaquetada, bultosTodosPrecintados, remitoModal.onOpen, handleDespachar]
+    [orden, bultos, remito, totalSolicitadas, totalEmpaquetadas, estaCompletamenteEmpaquetada, bultosTodosPrecintados, remitoModal.onOpen, handleDespachar, puedeOperarOrigen]
   );
   const currentGuidance = guidanceByTab[activeTab] || guidanceByTab.resumen;
 
@@ -210,7 +214,7 @@ export function OrdenDetallePage() {
 
         {/* Jerarquía estricta: un único botón principal de mayor peso visual por pantalla */}
         <div className="row gap-2 align-center">
-          {activeTab === "empaque" ? (
+          {!puedeOperarOrigen ? null : activeTab === "empaque" ? (
             estaCompletamenteEmpaquetada && bultosTodosPrecintados && todosBultosAprobados && !remito ? (
               <Button variant="primary" iconRight="arrow-right" onClick={remitoModal.onOpen}>
                 Emitir remito único ({bultos.length} bultos)
@@ -250,7 +254,7 @@ export function OrdenDetallePage() {
             </>
           )}
 
-          {isPendienteOrPreparando && remito && remito.estado === "EMITIDO" && (
+          {puedeOperarOrigen && isPendienteOrPreparando && remito && remito.estado === "EMITIDO" && (
             <Button variant="primary" iconRight="truck" loading={despachando} onClick={handleDespachar}>
               Despachar remito {remito.numero}
             </Button>
@@ -281,6 +285,10 @@ export function OrdenDetallePage() {
           { value: "historial", label: "Historial" },
         ]}
       />
+
+      {!puedeOperarOrigen && (isPendienteOrPreparando || remito?.estado === "EMITIDO") && (
+        <Alert tone="warning" title="Acciones de empaque y despacho no disponibles" description={MENSAJE_FUERA_DE_ALCANCE} />
+      )}
 
       {accionError && <Alert tone="danger" title="No se pudo completar la acción" description={accionError} />}
 
@@ -386,7 +394,9 @@ export function OrdenDetallePage() {
           destinoNombre={destinoNombre}
           estaCompletamenteEmpaquetada={estaCompletamenteEmpaquetada}
           bultosTodosPrecintados={bultosTodosPrecintados}
+          bultosTodosAprobados={todosBultosAprobados}
           despachando={despachando}
+          puedeOperar={puedeOperarOrigen}
           onEmitirRemitoClick={remitoModal.onOpen}
           onDespacharClick={handleDespachar}
           onIrAEmpaque={() => setActiveTab("empaque")}

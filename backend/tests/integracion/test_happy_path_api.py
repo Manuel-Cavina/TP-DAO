@@ -81,6 +81,7 @@ class TestHappyPathAPI(unittest.TestCase):
             self._ok("POST", "/api/logistica/precintos", {"codigo": precinto}, 201)
             precintado = self._ok("POST", f"/api/logistica/bultos/{bulto['id']}/precintar", {"codigo_precinto": precinto})
             self.assertEqual(precintado["estado"], "PRECINTADO")
+            self._ok("POST", f"/api/logistica/bultos/{bulto['id']}/aprobar")
             ids.append(bulto["id"])
         self._ok("POST", "/api/logistica/remitos", {"numero": remito, "bultos_ids": ids}, 201, orden_id=orden_id)
         self._ok("POST", f"/api/logistica/remitos/{remito}/despachar")

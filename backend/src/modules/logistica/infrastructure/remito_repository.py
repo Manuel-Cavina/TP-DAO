@@ -1,6 +1,6 @@
 import re
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -138,6 +138,28 @@ class Remito_Repository:
             bultos=bultos,
             orden_id=modelo.orden_id,
         )
+
+    def obtener_para_despachar(self, numero: str) -> Remito | None:
+        """Busca el remito tomando antes el lock de escritura (equivale a SELECT ... FOR UPDATE).
+
+        Asi dos despachos simultaneos del mismo remito se serializan y el segundo
+        ve el estado que dejo el primero, sin duplicar el transito en destino.
+        """
+        session = self._get_session()
+        clave = numero.strip()
+        bloqueo = (
+            update(Remito_Model)
+            .where(Remito_Model.numero == clave)
+            .values(numero=Remito_Model.numero)
+            .execution_options(synchronize_session=False)
+        )
+        if session.execute(bloqueo).rowcount == 0:
+            return None
+        # Descarta el estado cacheado por una lectura previa de la misma peticion.
+        session.execute(
+            select(Remito_Model).where(Remito_Model.numero == clave).execution_options(populate_existing=True)
+        )
+        return self.obtener_por_numero(clave)
 
     def listar_todos(self) -> list[Remito]:
         """Devuelve todos los remitos emitidos en el sistema."""

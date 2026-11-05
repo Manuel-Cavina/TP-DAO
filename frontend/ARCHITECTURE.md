@@ -1,7 +1,5 @@
 # Stocky · Arquitectura del frontend
 
-> **Feature authority (2026-10-20):** for the approved operational redesign, `specs/001-stocky-operational-ux/plan.md` and `tasks.md` supersede stale paths, route tables, global-site assumptions, and execution ordering later in this historical architecture note. Authentication lives under `app/auth`, role homes under `app/dashboard`, operational origin/destination stay inside each process, and Sales/Cash consumes the official persisted API merged from `main`.
-
 Contrato de arquitectura para el frontend React que consume el backend FastAPI real. Complementa [DESIGN.md](DESIGN.md) y [PRODUCT.md](PRODUCT.md).
 
 ## 1. Reglas duras

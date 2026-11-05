@@ -16,3 +16,7 @@ dist/
 
 # Base SQLite local
 backend/runtime/
+
+# Screenshots and Playwright session state (contain session cookies)
+.captures/
+e2e/.auth/

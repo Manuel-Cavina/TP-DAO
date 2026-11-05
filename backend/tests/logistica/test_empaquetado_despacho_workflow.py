@@ -285,7 +285,7 @@ class TestEmpaquetadoDespachoWorkflow(Sqlite_Test_Case):
 
         # Intento 1: Emitir remito cuando la orden aún NO está completamente empaquetada
         with self.assertRaises(Remito_Incompleto_Exception) as ctx:
-            self.empaquetado_service.generar_remito("REM-100", orden.id, [b1.id], validar_aprobacion=True)
+            self.empaquetado_service.generar_remito("REM-100", orden.id, [b1.id])
         self.assertIn("cantidades", str(ctx.exception).lower())
 
         # Armar B2 con 5 de B -> Ahora sí está todo empaquetado en la orden
@@ -297,19 +297,19 @@ class TestEmpaquetadoDespachoWorkflow(Sqlite_Test_Case):
 
         # Intento 2: B2 aún NO fue aprobado
         with self.assertRaises(Remito_Incompleto_Exception) as ctx:
-            self.empaquetado_service.generar_remito("REM-100", orden.id, [b1.id, b2.id], validar_aprobacion=True)
+            self.empaquetado_service.generar_remito("REM-100", orden.id, [b1.id, b2.id])
         self.assertIn("aprobacion", str(ctx.exception).lower())
 
         # Intento 3: Intentar emitir remito parcial omitiendo B2
         with self.assertRaises(Remito_Incompleto_Exception) as ctx:
-            self.empaquetado_service.generar_remito("REM-100", orden.id, [b1.id], validar_aprobacion=True)
+            self.empaquetado_service.generar_remito("REM-100", orden.id, [b1.id])
         self.assertIn("todos los bultos", str(ctx.exception).lower())
 
         # Aprobar B2
         self.empaquetado_service.aprobar_bulto(b2.id)
 
         # Emisión exitosa de remito completo
-        remito = self.empaquetado_service.generar_remito("REM-100", orden.id, [b1.id, b2.id], validar_aprobacion=True)
+        remito = self.empaquetado_service.generar_remito("REM-100", orden.id, [b1.id, b2.id])
         self.assertEqual(remito.numero, "REM-100")
         self.assertEqual(remito.estado, "EMITIDO")
         self.assertEqual(len(remito.bultos), 2)
@@ -317,7 +317,7 @@ class TestEmpaquetadoDespachoWorkflow(Sqlite_Test_Case):
 
         # Intento 4: Intentar emitir un segundo remito para la misma orden -> Remito_Duplicado_Exception
         with self.assertRaises(Remito_Duplicado_Exception) as ctx:
-            self.empaquetado_service.generar_remito("REM-200", orden.id, [b1.id, b2.id], validar_aprobacion=True)
+            self.empaquetado_service.generar_remito("REM-200", orden.id, [b1.id, b2.id])
         self.assertIn("ya posee un remito", str(ctx.exception).lower())
 
     def test_despacho_completo_y_transicion_de_bultos_a_en_transito(self) -> None:
@@ -337,7 +337,7 @@ class TestEmpaquetadoDespachoWorkflow(Sqlite_Test_Case):
         self.empaquetado_service.aprobar_bulto(b1.id)
         self.empaquetado_service.aprobar_bulto(b2.id)
 
-        remito = self.empaquetado_service.generar_remito("REM-300", orden.id, [b1.id, b2.id], validar_aprobacion=True)
+        remito = self.empaquetado_service.generar_remito("REM-300", orden.id, [b1.id, b2.id])
         self.assertEqual(remito.estado, "EMITIDO")
 
         # Despachar remito completo
@@ -462,7 +462,7 @@ class TestEmpaquetadoDespachoHttpApi(unittest.TestCase):
         # Intentar remito con b2 sin aprobar -> 400
         remito_fallido = self.client.post(
             "/api/logistica/remitos",
-            params={"orden_id": orden_id, "validar_aprobacion": True},
+            params={"orden_id": orden_id},
             json={"numero": "REM-HTTP-1", "bultos_ids": [b1["id"], b2["id"]]},
         )
         self.assertEqual(remito_fallido.status_code, 400)
@@ -477,7 +477,7 @@ class TestEmpaquetadoDespachoHttpApi(unittest.TestCase):
         remito = self._post(
             "/remitos",
             {"bultos_ids": [b1["id"], b2["id"]]},
-            params={"orden_id": orden_id, "validar_aprobacion": True},
+            params={"orden_id": orden_id},
             expected=201,
         )
         self.assertEqual(remito["estado"], "EMITIDO")
@@ -486,7 +486,7 @@ class TestEmpaquetadoDespachoHttpApi(unittest.TestCase):
         # 8. Intentar segundo remito para la misma orden -> 409
         remito_dup = self.client.post(
             "/api/logistica/remitos",
-            params={"orden_id": orden_id, "validar_aprobacion": True},
+            params={"orden_id": orden_id},
             json={"numero": "REM-HTTP-2", "bultos_ids": [b1["id"], b2["id"]]},
         )
         self.assertEqual(remito_dup.status_code, 409)

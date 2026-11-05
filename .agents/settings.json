@@ -5,7 +5,6 @@
   "sources_of_truth": [
     "docs/convenciones.md",
     "docs/implementacion.md",
-    "docs/specs/migracion_orm_sqlalchemy.md",
     "docs/tema3.pdf"
   ],
   "checks": [

@@ -29,7 +29,9 @@ class Despacho_Service:
 
     def despachar_remito(self, remito_numero: str) -> Remito:
         """Despacha el remito completo, bultos a EN_TRANSITO y registra transito en destino."""
-        remito = self.obtener_remito(remito_numero)
+        remito = self._remito_repository.obtener_para_despachar(remito_numero)
+        if remito is None:
+            raise Remito_No_Encontrado_Exception(f"No se encontro el remito con numero '{remito_numero}'.")
         remito.despachar()
         self._remito_repository.actualizar(remito)
 

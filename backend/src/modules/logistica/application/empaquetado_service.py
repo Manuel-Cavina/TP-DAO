@@ -284,100 +284,69 @@ class Empaquetado_Service:
         numero: str | None,
         orden_id: int,
         bultos_ids: list[int] | None = None,
-        validar_aprobacion: bool = False,
     ) -> Remito:
-        """Genera el remito para una orden de reposicion (US4 / T047, T049).
+        """Genera el unico remito completo de una orden de reposicion (US4 / T047, T049).
 
-        Si validar_aprobacion es True (modo estricto US4):
         - Una orden tiene como maximo UN solo remito.
-        - Cantidades empaquetadas deben igualar a las cantidades solicitadas en la orden.
-        - El remito debe incluir TODOS los bultos de la orden.
+        - Las cantidades empaquetadas deben igualar a las solicitadas en la orden.
+        - El remito incluye TODOS los bultos de la orden (no hay remitos parciales).
         - Todos los bultos deben estar PRECINTADOS y APROBADOS.
-
-        Si validar_aprobacion es False (modo compatibilidad):
-        - Bultos deben pertenecer a la orden, estar precintados y no estar en otro remito.
         """
         numero_resuelto = numero.strip() if isinstance(numero, str) and numero.strip() else self._remito_repository.siguiente_numero()
         if self._remito_repository.existe(numero_resuelto):
             raise Remito_Duplicado_Exception(f"Ya existe un remito con numero '{numero_resuelto}'.")
 
         orden = self._obtener_orden(orden_id)
-
-        if validar_aprobacion:
-            if self._remito_repository.existe_para_orden(orden_id):
-                raise Remito_Duplicado_Exception(
-                    f"La orden {orden_id} ya posee un remito emitido. No se permite un segundo remito."
-                )
-            if not orden.esta_completamente_enviada:
-                raise Remito_Incompleto_Exception(
-                    "Las cantidades empaquetadas deben igualar a las cantidades solicitadas en la orden."
-                )
-
-            bultos_orden = self._bulto_repository.listar_por_orden(orden_id)
-            if not bultos_orden:
-                raise Remito_Incompleto_Exception(
-                    "La orden no tiene bultos armados para emitir remito."
-                )
-
-            bultos_orden_ids = {b.id for b in bultos_orden if b.id is not None}
-            if bultos_ids is not None:
-                if len(set(bultos_ids)) != len(bultos_ids):
-                    raise Remito_Incompleto_Exception("El remito no puede incluir el mismo bulto dos veces.")
-                if set(bultos_ids) != bultos_orden_ids:
-                    raise Remito_Incompleto_Exception(
-                        "El remito debe incluir todos los bultos de la orden (no se admiten remitos parciales)."
-                    )
-
-            for b in bultos_orden:
-                if b.id is None:
-                    continue
-                if b.estado.nombre != "PRECINTADO":
-                    raise Remito_Incompleto_Exception(
-                        f"El bulto {b.id} esta en estado '{b.estado.nombre}', debe estar PRECINTADO."
-                    )
-                if not self._aprobacion_repository.esta_aprobado(b.id):
-                    raise Remito_Incompleto_Exception(
-                        f"El bulto {b.id} debe contar con evidencia inmutable de aprobacion antes de emitir el remito."
-                    )
-
-            remito = Remito(
-                numero=numero_resuelto,
-                origen_id=orden.origen_id,
-                destino_id=orden.destino_id,
-                bultos=bultos_orden,
-                orden_id=orden.id,
+        if self._remito_repository.existe_para_orden(orden_id):
+            raise Remito_Duplicado_Exception(
+                f"La orden {orden_id} ya posee un remito emitido. No se permite un segundo remito."
             )
-            return self._remito_repository.guardar(remito)
-        else:
-            if not bultos_ids:
-                raise Remito_Incompleto_Exception("El remito debe incluir al menos un bulto.")
+        if not orden.esta_completamente_enviada:
+            raise Remito_Incompleto_Exception(
+                "Las cantidades empaquetadas deben igualar a las cantidades solicitadas en la orden."
+            )
+
+        bultos_orden = self._bulto_repository.listar_por_orden(orden_id)
+        if not bultos_orden:
+            raise Remito_Incompleto_Exception("La orden no tiene bultos armados para emitir remito.")
+
+        bultos_orden_ids = {b.id for b in bultos_orden if b.id is not None}
+        if bultos_ids is not None:
             if len(set(bultos_ids)) != len(bultos_ids):
                 raise Remito_Incompleto_Exception("El remito no puede incluir el mismo bulto dos veces.")
+            if set(bultos_ids) != bultos_orden_ids:
+                raise Remito_Incompleto_Exception(
+                    "El remito debe incluir todos los bultos de la orden (no se admiten remitos parciales)."
+                )
 
-            bultos = [self._bulto_para_remito(bid, orden_id) for bid in bultos_ids]
-            remito = Remito(
-                numero=numero_resuelto,
-                origen_id=orden.origen_id,
-                destino_id=orden.destino_id,
-                bultos=bultos,
-                orden_id=orden.id,
-            )
-            return self._remito_repository.guardar(remito)
+        for b in bultos_orden:
+            if b.id is None:
+                continue
+            if b.estado.nombre != "PRECINTADO":
+                raise Remito_Incompleto_Exception(
+                    f"El bulto {b.id} esta en estado '{b.estado.nombre}', debe estar PRECINTADO."
+                )
+            if not self._aprobacion_repository.esta_aprobado(b.id):
+                raise Remito_Incompleto_Exception(
+                    f"El bulto {b.id} debe contar con evidencia inmutable de aprobacion antes de emitir el remito."
+                )
 
-    def _bulto_para_remito(self, bulto_id: int, orden_id: int) -> Bulto:
-        bulto = self.obtener_bulto(bulto_id)
-        if bulto.orden_id != orden_id:
-            raise Remito_Incompleto_Exception(f"El bulto {bulto_id} no pertenece a la orden {orden_id}.")
-        remito_actual = self._bulto_repository.remito_asignado(bulto_id)
-        if remito_actual is not None:
-            raise Remito_Incompleto_Exception(
-                f"El bulto {bulto_id} ya forma parte del remito '{remito_actual}'."
-            )
-        if bulto.estado.nombre != "PRECINTADO":
-            raise Remito_Incompleto_Exception(
-                f"El bulto {bulto_id} esta en estado '{bulto.estado.nombre}', debe estar PRECINTADO."
-            )
-        return bulto
+        remito = Remito(
+            numero=numero_resuelto,
+            origen_id=orden.origen_id,
+            destino_id=orden.destino_id,
+            bultos=bultos_orden,
+            orden_id=orden.id,
+        )
+        return self._remito_repository.guardar(remito)
+
+    def obtener_origen_orden(self, orden_id: int) -> int:
+        """Devuelve la ubicacion de origen (CD) de una orden, donde se empaqueta y despacha."""
+        return self._obtener_orden(orden_id).origen_id
+
+    def obtener_origen_bulto(self, bulto_id: int) -> int:
+        """Devuelve la ubicacion de origen (CD) de la orden a la que pertenece el bulto."""
+        return self.obtener_origen_orden(self.obtener_bulto(bulto_id).orden_id)
 
     def obtener_bulto(self, bulto_id: int) -> Bulto:
         """Obtiene un bulto por su identificador."""
@@ -396,18 +365,3 @@ class Empaquetado_Service:
         if orden is None:
             raise Orden_No_Encontrada_Exception(f"No se encontro la orden {orden_id}.")
         return orden
-
-    def _bulto_para_remito(self, bulto_id: int, orden_id: int) -> Bulto:
-        bulto = self.obtener_bulto(bulto_id)
-        if bulto.orden_id != orden_id:
-            raise Remito_Incompleto_Exception(f"El bulto {bulto_id} no pertenece a la orden {orden_id}.")
-        remito_actual = self._bulto_repository.remito_asignado(bulto_id)
-        if remito_actual is not None:
-            raise Remito_Incompleto_Exception(
-                f"El bulto {bulto_id} ya forma parte del remito '{remito_actual}'."
-            )
-        if bulto.estado.nombre != "PRECINTADO":
-            raise Remito_Incompleto_Exception(
-                f"El bulto {bulto_id} esta en estado '{bulto.estado.nombre}', debe estar PRECINTADO."
-            )
-        return bulto

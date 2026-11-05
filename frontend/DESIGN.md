@@ -1,9 +1,9 @@
 # Stocky frontend design contract
 
 **Status**: approved for implementation on 2026-10-20.  
-**Authority**: [feature specification](../specs/001-stocky-operational-ux/spec.md), [implementation plan](../specs/001-stocky-operational-ux/plan.md), [detailed UI architecture](../docs/arquitectura_ui_operativa_detallada.md), and [approved prototype](../docs/prototipo_wireframes_stocky.html).
+**Authority**: [project specification](../docs/tema3.pdf), [implementation guide](../docs/implementacion.md), and [conventions](../docs/convenciones.md).
 
-When this file conflicts with an older screenshot, diagnostic, or module README, the feature specification and plan prevail.
+When this file conflicts with an older screenshot, diagnostic, or module README, the project specification and implementation guide prevail.
 
 ## Product identity
 
@@ -95,7 +95,7 @@ Blocking overlays portal outside route transforms, lock background interaction, 
 - One complete delivery note per order; no partial delivery note or dispatch.
 - Package approval is individual audit evidence recorded after the package is complete and sealed; batch approval writes one result per eligible package.
 - Receipt batch control requires expected/read seal and Intact/Violated per package, with a reason for every violation.
-- Order, delivery-note, and package states remain separate and use the canonical machines in `specs/001-stocky-operational-ux/data-model.md`.
+- Order, delivery-note, and package states remain separate and use the canonical machines defined in the backend domain (`backend/src/modules/logistica/domain`).
 
 ## Reports
 
